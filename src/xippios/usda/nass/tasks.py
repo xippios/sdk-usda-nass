@@ -8,11 +8,17 @@ exactly what is named there.
 
 Docstrings are read by agents: one sentence first, then ``Args:`` with examples of
 valid values for every parameter. ``/add-endpoint`` walks through the whole recipe.
+
+``meta.published_at`` stays empty: Quick Stats publishes no release time, and the
+per-row ``load_time`` carries no zone. Reading one into it would be a guess; that
+belongs to the normalisation layer, not here.
 """
 
+from collections.abc import Callable
 from datetime import date
+from typing import Any
 
-from xippios.core import Result, ResultMeta, sync
+from xippios.core import Result, ResultMeta, UpstreamModel, parse_decimal, sync
 
 from xippios.usda.nass import api
 from xippios.usda.nass._client import SOURCE
@@ -31,6 +37,7 @@ from xippios.usda.nass.params import packaged_values, validate_filters
 
 __all__ = [
     "get_acreage",
+    "get_acreage_forecasts",
     "get_counts",
     "get_county_production",
     "get_county_yield",
@@ -40,6 +47,37 @@ __all__ = [
     "get_prices_received",
     "list_param_values",
 ]
+
+
+def _meta(endpoint: str, request: dict[str, str | int]) -> ResultMeta:
+    return ResultMeta(source=SOURCE, endpoint=endpoint, request=request)
+
+
+def _project[M: UpstreamModel](model: type[M], record: QuickStatsRecord) -> M:
+    overrides: dict[str, Any] = {}
+    if "cv_percent" in model.model_fields:
+        overrides["cv_percent"] = parse_decimal(record.cv_percent)
+    return model.project(record, **overrides)
+
+
+async def _slice[M: UpstreamModel](
+    filters: dict[str, str | int], model: type[M], order: Callable[[M], Any]
+) -> Result[list[M]]:
+    """Fetch a task-shaped slice without the count check: its filters keep it small.
+
+    An over-limit answer still raises ``QueryTooLarge`` from the wrapper.
+    """
+    checked = validate_filters(filters)
+    response = await api.api_GET(checked)
+    rows = sorted((_project(model, record) for record in response.data), key=order)
+    return Result(data=rows, meta=_meta("api_GET", checked))
+
+
+def _level(state: StateAlpha | None, filters: dict[str, str | int]) -> dict[str, str | int]:
+    filters["agg_level_desc"] = "NATIONAL" if state is None else "STATE"
+    if state is not None:
+        filters["state_alpha"] = state.value
+    return filters
 
 
 async def get_counts_async(filters: Filters) -> Result[int]:
@@ -66,9 +104,6 @@ async def get_counts_async(filters: Filters) -> Result[int]:
     return Result(data=response.count, meta=meta)
 
 
-get_counts = sync(get_counts_async)
-
-
 async def get_data_async(filters: Filters) -> Result[list[QuickStatsRecord]]:
     """Fetch published Quick Stats estimates for a set of filters, up to 50,000 records.
 
@@ -87,16 +122,12 @@ async def get_data_async(filters: Filters) -> Result[list[QuickStatsRecord]]:
     """
     checked = validate_filters(filters)
     count = (await api.get_counts(checked)).count
-    meta = ResultMeta(source=SOURCE, endpoint="api_GET", request=checked)
     if count == 0:
-        return Result(data=[], meta=meta)
+        return Result(data=[], meta=_meta("api_GET", checked))
     if count > RECORD_LIMIT:
         raise QueryTooLarge(count)
     response = await api.api_GET(checked)
-    return Result(data=response.data, meta=meta)
-
-
-get_data = sync(get_data_async)
+    return Result(data=response.data, meta=_meta("api_GET", checked))
 
 
 async def list_param_values_async(param: str) -> Result[list[str]]:
@@ -127,9 +158,6 @@ async def list_param_values_async(param: str) -> Result[list[str]]:
     return Result(data=values, meta=meta)
 
 
-list_param_values = sync(list_param_values_async)
-
-
 async def _weekly_series(
     statisticcat_desc: str,
     commodity: str,
@@ -137,23 +165,22 @@ async def _weekly_series(
     state: StateAlpha | None,
     unit_desc: ProgressStage | ConditionCategory | None,
 ) -> Result[list[CropProgressRecord]]:
-    filters: dict[str, str | int] = {
-        "commodity_desc": commodity,
-        "statisticcat_desc": statisticcat_desc,
-        "freq_desc": "WEEKLY",
-        "year": year,
-        "agg_level_desc": "NATIONAL" if state is None else "STATE",
-    }
-    if state is not None:
-        filters["state_alpha"] = state.value
+    filters = _level(
+        state,
+        {
+            "commodity_desc": commodity,
+            "statisticcat_desc": statisticcat_desc,
+            "freq_desc": "WEEKLY",
+            "year": year,
+        },
+    )
     if unit_desc is not None:
         filters["unit_desc"] = unit_desc.value
-    result = await get_data_async(filters)
-    rows = sorted(
-        (CropProgressRecord.from_record(record) for record in result.data),
-        key=lambda row: (row.week_ending or date.min, row.unit_desc, row.short_desc),
+    return await _slice(
+        filters,
+        CropProgressRecord,
+        lambda row: (row.week_ending or date.min, row.unit_desc, row.short_desc),
     )
-    return Result(data=rows, meta=result.meta)
 
 
 async def get_crop_progress_async(
@@ -209,10 +236,6 @@ async def get_crop_condition_async(
     return await _weekly_series("CONDITION", commodity, year, state, category)
 
 
-get_crop_progress = sync(get_crop_progress_async)
-get_crop_condition = sync(get_crop_condition_async)
-
-
 async def _county_series(
     statisticcat_desc: str, commodity: str, year: int, state: StateAlpha | None
 ) -> Result[list[CountyEstimateRecord]]:
@@ -226,10 +249,10 @@ async def _county_series(
     }
     if state is not None:
         filters["state_alpha"] = state.value
-    result = await get_data_async(filters)
-    rows = sorted(
-        (CountyEstimateRecord.from_record(record) for record in result.data),
-        key=lambda row: (
+    return await _slice(
+        filters,
+        CountyEstimateRecord,
+        lambda row: (
             row.state_alpha,
             row.county_name,
             row.util_practice_desc,
@@ -237,7 +260,6 @@ async def _county_series(
             row.unit_desc,
         ),
     )
-    return Result(data=rows, meta=result.meta)
 
 
 async def get_county_yield_async(
@@ -280,8 +302,21 @@ async def get_county_production_async(
     return await _county_series("PRODUCTION", commodity, year, state)
 
 
-get_county_yield = sync(get_county_yield_async)
-get_county_production = sync(get_county_production_async)
+def _acreage_filters(
+    commodity: str, year: int, statistic: AreaStatistic, state: StateAlpha | None
+) -> dict[str, str | int]:
+    return _level(
+        state,
+        {
+            "commodity_desc": commodity,
+            "statisticcat_desc": statistic.value,
+            "unit_desc": "ACRES",
+            "domain_desc": "TOTAL",
+            "prodn_practice_desc": "ALL PRODUCTION PRACTICES",
+            "freq_desc": "ANNUAL",
+            "year": year,
+        },
+    )
 
 
 async def get_acreage_async(
@@ -296,8 +331,9 @@ async def get_acreage_async(
     Annual final totals (``unit_desc`` ``ACRES``, ``domain_desc`` ``TOTAL``,
     ``prodn_practice_desc`` ``ALL PRODUCTION PRACTICES``, ``reference_period_desc``
     ``YEAR``), so breakdowns by size group, irrigation or biotech type and the in-season
-    forecasts are left out. Harvested acreage comes per utilisation (grain, silage);
-    planted acreage as one figure. Sorted by state, utilisation and source.
+    forecasts are left out; ``get_acreage_forecasts`` serves the latter. Harvested
+    acreage comes per utilisation (grain, silage); planted acreage as one figure.
+    Sorted by state, utilisation and source.
 
     Args:
         commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``, ``"WHEAT"``.
@@ -306,28 +342,44 @@ async def get_acreage_async(
         state: Two-letter state code for the state figure; ``None`` returns the national
             ``US TOTAL`` figure.
     """
-    filters: dict[str, str | int] = {
-        "commodity_desc": commodity,
-        "statisticcat_desc": statistic.value,
-        "unit_desc": "ACRES",
-        "domain_desc": "TOTAL",
-        "prodn_practice_desc": "ALL PRODUCTION PRACTICES",
-        "freq_desc": "ANNUAL",
-        "reference_period_desc": "YEAR",
-        "agg_level_desc": "NATIONAL" if state is None else "STATE",
-        "year": year,
-    }
-    if state is not None:
-        filters["state_alpha"] = state.value
-    result = await get_data_async(filters)
-    rows = sorted(
-        (AcreageRecord.from_record(record) for record in result.data),
-        key=lambda row: (row.state_alpha, row.util_practice_desc, row.source_desc),
+    filters = _acreage_filters(commodity, year, statistic, state)
+    filters["reference_period_desc"] = "YEAR"
+    return await _slice(
+        filters,
+        AcreageRecord,
+        lambda row: (row.state_alpha, row.util_practice_desc, row.source_desc),
     )
-    return Result(data=rows, meta=result.meta)
 
 
-get_acreage = sync(get_acreage_async)
+async def get_acreage_forecasts_async(
+    commodity: str,
+    year: int,
+    statistic: AreaStatistic,
+    *,
+    state: StateAlpha | None = None,
+) -> Result[list[AcreageRecord]]:
+    """The in-season acreage reports for a crop and year, in acres, oldest first.
+
+    Every report except the final figure: the March prospective plantings, the June
+    acreage report and the monthly forecasts, each row naming its
+    ``reference_period_desc`` (``YEAR - JUN ACREAGE``, ``YEAR - AUG FORECAST``, ...).
+    Same fixed filters as ``get_acreage`` otherwise, so the series is comparable with
+    the final figure. Sorted by ``load_time``, then utilisation.
+
+    Args:
+        commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``, ``"WHEAT"``.
+        year: Crop year, e.g. ``2023``.
+        statistic: ``AreaStatistic.AREA_PLANTED`` or ``AreaStatistic.AREA_HARVESTED``.
+        state: Two-letter state code for the state series; ``None`` returns the national
+            series.
+    """
+    filters = _acreage_filters(commodity, year, statistic, state)
+    filters["reference_period_desc__NE"] = "YEAR"
+    return await _slice(
+        filters,
+        AcreageRecord,
+        lambda row: (row.load_time, row.util_practice_desc, row.source_desc),
+    )
 
 
 async def get_prices_received_async(
@@ -354,23 +406,31 @@ async def get_prices_received_async(
         frequency: ``FreqDesc.MONTHLY`` or ``FreqDesc.ANNUAL`` to keep one; ``None``
             returns both.
     """
-    filters: dict[str, str | int] = {
-        "commodity_desc": commodity,
-        "statisticcat_desc": "PRICE RECEIVED",
-        "domain_desc": "TOTAL",
-        "agg_level_desc": "NATIONAL" if state is None else "STATE",
-        "year": year,
-    }
-    if state is not None:
-        filters["state_alpha"] = state.value
+    filters = _level(
+        state,
+        {
+            "commodity_desc": commodity,
+            "statisticcat_desc": "PRICE RECEIVED",
+            "domain_desc": "TOTAL",
+            "year": year,
+        },
+    )
     if frequency is not None:
         filters["freq_desc"] = frequency.value
-    result = await get_data_async(filters)
-    rows = sorted(
-        (PriceReceivedRecord.from_record(record) for record in result.data),
-        key=lambda row: (row.freq_desc, row.begin_code, row.unit_desc),
+    return await _slice(
+        filters,
+        PriceReceivedRecord,
+        lambda row: (row.freq_desc, row.begin_code, row.unit_desc),
     )
-    return Result(data=rows, meta=result.meta)
 
 
+get_counts = sync(get_counts_async)
+get_data = sync(get_data_async)
+list_param_values = sync(list_param_values_async)
+get_crop_progress = sync(get_crop_progress_async)
+get_crop_condition = sync(get_crop_condition_async)
+get_county_yield = sync(get_county_yield_async)
+get_county_production = sync(get_county_production_async)
+get_acreage = sync(get_acreage_async)
+get_acreage_forecasts = sync(get_acreage_forecasts_async)
 get_prices_received = sync(get_prices_received_async)

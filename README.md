@@ -31,7 +31,7 @@ filters = {
 tasks.get_counts(filters).data  # 2 records would come back from api_GET
 records = tasks.get_data(filters).data
 records[0].short_desc  # 'CORN - ACRES PLANTED'
-records[0].value, records[0].value_number  # '510,000', Decimal('510000')
+records[0].value, records[0].value_number  # '510,000', Decimal('510000'); JSON: 510000
 ```
 
 `get_data` calls `get_counts` first: zero matches return an empty result, more than
@@ -47,11 +47,15 @@ from xippios.usda.nass.enums import ProgressStage, StateAlpha
 weekly = tasks.get_crop_progress(
     "CORN", 2024, state=StateAlpha.IA, stage=ProgressStage.PCT_PLANTED
 ).data
-weekly[-1].week_ending, weekly[-1].value  # datetime.date(2024, 6, 9), Decimal('98')
+weekly[-1].week_ending, weekly[-1].value_number  # datetime.date(2024, 6, 9), Decimal('98')
 ```
 
 They return projections of the Quick Stats record under upstream column names, never a
-renamed or computed field (ADR-0003).
+renamed or computed field (ADR-0003); `value` stays the published string and
+`value_number` its parsed form. `meta.published_at` stays empty: Quick Stats publishes
+no release time and each row's `load_time` carries no zone, so nothing is read into it.
+The task-shaped functions skip the count check, their fixed filters keep them small; an
+over-limit answer still raises `QueryTooLarge`.
 
 Filters are Quick Stats column names, optionally suffixed with an operator (`__GE`,
 `__LE`, `__LIKE`, ...), mapped to values; the columns are listed in
@@ -92,6 +96,7 @@ HTTP instead of stdio.
 | `api_GET` (YIELD, COUNTY) | `tasks.get_county_yield(commodity, year, state=)` | `usda_nass_get_county_yield` | alpha |
 | `api_GET` (PRODUCTION, COUNTY) | `tasks.get_county_production(commodity, year, state=)` | `usda_nass_get_county_production` | alpha |
 | `api_GET` (AREA PLANTED / HARVESTED) | `tasks.get_acreage(commodity, year, statistic, state=)` | `usda_nass_get_acreage` | alpha |
+| `api_GET` (AREA PLANTED / HARVESTED, forecasts) | `tasks.get_acreage_forecasts(commodity, year, statistic, state=)` | `usda_nass_get_acreage_forecasts` | alpha |
 | `api_GET` (PRICE RECEIVED) | `tasks.get_prices_received(commodity, year, state=, frequency=)` | `usda_nass_get_prices_received` | alpha |
 
 ## Upstream terms and attribution

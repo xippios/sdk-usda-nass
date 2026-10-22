@@ -1,0 +1,50 @@
+{
+  "recorded_at": "2026-10-22T13:19:00.758652Z",
+  "request": {
+    "method": "GET",
+    "url": "https://quickstats.nass.usda.gov/api/api_GET/?commodity_desc=CORN&unit_desc=ACRES&domain_desc=TOTAL&prodn_practice_desc=ALL+PRODUCTION+PRACTICES&freq_desc=ANNUAL&reference_period_desc__NE=YEAR&year=2023&statisticcat_desc=AREA+PLANTED&agg_level_desc=NATIONAL&format=JSON&key=REDACTED"
+  },
+  "response": {
+    "body": "{\"data\":[{\"country_name\":\"UNITED STATES\",\"state_fips_code\":\"99\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"load_time\":\"2023-06-30 12:00:00.000\",\"county_code\":\"\",\"county_name\":\"\",\"freq_desc\":\"ANNUAL\",\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"reference_period_desc\":\"YEAR - JUN ACREAGE\",\"end_code\":\"00\",\"begin_code\":\"00\",\"year\":2023,\"source_desc\":\"SURVEY\",\"asd_desc\":\"\",\"location_desc\":\"US TOTAL\",\"week_ending\":\"\",\"unit_desc\":\"ACRES\",\"country_code\":\"9000\",\"class_desc\":\"ALL CLASSES\",\"domaincat_desc\":\"NOT SPECIFIED\",\"asd_code\":\"\",\"group_desc\":\"FIELD CROPS\",\"Value\":\"94,096,000\",\"sector_desc\":\"CROPS\",\"short_desc\":\"CORN - ACRES PLANTED\",\"state_ansi\":\"\",\"county_ansi\":\"\",\"agg_level_desc\":\"NATIONAL\",\"CV (%)\":\"\",\"zip_5\":\"\",\"watershed_code\":\"00000000\",\"region_desc\":\"\",\"state_alpha\":\"US\",\"domain_desc\":\"TOTAL\",\"watershed_desc\":\"\",\"commodity_desc\":\"CORN\",\"state_name\":\"US TOTAL\",\"statisticcat_desc\":\"AREA PLANTED\",\"congr_district_code\":\"\"},{\"county_ansi\":\"\",\"agg_level_desc\":\"NATIONAL\",\"state_ansi\":\"\",\"short_desc\":\"CORN - ACRES PLANTED\",\"sector_desc\":\"CROPS\",\"Value\":\"91,996,000\",\"group_desc\":\"FIELD CROPS\",\"domaincat_desc\":\"NOT SPECIFIED\",\"class_desc\":\"ALL CLASSES\",\"asd_code\":\"\",\"statisticcat_desc\":\"AREA PLANTED\",\"state_name\":\"US TOTAL\",\"commodity_desc\":\"CORN\",\"congr_district_code\":\"\",\"state_alpha\":\"US\",\"region_desc\":\"\",\"watershed_desc\":\"\",\"domain_desc\":\"TOTAL\",\"watershed_code\":\"00000000\",\"CV (%)\":\"\",\"zip_5\":\"\",\"freq_desc\":\"ANNUAL\",\"county_name\":\"\",\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"load_time\":\"2023-03-31 12:00:00.000\",\"county_code\":\"\",\"country_name\":\"UNITED STATES\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"state_fips_code\":\"99\",\"week_ending\":\"\",\"location_desc\":\"US TOTAL\",\"unit_desc\":\"ACRES\",\"country_code\":\"9000\",\"begin_code\":\"00\",\"end_code\":\"00\",\"asd_desc\":\"\",\"source_desc\":\"SURVEY\",\"year\":2023,\"reference_period_desc\":\"YEAR - MAR ACREAGE\"},{\"congr_district_code\":\"\",\"statisticcat_desc\":\"AREA PLANTED\",\"state_name\":\"US TOTAL\",\"commodity_desc\":\"CORN\",\"watershed_desc\":\"\",\"domain_desc\":\"TOTAL\",\"region_desc\":\"\",\"state_alpha\":\"US\",\"watershed_code\":\"00000000\",\"zip_5\":\"\",\"CV (%)\":\"\",\"agg_level_desc\":\"NATIONAL\",\"county_ansi\":\"\",\"state_ansi\":\"\",\"short_desc\":\"CORN - ACRES PLANTED\",\"sector_desc\":\"CROPS\",\"Value\":\"94,868,000\",\"group_desc\":\"FIELD CROPS\",\"asd_code\":\"\",\"domaincat_desc\":\"NOT SPECIFIED\",\"class_desc\":\"ALL CLASSES\",\"country_code\":\"9000\",\"unit_desc\":\"ACRES\",\"week_ending\":\"\",\"location_desc\":\"US TOTAL\",\"asd_desc\":\"\",\"source_desc\":\"SURVEY\",\"year\":2023,\"begin_code\":\"00\",\"end_code\":\"00\",\"reference_period_desc\":\"YEAR - OCT FORECAST\",\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"freq_desc\":\"ANNUAL\",\"county_name\":\"\",\"county_code\":\"\",\"load_time\":\"2023-10-12 12:00:00.000\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"state_fips_code\":\"99\",\"country_name\":\"UNITED STATES\"},{\"statisticcat_desc\":\"AREA PLANTED\",\"state_name\":\"US TOTAL\",\"commodity_desc\":\"CORN\",\"congr_district_code\":\"\",\"region_desc\":\"\",\"state_alpha\":\"US\",\"watershed_desc\":\"\",\"domain_desc\":\"TOTAL\",\"watershed_code\":\"00000000\",\"CV (%)\":\"\",\"zip_5\":\"\",\"county_ansi\":\"\",\"agg_level_desc\":\"NATIONAL\",\"state_ansi\":\"\",\"short_desc\":\"CORN - ACRES PLANTED\",\"sector_desc\":\"CROPS\",\"Value\":\"94,868,000\",\"group_desc\":\"FIELD CROPS\",\"domaincat_desc\":\"NOT SPECIFIED\",\"class_desc\":\"ALL CLASSES\",\"asd_code\":\"\",\"week_ending\":\"\",\"location_desc\":\"US TOTAL\",\"unit_desc\":\"ACRES\",\"country_code\":\"9000\",\"begin_code\":\"00\",\"end_code\":\"00\",\"source_desc\":\"SURVEY\",\"asd_desc\":\"\",\"year\":2023,\"reference_period_desc\":\"YEAR - SEP FORECAST\",\"county_name\":\"\",\"freq_desc\":\"ANNUAL\",\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"load_time\":\"2023-09-12 12:00:00.000\",\"county_code\":\"\",\"country_name\":\"UNITED STATES\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"state_fips_code\":\"99\"}]}",
+    "body_base64": false,
+    "headers": [
+      [
+        "date",
+        "Thu, 22 Oct 2026 13:19:00 GMT"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "server",
+        "Kestrel"
+      ],
+      [
+        "strict-transport-security",
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      [
+        "x-author",
+        "NICE HYPE (RJ)"
+      ],
+      [
+        "x-proxyversion",
+        "0.8.5"
+      ],
+      [
+        "x-cache",
+        "Miss"
+      ],
+      [
+        "x-handler-apgw-05-12",
+        "APPGW-Public"
+      ],
+      [
+        "x-content-type-options",
+        "nosniff"
+      ]
+    ],
+    "status": 200
+  }
+}

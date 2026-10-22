@@ -53,8 +53,8 @@ async def test_crop_progress_live() -> None:
         "CORN", 2024, state=StateAlpha.IA, stage=ProgressStage.PCT_PLANTED
     )
     assert result.data
-    assert result.data[-1].value is not None
-    assert result.data[-1].value >= 90
+    assert result.data[-1].value_number is not None
+    assert result.data[-1].value_number >= 90
 
 
 async def test_county_yield_live() -> None:
@@ -73,7 +73,7 @@ async def test_acreage_live() -> None:
         "CORN", 2023, AreaStatistic.AREA_PLANTED, state=StateAlpha.IA
     )
     assert len(result.data) == 1
-    assert result.data[0].value == Decimal("13100000")
+    assert result.data[0].value_number == Decimal("13100000")
 
 
 async def test_prices_received_live() -> None:
