@@ -16,7 +16,7 @@ from xippios.core import Result, ResultMeta, sync
 
 from xippios.usda.nass import api
 from xippios.usda.nass._client import SOURCE
-from xippios.usda.nass.enums import StateAlpha
+from xippios.usda.nass.enums import ConditionCategory, ProgressStage, StateAlpha
 from xippios.usda.nass.errors import RECORD_LIMIT, QueryTooLarge
 from xippios.usda.nass.models import CropProgressRecord, Filters, QuickStatsRecord
 from xippios.usda.nass.params import packaged_values, validate_filters
@@ -117,7 +117,7 @@ async def _weekly_series(
     commodity: str,
     year: int,
     state: StateAlpha | None,
-    unit_desc: str | None,
+    unit_desc: ProgressStage | ConditionCategory | None,
 ) -> Result[list[CropProgressRecord]]:
     filters: dict[str, str | int] = {
         "commodity_desc": commodity,
@@ -129,7 +129,7 @@ async def _weekly_series(
     if state is not None:
         filters["state_alpha"] = state.value
     if unit_desc is not None:
-        filters["unit_desc"] = unit_desc
+        filters["unit_desc"] = unit_desc.value
     result = await get_data_async(filters)
     rows = sorted(
         (CropProgressRecord.from_record(record) for record in result.data),
@@ -143,7 +143,7 @@ async def get_crop_progress_async(
     year: int,
     *,
     state: StateAlpha | None = None,
-    stage: str | None = None,
+    stage: ProgressStage | None = None,
 ) -> Result[list[CropProgressRecord]]:
     """Weekly crop progress: the percentage planted, emerged, silking, harvested and so on.
 
@@ -158,9 +158,10 @@ async def get_crop_progress_async(
         year: Crop year, e.g. ``2024``.
         state: Two-letter state code for the state series; ``None`` returns the
             national ``US TOTAL`` series.
-        stage: A single stage as upstream names it, e.g. ``"PCT PLANTED"``,
-            ``"PCT EMERGED"``, ``"PCT SILKING"``, ``"PCT MATURE"``, ``"PCT HARVESTED"``;
-            ``None`` returns every stage.
+        stage: A single stage, e.g. ``ProgressStage.PCT_PLANTED``,
+            ``ProgressStage.PCT_SILKING``, ``ProgressStage.PCT_HARVESTED``; the enum
+            lists every stage any crop uses, and ``None`` returns every stage of this
+            crop.
     """
     return await _weekly_series("PROGRESS", commodity, year, state, stage)
 
@@ -170,7 +171,7 @@ async def get_crop_condition_async(
     year: int,
     *,
     state: StateAlpha | None = None,
-    category: str | None = None,
+    category: ConditionCategory | None = None,
 ) -> Result[list[CropProgressRecord]]:
     """Weekly crop condition: the percentage of a crop rated very poor through excellent.
 
@@ -184,8 +185,8 @@ async def get_crop_condition_async(
         year: Crop year, e.g. ``2024``.
         state: Two-letter state code for the state series; ``None`` returns the
             national ``US TOTAL`` series.
-        category: One of ``"PCT VERY POOR"``, ``"PCT POOR"``, ``"PCT FAIR"``,
-            ``"PCT GOOD"``, ``"PCT EXCELLENT"``; ``None`` returns all five.
+        category: One of ``ConditionCategory.PCT_VERY_POOR``, ``PCT_POOR``, ``PCT_FAIR``,
+            ``PCT_GOOD``, ``PCT_EXCELLENT``; ``None`` returns all five.
     """
     return await _weekly_series("CONDITION", commodity, year, state, category)
 

@@ -45,10 +45,10 @@ async def test_list_param_values_live() -> None:
 
 
 async def test_crop_progress_live() -> None:
-    from xippios.usda.nass.enums import StateAlpha
+    from xippios.usda.nass.enums import ProgressStage, StateAlpha
 
     result = await tasks.get_crop_progress_async(
-        "CORN", 2024, state=StateAlpha.IA, stage="PCT PLANTED"
+        "CORN", 2024, state=StateAlpha.IA, stage=ProgressStage.PCT_PLANTED
     )
     assert result.data
     assert result.data[-1].value is not None
