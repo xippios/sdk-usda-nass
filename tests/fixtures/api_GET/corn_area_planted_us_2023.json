@@ -1,0 +1,50 @@
+{
+  "recorded_at": "2026-10-22T11:55:06.464290Z",
+  "request": {
+    "method": "GET",
+    "url": "https://quickstats.nass.usda.gov/api/api_GET/?commodity_desc=CORN&statisticcat_desc=AREA+PLANTED&unit_desc=ACRES&domain_desc=TOTAL&prodn_practice_desc=ALL+PRODUCTION+PRACTICES&agg_level_desc=NATIONAL&year=2023&freq_desc=ANNUAL&reference_period_desc=YEAR&format=JSON&key=REDACTED"
+  },
+  "response": {
+    "body": "{\"data\":[{\"unit_desc\":\"ACRES\",\"load_time\":\"2024-09-30 12:00:00.000\",\"sector_desc\":\"CROPS\",\"reference_period_desc\":\"YEAR\",\"domaincat_desc\":\"NOT SPECIFIED\",\"zip_5\":\"\",\"asd_desc\":\"\",\"congr_district_code\":\"\",\"county_ansi\":\"\",\"asd_code\":\"\",\"week_ending\":\"\",\"freq_desc\":\"ANNUAL\",\"county_name\":\"\",\"statisticcat_desc\":\"AREA PLANTED\",\"commodity_desc\":\"CORN\",\"agg_level_desc\":\"NATIONAL\",\"state_name\":\"US TOTAL\",\"class_desc\":\"ALL CLASSES\",\"source_desc\":\"SURVEY\",\"Value\":\"94,641,000\",\"domain_desc\":\"TOTAL\",\"state_alpha\":\"US\",\"country_name\":\"UNITED STATES\",\"year\":2023,\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"state_ansi\":\"\",\"CV (%)\":\"\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"end_code\":\"00\",\"location_desc\":\"US TOTAL\",\"state_fips_code\":\"99\",\"short_desc\":\"CORN - ACRES PLANTED\",\"watershed_code\":\"00000000\",\"begin_code\":\"00\",\"region_desc\":\"\",\"group_desc\":\"FIELD CROPS\",\"county_code\":\"\",\"country_code\":\"9000\",\"watershed_desc\":\"\"}]}",
+    "body_base64": false,
+    "headers": [
+      [
+        "date",
+        "Thu, 22 Oct 2026 11:55:04 GMT"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "server",
+        "Kestrel"
+      ],
+      [
+        "strict-transport-security",
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      [
+        "x-author",
+        "NICE HYPE (RJ)"
+      ],
+      [
+        "x-proxyversion",
+        "0.8.5"
+      ],
+      [
+        "x-cache",
+        "Miss"
+      ],
+      [
+        "x-handler-apgw-05-12",
+        "APPGW-Public"
+      ],
+      [
+        "x-content-type-options",
+        "nosniff"
+      ]
+    ],
+    "status": 200
+  }
+}

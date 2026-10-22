@@ -19,6 +19,8 @@ from xippios.usda.nass._client import SOURCE
 from xippios.usda.nass.enums import ConditionCategory, ProgressStage, StateAlpha
 from xippios.usda.nass.errors import RECORD_LIMIT, QueryTooLarge
 from xippios.usda.nass.models import (
+    AcreageRecord,
+    AreaStatistic,
     CountyEstimateRecord,
     CropProgressRecord,
     Filters,
@@ -27,6 +29,7 @@ from xippios.usda.nass.models import (
 from xippios.usda.nass.params import packaged_values, validate_filters
 
 __all__ = [
+    "get_acreage",
     "get_counts",
     "get_county_production",
     "get_county_yield",
@@ -277,3 +280,49 @@ async def get_county_production_async(
 
 get_county_yield = sync(get_county_yield_async)
 get_county_production = sync(get_county_production_async)
+
+
+async def get_acreage_async(
+    commodity: str,
+    year: int,
+    statistic: AreaStatistic,
+    *,
+    state: StateAlpha | None = None,
+) -> Result[list[AcreageRecord]]:
+    """Planted or harvested acreage of a crop for a year, state or national, in acres.
+
+    Annual final totals (``unit_desc`` ``ACRES``, ``domain_desc`` ``TOTAL``,
+    ``prodn_practice_desc`` ``ALL PRODUCTION PRACTICES``, ``reference_period_desc``
+    ``YEAR``), so breakdowns by size group, irrigation or biotech type and the in-season
+    forecasts are left out. Harvested acreage comes per utilisation (grain, silage);
+    planted acreage as one figure. Sorted by state, utilisation and source.
+
+    Args:
+        commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``, ``"WHEAT"``.
+        year: Crop year, e.g. ``2023``.
+        statistic: ``AreaStatistic.AREA_PLANTED`` or ``AreaStatistic.AREA_HARVESTED``.
+        state: Two-letter state code for the state figure; ``None`` returns the national
+            ``US TOTAL`` figure.
+    """
+    filters: dict[str, str | int] = {
+        "commodity_desc": commodity,
+        "statisticcat_desc": statistic.value,
+        "unit_desc": "ACRES",
+        "domain_desc": "TOTAL",
+        "prodn_practice_desc": "ALL PRODUCTION PRACTICES",
+        "freq_desc": "ANNUAL",
+        "reference_period_desc": "YEAR",
+        "agg_level_desc": "NATIONAL" if state is None else "STATE",
+        "year": year,
+    }
+    if state is not None:
+        filters["state_alpha"] = state.value
+    result = await get_data_async(filters)
+    rows = sorted(
+        (AcreageRecord.from_record(record) for record in result.data),
+        key=lambda row: (row.state_alpha, row.util_practice_desc, row.source_desc),
+    )
+    return Result(data=rows, meta=result.meta)
+
+
+get_acreage = sync(get_acreage_async)

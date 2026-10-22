@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `get_acreage`: annual planted or harvested acreage totals of a crop, state or national,
+  as `AcreageRecord` (projection; breakdowns and forecasts excluded by fixed filters).
+  `AreaStatistic` names the two statistics. Fixtures recorded 2026-10-22 for Iowa and
+  national corn 2023.
 - `get_county_yield` and `get_county_production`: annual final county estimates
   (`agg_level_desc` COUNTY, `reference_period_desc` YEAR) for a crop and year, one or
   all states, as `CountyEstimateRecord` (projection with `value` and `cv_percent`

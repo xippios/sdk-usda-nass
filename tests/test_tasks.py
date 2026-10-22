@@ -12,7 +12,13 @@ from xippios.core.http import status_for
 
 from xippios.usda.nass import __version__, api, enums, tasks
 from xippios.usda.nass.errors import QueryTooLarge
-from xippios.usda.nass.models import CountyEstimateRecord, CropProgressRecord, QuickStatsRecord
+from xippios.usda.nass.models import (
+    AcreageRecord,
+    AreaStatistic,
+    CountyEstimateRecord,
+    CropProgressRecord,
+    QuickStatsRecord,
+)
 from xippios.usda.nass.params import (
     DERIVED_LISTS,
     PACKAGED_PARAMS,
@@ -437,3 +443,66 @@ def test_county_projection_keeps_upstream_names_and_values() -> None:
         CountyEstimateRecord.from_record(QuickStatsRecord.model_validate(EXAMPLE_RECORD)).cv_percent
         is None
     )
+
+
+def test_acreage_planted_state(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    replay_fixture("get_counts", "corn_area_planted_ia_2023")
+    fetched = replay_fixture("api_GET", "corn_area_planted_ia_2023")
+    result = tasks.get_acreage("CORN", 2023, AreaStatistic.AREA_PLANTED, state=enums.StateAlpha.IA)
+    assert result.meta.request == {
+        "commodity_desc": "CORN",
+        "statisticcat_desc": "AREA PLANTED",
+        "unit_desc": "ACRES",
+        "domain_desc": "TOTAL",
+        "prodn_practice_desc": "ALL PRODUCTION PRACTICES",
+        "freq_desc": "ANNUAL",
+        "reference_period_desc": "YEAR",
+        "agg_level_desc": "STATE",
+        "year": 2023,
+        "state_alpha": "IA",
+    }
+    assert fetched.calls.last.request.url.params["unit_desc"] == "ACRES"
+    assert len(result.data) == 1
+    row = result.data[0]
+    assert row.value == Decimal("13100000")
+    assert row.util_practice_desc == "ALL UTILIZATION PRACTICES"
+    assert row.source_desc == "SURVEY"
+    assert row.cv_percent is None
+
+
+def test_acreage_harvested_splits_grain_and_silage(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    replay_fixture("get_counts", "corn_area_harvested_ia_2023")
+    replay_fixture("api_GET", "corn_area_harvested_ia_2023")
+    result = tasks.get_acreage(
+        "CORN", 2023, AreaStatistic.AREA_HARVESTED, state=enums.StateAlpha.IA
+    )
+    assert result.meta.request["statisticcat_desc"] == "AREA HARVESTED"
+    assert [(row.util_practice_desc, row.value) for row in result.data] == [
+        ("GRAIN", Decimal("12550000")),
+        ("SILAGE", Decimal("380000")),
+    ]
+
+
+def test_acreage_national(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    replay_fixture("get_counts", "corn_area_planted_us_2023")
+    replay_fixture("api_GET", "corn_area_planted_us_2023")
+    result = tasks.get_acreage("CORN", 2023, AreaStatistic.AREA_PLANTED)
+    assert result.meta.request["agg_level_desc"] == "NATIONAL"
+    assert "state_alpha" not in result.meta.request
+    assert result.data[0].state_alpha == "US"
+    assert result.data[0].value == Decimal("94641000")
+
+
+def test_acreage_projection_keeps_upstream_names_and_values() -> None:
+    record = QuickStatsRecord.model_validate(EXAMPLE_RECORD)
+    projected = AcreageRecord.from_record(record)
+    assert set(AcreageRecord.model_fields) <= set(QuickStatsRecord.model_fields)
+    for name in AcreageRecord.model_fields:
+        if name == "value":
+            assert projected.value == record.value_number
+        elif name == "cv_percent":
+            assert projected.cv_percent is None
+        else:
+            assert getattr(projected, name) == getattr(record, name), name
