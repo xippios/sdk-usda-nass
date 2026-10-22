@@ -8,7 +8,7 @@ Fixtures are recorded through the real client, never typed in by hand. The file 
 
 1. Confirm `NASS_API_KEY` is set in the environment (`[ -n "${NASS_API_KEY}" ] && echo ok`); never print its value.
 2. Find the request path and parameters for the endpoint in `docs/upstream/` and in the
-   wrapper under `src/xippios/usda.nass/api/`. Use the wrapper's parameter names.
+   wrapper under `src/xippios/usda/nass/api/`. Use the wrapper's parameter names.
 
 3. Record it with a one-off script run through `uv run python`:
 
