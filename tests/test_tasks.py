@@ -2,11 +2,16 @@
 
 import inspect
 from collections.abc import Callable
+from datetime import datetime
+from decimal import Decimal
 
 import pytest
 import respx
+from xippios.core import NotFoundError
 
-from xippios.usda.nass import __version__, tasks
+from xippios.usda.nass import __version__, api, tasks
+from xippios.usda.nass.errors import QueryTooLarge
+from xippios.usda.nass.models import QuickStatsRecord
 
 TASKS = [getattr(tasks, name) for name in tasks.__all__]
 
@@ -55,3 +60,100 @@ def test_unknown_columns_are_ignored_upstream(
     """Characterisation: Quick Stats drops unknown columns and counts the whole database."""
     replay_fixture("get_counts", "unknown_column")
     assert tasks.get_counts({"not_a_column": "x"}).data == 57873464
+
+
+SMALL_FILTERS: dict[str, str | int] = {
+    "commodity_desc": "CORN",
+    "year": 2012,
+    "state_alpha": "VA",
+    "statisticcat_desc": "AREA PLANTED",
+    "agg_level_desc": "STATE",
+}
+
+
+def test_get_data_parses_every_column(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    replay_fixture("get_counts", "corn_va_since_2012")
+    fetched = replay_fixture("api_GET", "corn_va_2012_area_planted")
+    result = tasks.get_data(SMALL_FILTERS)
+    assert fetched.called
+    assert result.meta.endpoint == "api_GET"
+    assert result.meta.request == SMALL_FILTERS
+    assert len(result.data) == 2
+    record = result.data[0]
+    assert record.commodity_desc == "CORN"
+    assert record.year == 2012
+    assert record.value == "510,000"
+    assert record.value_number == Decimal("510000")
+    assert record.cv_percent == ""
+    assert record.week_ending is None
+    assert record.load_time == datetime(2015, 6, 3, 15, 8, 31)
+    assert record.short_desc == "CORN - ACRES PLANTED"
+    assert fetched.calls.last.request.url.params["format"] == "JSON"
+
+
+def test_get_data_refuses_before_fetching_when_over_the_limit(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    replay_fixture("get_counts", "unknown_column")
+    fetched = replay_fixture("api_GET", "exceeds_limit")
+    with pytest.raises(QueryTooLarge) as info:
+        tasks.get_data({"not_a_column": "x"})
+    assert info.value.count == 57873464
+    assert "57,873,464" in str(info.value)
+    assert "narrow" in str(info.value).lower()
+    assert not fetched.called
+
+
+def test_get_data_returns_empty_without_fetching_when_nothing_matches(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    replay_fixture("get_counts", "no_match")
+    fetched = replay_fixture("api_GET", "no_match")
+    result = tasks.get_data({"commodity_desc": "CORN", "year": 1800, "state_alpha": "VA"})
+    assert result.data == []
+    assert not fetched.called
+
+
+@pytest.mark.anyio
+async def test_api_get_maps_upstream_errors(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    replay_fixture("api_GET", "exceeds_limit")
+    with pytest.raises(QueryTooLarge) as info:
+        await api.api_GET({"commodity_desc": "CORN"})
+    assert info.value.count is None
+
+
+@pytest.mark.anyio
+async def test_api_get_maps_no_match_to_not_found(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    replay_fixture("api_GET", "no_match")
+    with pytest.raises(NotFoundError, match="invalid query"):
+        await api.api_GET({"commodity_desc": "CORN", "year": 1800})
+
+
+def test_value_number_handles_suppression_codes() -> None:
+    record = QuickStatsRecord.model_validate(
+        {**EXAMPLE_RECORD, "Value": "(D)"},
+    )
+    assert record.value == "(D)"
+    assert record.value_number is None
+
+
+EXAMPLE_RECORD = {
+    "CV (%)": "", "Value": "1,234.5", "agg_level_desc": "STATE", "asd_code": "",
+    "asd_desc": "", "begin_code": "00", "class_desc": "ALL CLASSES",
+    "commodity_desc": "CORN", "congr_district_code": "", "country_code": "9000",
+    "country_name": "UNITED STATES", "county_ansi": "", "county_code": "",
+    "county_name": "", "domain_desc": "TOTAL", "domaincat_desc": "NOT SPECIFIED",
+    "end_code": "00", "freq_desc": "ANNUAL", "group_desc": "FIELD CROPS",
+    "load_time": "2015-06-03 15:08:31.000", "location_desc": "VIRGINIA",
+    "prodn_practice_desc": "ALL PRODUCTION PRACTICES", "reference_period_desc": "YEAR",
+    "region_desc": "", "sector_desc": "CROPS", "short_desc": "CORN - ACRES PLANTED",
+    "source_desc": "SURVEY", "state_alpha": "VA", "state_ansi": "51",
+    "state_fips_code": "51", "state_name": "VIRGINIA", "statisticcat_desc": "AREA PLANTED",
+    "unit_desc": "ACRES", "util_practice_desc": "ALL UTILIZATION PRACTICES",
+    "watershed_code": "00000000", "watershed_desc": "", "week_ending": "", "year": "2012",
+    "zip_5": "",
+}  # fmt: skip

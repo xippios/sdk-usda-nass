@@ -7,6 +7,7 @@ mirror the payload. No composition and no defaults beyond upstream's own. The re
 is the snapshot in ``docs/upstream/``.
 """
 
+from xippios.usda.nass.api.api_GET import api_GET
 from xippios.usda.nass.api.get_counts import get_counts
 
-__all__ = ["get_counts"]
+__all__ = ["api_GET", "get_counts"]

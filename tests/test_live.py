@@ -22,3 +22,18 @@ async def test_get_counts_live() -> None:
     )
     assert result.data > 0
     assert result.meta.request["commodity_desc"] == "CORN"
+
+
+async def test_get_data_live() -> None:
+    result = await tasks.get_data_async(
+        {
+            "commodity_desc": "CORN",
+            "year": 2012,
+            "state_alpha": "VA",
+            "statisticcat_desc": "AREA PLANTED",
+            "agg_level_desc": "STATE",
+        }
+    )
+    assert result.data
+    assert result.data[0].commodity_desc == "CORN"
+    assert result.data[0].value_number is not None

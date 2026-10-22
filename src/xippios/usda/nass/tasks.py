@@ -14,9 +14,10 @@ from xippios.core import Result, ResultMeta, sync
 
 from xippios.usda.nass import api
 from xippios.usda.nass._client import SOURCE
-from xippios.usda.nass.models import Filters
+from xippios.usda.nass.errors import RECORD_LIMIT, QueryTooLarge
+from xippios.usda.nass.models import Filters, QuickStatsRecord
 
-__all__ = ["get_counts"]
+__all__ = ["get_counts", "get_data"]
 
 
 async def get_counts_async(filters: Filters) -> Result[int]:
@@ -41,3 +42,32 @@ async def get_counts_async(filters: Filters) -> Result[int]:
 
 
 get_counts = sync(get_counts_async)
+
+
+async def get_data_async(filters: Filters) -> Result[list[QuickStatsRecord]]:
+    """Fetch published Quick Stats estimates for a set of filters, up to 50,000 records.
+
+    Calls ``get_counts`` first: a count of zero returns an empty result without a second
+    call, and a count above 50,000 raises ``QueryTooLarge`` with the count and a hint to
+    narrow, before anything is fetched. Each record carries every Quick Stats column;
+    ``value`` is the published figure as a string (``"510,000"``, or a suppression code
+    such as ``"(D)"``) and ``value_number`` the parsed number.
+
+    Args:
+        filters: Quick Stats columns, optionally suffixed with an operator, mapped to
+            values; the same shape as for ``get_counts``. A query that stays well under
+            the limit names the commodity, the statistic, the level and the time, e.g.
+            ``{"commodity_desc": "CORN", "statisticcat_desc": "AREA PLANTED",
+            "agg_level_desc": "STATE", "state_alpha": "VA", "year": 2012}``.
+    """
+    count = (await api.get_counts(filters)).count
+    meta = ResultMeta(source=SOURCE, endpoint="api_GET", request=dict(filters))
+    if count == 0:
+        return Result(data=[], meta=meta)
+    if count > RECORD_LIMIT:
+        raise QueryTooLarge(count)
+    response = await api.api_GET(filters)
+    return Result(data=response.data, meta=meta)
+
+
+get_data = sync(get_data_async)
