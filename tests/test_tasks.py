@@ -12,6 +12,7 @@ from xippios.core import NotFoundError
 from xippios.usda.nass import __version__, api, tasks
 from xippios.usda.nass.errors import QueryTooLarge
 from xippios.usda.nass.models import QuickStatsRecord
+from xippios.usda.nass.params import PACKAGED_PARAMS, columns
 
 TASKS = [getattr(tasks, name) for name in tasks.__all__]
 
@@ -182,3 +183,45 @@ def test_list_param_values_unknown_parameter_is_not_found(
     replay_fixture("get_param_values", "unknown_param")
     with pytest.raises(NotFoundError, match="not_a_column"):
         tasks.list_param_values("not_a_column")
+
+
+def test_packaged_parameters_are_answered_without_a_network_call(
+    respx_mock: respx.MockRouter,
+) -> None:
+    """respx is active with no routes mounted, so any upstream call would fail loudly."""
+    for param in PACKAGED_PARAMS:
+        result = tasks.list_param_values(param)
+        assert result.data, param
+        assert result.meta.endpoint == "reference"
+        assert result.meta.vintage == "2026-10-22"
+        assert result.meta.request == {"param": param}
+    assert not respx_mock.calls
+    assert "CROPS" in tasks.list_param_values("sector_desc").data
+    assert "VA" in tasks.list_param_values("state_alpha").data
+
+
+def test_unpackaged_parameters_go_live(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    route = replay_fixture("get_param_values", "agg_level_desc")
+    result = tasks.list_param_values("statisticcat_desc")
+    assert route.called
+    assert result.meta.endpoint == "get_param_values"
+
+
+def test_columns_cover_every_record_field() -> None:
+    names = {column.column for column in columns()}
+    assert names >= {
+        "commodity_desc",
+        "state_alpha",
+        "year",
+        "Value",
+        "CV (%)",
+        "reference_period_desc",
+    }
+    record_fields = {(field.alias or name) for name, field in QuickStatsRecord.model_fields.items()}
+    assert record_fields <= names
+    assert {column.dimension for column in columns()} == {
+        'The "WHAT" (or Commodity) dimension',
+        'The "WHERE" (or Location) dimension',
+        'The "WHEN" (or Time) dimension',
+        "The Data Value",
+    }

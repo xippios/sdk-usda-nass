@@ -16,6 +16,7 @@ from xippios.usda.nass import api
 from xippios.usda.nass._client import SOURCE
 from xippios.usda.nass.errors import RECORD_LIMIT, QueryTooLarge
 from xippios.usda.nass.models import Filters, QuickStatsRecord
+from xippios.usda.nass.params import packaged_values
 
 __all__ = ["get_counts", "get_data", "list_param_values"]
 
@@ -76,13 +77,26 @@ get_data = sync(get_data_async)
 async def list_param_values_async(param: str) -> Result[list[str]]:
     """List every value a Quick Stats filter parameter can take, to form valid queries.
 
+    Six small, stable lists are answered from data packaged with this version, with no
+    upstream call (``meta.endpoint`` is ``"reference"`` and ``meta.vintage`` the day they
+    were fetched): ``source_desc``, ``sector_desc``, ``group_desc``, ``agg_level_desc``,
+    ``freq_desc``, ``state_alpha``. Every other parameter is fetched live.
+
     Args:
-        param: A Quick Stats column name. Small, stable lists: ``"source_desc"``,
-            ``"sector_desc"``, ``"group_desc"``, ``"agg_level_desc"``, ``"freq_desc"``,
-            ``"state_alpha"``, ``"statisticcat_desc"``. Large ones: ``"commodity_desc"``,
-            ``"short_desc"``, ``"county_name"``, ``"year"``. Definitions are in
+        param: A Quick Stats column name. Large lists worth fetching live:
+            ``"commodity_desc"``, ``"statisticcat_desc"``, ``"short_desc"``,
+            ``"county_name"``, ``"year"``. Definitions are in
             ``docs/upstream/param_define.md``.
     """
+    packaged = packaged_values(param)
+    if packaged is not None:
+        meta = ResultMeta(
+            source=SOURCE,
+            endpoint="reference",
+            vintage=packaged.fetched.isoformat(),
+            request={"param": param},
+        )
+        return Result(data=list(packaged.values), meta=meta)
     values = await api.get_param_values(param)
     meta = ResultMeta(source=SOURCE, endpoint="get_param_values", request={"param": param})
     return Result(data=values, meta=meta)

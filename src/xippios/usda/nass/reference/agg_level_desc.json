@@ -1,0 +1,17 @@
+{
+  "param": "agg_level_desc",
+  "fetched": "2026-10-22",
+  "values": [
+    "AGRICULTURAL DISTRICT",
+    "AMERICAN INDIAN RESERVATION",
+    "COUNTY",
+    "INTERNATIONAL",
+    "NATIONAL",
+    "PUERTO RICO & OUTLYING AREAS",
+    "REGION : MULTI-STATE",
+    "REGION : SUB-STATE",
+    "STATE",
+    "WATERSHED",
+    "ZIP CODE"
+  ]
+}
