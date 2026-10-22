@@ -12,7 +12,7 @@ from xippios.core.http import status_for
 
 from xippios.usda.nass import __version__, api, enums, tasks
 from xippios.usda.nass.errors import QueryTooLarge
-from xippios.usda.nass.models import CropProgressRecord, QuickStatsRecord
+from xippios.usda.nass.models import CountyEstimateRecord, CropProgressRecord, QuickStatsRecord
 from xippios.usda.nass.params import (
     DERIVED_LISTS,
     PACKAGED_PARAMS,
@@ -358,3 +358,82 @@ def test_derived_enums_match_their_lists_and_provenance() -> None:
     assert [m.value for m in enums.ConditionCategory] == [
         "PCT EXCELLENT", "PCT FAIR", "PCT GOOD", "PCT POOR", "PCT VERY POOR",
     ]  # fmt: skip
+
+
+def test_county_yield_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    replay_fixture("get_counts", "corn_yield_de_2023_county")
+    fetched = replay_fixture("api_GET", "corn_yield_de_2023_county")
+    result = tasks.get_county_yield("CORN", 2023, state=enums.StateAlpha.DE)
+    assert result.meta.request == {
+        "commodity_desc": "CORN",
+        "statisticcat_desc": "YIELD",
+        "agg_level_desc": "COUNTY",
+        "freq_desc": "ANNUAL",
+        "reference_period_desc": "YEAR",
+        "year": 2023,
+        "state_alpha": "DE",
+    }
+    assert fetched.calls.last.request.url.params["agg_level_desc"] == "COUNTY"
+    assert len(result.data) == 9
+    assert [row.county_name for row in result.data[:3]] == ["KENT"] * 3
+    assert {row.county_name for row in result.data} == {"KENT", "NEW CASTLE", "SUSSEX"}
+    assert {row.prodn_practice_desc for row in result.data} == {
+        "ALL PRODUCTION PRACTICES", "IRRIGATED", "NON-IRRIGATED",
+    }  # fmt: skip
+    assert {row.unit_desc for row in result.data} == {"BU / ACRE"}
+    kent_all = next(
+        row
+        for row in result.data
+        if row.county_name == "KENT" and row.prodn_practice_desc == "ALL PRODUCTION PRACTICES"
+    )
+    assert kent_all.value == Decimal("194.5")
+    assert kent_all.cv_percent == Decimal("2.5")
+    assert kent_all.county_code == "001"
+    assert kent_all.asd_desc == "CENTRAL"
+    assert all(
+        row.cv_percent is None
+        for row in result.data
+        if row.prodn_practice_desc != "ALL PRODUCTION PRACTICES"
+    )
+
+
+def test_county_production_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    replay_fixture("get_counts", "corn_production_de_2023_county")
+    replay_fixture("api_GET", "corn_production_de_2023_county")
+    result = tasks.get_county_production("CORN", 2023, state=enums.StateAlpha.DE)
+    assert result.meta.request["statisticcat_desc"] == "PRODUCTION"
+    assert {row.unit_desc for row in result.data} == {"BU"}
+    sussex_all = next(
+        row
+        for row in result.data
+        if row.county_name == "SUSSEX" and row.prodn_practice_desc == "ALL PRODUCTION PRACTICES"
+    )
+    assert sussex_all.value == Decimal("18397000")
+    assert sussex_all.cv_percent == Decimal("8.7")
+
+
+def test_county_series_without_state_covers_the_country(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    replay_fixture("get_counts", "corn_yield_de_2023_county")
+    replay_fixture("api_GET", "corn_yield_de_2023_county")
+    result = tasks.get_county_yield("CORN", 2023)
+    assert "state_alpha" not in result.meta.request
+    assert result.meta.request["agg_level_desc"] == "COUNTY"
+
+
+def test_county_projection_keeps_upstream_names_and_values() -> None:
+    record = QuickStatsRecord.model_validate({**EXAMPLE_RECORD, "CV (%)": "2.5"})
+    projected = CountyEstimateRecord.from_record(record)
+    assert set(CountyEstimateRecord.model_fields) <= set(QuickStatsRecord.model_fields)
+    for name in CountyEstimateRecord.model_fields:
+        if name == "value":
+            assert projected.value == record.value_number
+        elif name == "cv_percent":
+            assert projected.cv_percent == Decimal("2.5")
+        else:
+            assert getattr(projected, name) == getattr(record, name), name
+    assert (
+        CountyEstimateRecord.from_record(QuickStatsRecord.model_validate(EXAMPLE_RECORD)).cv_percent
+        is None
+    )

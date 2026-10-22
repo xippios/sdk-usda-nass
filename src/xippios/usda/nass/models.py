@@ -20,6 +20,7 @@ from xippios.core import UpstreamModel
 
 __all__ = [
     "ApiGetResponse",
+    "CountyEstimateRecord",
     "CropProgressRecord",
     "Filters",
     "GetCountsResponse",
@@ -161,5 +162,73 @@ class CropProgressRecord(UpstreamModel):
             reference_period_desc=record.reference_period_desc,
             value=record.value_number,
             source_desc=record.source_desc,
+            load_time=record.load_time,
+        )
+
+
+def _decimal_or_none(raw: str) -> Decimal | None:
+    try:
+        return Decimal(raw.replace(",", ""))
+    except InvalidOperation:
+        return None
+
+
+class CountyEstimateRecord(UpstreamModel):
+    """One annual county estimate (yield or production): a projection of ``QuickStatsRecord``.
+
+    Columns keep their upstream names (ADR-0003). ``prodn_practice_desc`` separates the
+    all-practices figure from irrigated and non-irrigated ones where a state reports
+    them; ``util_practice_desc`` separates grain from silage; ``unit_desc`` names the
+    unit (``"BU / ACRE"``, ``"TONS / ACRE"``, ``"BU"``, ``"TONS"``). ``value`` is parsed,
+    ``None`` for a suppression code; ``cv_percent`` is the coefficient of variation
+    when published.
+    """
+
+    commodity_desc: str
+    class_desc: str
+    util_practice_desc: str
+    prodn_practice_desc: str
+    statisticcat_desc: str
+    unit_desc: str
+    short_desc: str
+    source_desc: str
+    agg_level_desc: str
+    state_alpha: str
+    state_name: str
+    asd_code: str
+    asd_desc: str
+    county_ansi: str
+    county_code: str
+    county_name: str
+    year: int
+    reference_period_desc: str
+    value: Decimal | None
+    cv_percent: Decimal | None
+    load_time: datetime
+
+    @classmethod
+    def from_record(cls, record: QuickStatsRecord) -> "CountyEstimateRecord":
+        """Project a full record; every field keeps its upstream name and value."""
+        return cls(
+            commodity_desc=record.commodity_desc,
+            class_desc=record.class_desc,
+            util_practice_desc=record.util_practice_desc,
+            prodn_practice_desc=record.prodn_practice_desc,
+            statisticcat_desc=record.statisticcat_desc,
+            unit_desc=record.unit_desc,
+            short_desc=record.short_desc,
+            source_desc=record.source_desc,
+            agg_level_desc=record.agg_level_desc,
+            state_alpha=record.state_alpha,
+            state_name=record.state_name,
+            asd_code=record.asd_code,
+            asd_desc=record.asd_desc,
+            county_ansi=record.county_ansi,
+            county_code=record.county_code,
+            county_name=record.county_name,
+            year=record.year,
+            reference_period_desc=record.reference_period_desc,
+            value=record.value_number,
+            cv_percent=_decimal_or_none(record.cv_percent),
             load_time=record.load_time,
         )

@@ -89,6 +89,8 @@ HTTP instead of stdio.
 | `get_param_values` | `tasks.list_param_values(param)` | `usda_nass_list_param_values` | alpha |
 | `api_GET` (PROGRESS, WEEKLY) | `tasks.get_crop_progress(commodity, year, state=, stage=)` | `usda_nass_get_crop_progress` | alpha |
 | `api_GET` (CONDITION, WEEKLY) | `tasks.get_crop_condition(commodity, year, state=, category=)` | `usda_nass_get_crop_condition` | alpha |
+| `api_GET` (YIELD, COUNTY) | `tasks.get_county_yield(commodity, year, state=)` | `usda_nass_get_county_yield` | alpha |
+| `api_GET` (PRODUCTION, COUNTY) | `tasks.get_county_production(commodity, year, state=)` | `usda_nass_get_county_production` | alpha |
 
 ## Upstream terms and attribution
 
