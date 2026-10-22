@@ -36,7 +36,7 @@ records[0].value, records[0].value_number  # '510,000', Decimal('510000')
 
 `get_data` calls `get_counts` first: zero matches return an empty result, more than
 50,000 raise `QueryTooLarge` with the count and a hint to narrow, before anything is
-fetched.
+fetched. `list_param_values("sector_desc")` lists the values a filter can take.
 
 Filters are Quick Stats column names, optionally suffixed with an operator (`__GE`,
 `__LE`, `__LIKE`, ...), mapped to values; the columns are listed in
@@ -67,6 +67,7 @@ HTTP instead of stdio.
 | --- | --- | --- | --- |
 | `get_counts` | `tasks.get_counts(filters)` | `usda_nass_get_counts` | alpha |
 | `api_GET` | `tasks.get_data(filters)` | `usda_nass_get_data` | alpha |
+| `get_param_values` | `tasks.list_param_values(param)` | `usda_nass_list_param_values` | alpha |
 
 ## Upstream terms and attribution
 

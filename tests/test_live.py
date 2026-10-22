@@ -37,3 +37,8 @@ async def test_get_data_live() -> None:
     assert result.data
     assert result.data[0].commodity_desc == "CORN"
     assert result.data[0].value_number is not None
+
+
+async def test_list_param_values_live() -> None:
+    result = await tasks.list_param_values_async("sector_desc")
+    assert "CROPS" in result.data
