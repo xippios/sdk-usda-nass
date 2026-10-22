@@ -17,7 +17,7 @@ from xippios.usda.nass._client import SOURCE
 from xippios.usda.nass.errors import RECORD_LIMIT, QueryTooLarge
 from xippios.usda.nass.models import Filters, QuickStatsRecord
 
-__all__ = ["get_counts", "get_data"]
+__all__ = ["get_counts", "get_data", "list_param_values"]
 
 
 async def get_counts_async(filters: Filters) -> Result[int]:
@@ -71,3 +71,21 @@ async def get_data_async(filters: Filters) -> Result[list[QuickStatsRecord]]:
 
 
 get_data = sync(get_data_async)
+
+
+async def list_param_values_async(param: str) -> Result[list[str]]:
+    """List every value a Quick Stats filter parameter can take, to form valid queries.
+
+    Args:
+        param: A Quick Stats column name. Small, stable lists: ``"source_desc"``,
+            ``"sector_desc"``, ``"group_desc"``, ``"agg_level_desc"``, ``"freq_desc"``,
+            ``"state_alpha"``, ``"statisticcat_desc"``. Large ones: ``"commodity_desc"``,
+            ``"short_desc"``, ``"county_name"``, ``"year"``. Definitions are in
+            ``docs/upstream/param_define.md``.
+    """
+    values = await api.get_param_values(param)
+    meta = ResultMeta(source=SOURCE, endpoint="get_param_values", request={"param": param})
+    return Result(data=values, meta=meta)
+
+
+list_param_values = sync(list_param_values_async)

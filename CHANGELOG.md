@@ -15,6 +15,10 @@ All notable changes to this project are documented here. The format follows
   parsed). `get_data` checks the count first; `QueryTooLarge` above 50,000 records.
   Upstream's HTTP 413 maps to `QueryTooLarge`, its HTTP 400 "invalid query" for filters
   that match nothing maps to `NotFoundError`. Fixtures recorded 2026-10-22.
+- `list_param_values` task and `api.get_param_values` wrapper for
+  `GET /api/get_param_values`: the values a filter parameter can take. An unknown
+  parameter (upstream: HTTP 400 `{"<param>": ["no value"]}`) maps to `NotFoundError`.
+  Fixtures recorded 2026-10-22.
 - Scaffold from [sdk-template](https://github.com/xippios/sdk-template): configured
   client for USDA NASS Quick Stats, empty task layer, MCP server and FastAPI router
   wired to it, test harness, CI and publishing.

@@ -1,0 +1,50 @@
+{
+  "recorded_at": "2026-10-22T08:28:58.138516Z",
+  "request": {
+    "method": "GET",
+    "url": "https://quickstats.nass.usda.gov/api/get_param_values/?param=agg_level_desc&key=REDACTED"
+  },
+  "response": {
+    "body": "{\"agg_level_desc\":[\"AGRICULTURAL DISTRICT\",\"AMERICAN INDIAN RESERVATION\",\"COUNTY\",\"INTERNATIONAL\",\"NATIONAL\",\"PUERTO RICO & OUTLYING AREAS\",\"REGION : MULTI-STATE\",\"REGION : SUB-STATE\",\"STATE\",\"WATERSHED\",\"ZIP CODE\"]}",
+    "body_base64": false,
+    "headers": [
+      [
+        "date",
+        "Thu, 22 Oct 2026 08:28:56 GMT"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "server",
+        "Kestrel"
+      ],
+      [
+        "strict-transport-security",
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      [
+        "x-author",
+        "NICE HYPE (RJ)"
+      ],
+      [
+        "x-proxyversion",
+        "0.8.5"
+      ],
+      [
+        "x-cache",
+        "Miss"
+      ],
+      [
+        "x-handler-apgw-05-12",
+        "APPGW-Public"
+      ],
+      [
+        "x-content-type-options",
+        "nosniff"
+      ]
+    ],
+    "status": 200
+  }
+}

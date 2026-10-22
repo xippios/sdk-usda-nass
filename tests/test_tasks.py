@@ -157,3 +157,28 @@ EXAMPLE_RECORD = {
     "watershed_code": "00000000", "watershed_desc": "", "week_ending": "", "year": "2012",
     "zip_5": "",
 }  # fmt: skip
+
+
+def test_list_param_values_replays_the_documented_example(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    route = replay_fixture("get_param_values", "sector_desc")
+    result = tasks.list_param_values("sector_desc")
+    assert result.data == [
+        "ANIMALS & PRODUCTS",
+        "CROPS",
+        "DEMOGRAPHICS",
+        "ECONOMICS",
+        "ENVIRONMENTAL",
+    ]
+    assert result.meta.endpoint == "get_param_values"
+    assert result.meta.request == {"param": "sector_desc"}
+    assert route.calls.last.request.url.params["param"] == "sector_desc"
+
+
+def test_list_param_values_unknown_parameter_is_not_found(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    replay_fixture("get_param_values", "unknown_param")
+    with pytest.raises(NotFoundError, match="not_a_column"):
+        tasks.list_param_values("not_a_column")
