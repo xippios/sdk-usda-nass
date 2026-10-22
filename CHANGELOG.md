@@ -8,6 +8,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `get_prices_received`: monthly and marketing-year prices received for a commodity,
+  state or national, as `PriceReceivedRecord` (projection with the period codes kept).
+  Fixtures recorded 2026-10-22 for Iowa and national corn 2023.
 - `get_acreage`: annual planted or harvested acreage totals of a crop, state or national,
   as `AcreageRecord` (projection; breakdowns and forecasts excluded by fixed filters).
   `AreaStatistic` names the two statistics. Fixtures recorded 2026-10-22 for Iowa and

@@ -16,7 +16,7 @@ from xippios.core import Result, ResultMeta, sync
 
 from xippios.usda.nass import api
 from xippios.usda.nass._client import SOURCE
-from xippios.usda.nass.enums import ConditionCategory, ProgressStage, StateAlpha
+from xippios.usda.nass.enums import ConditionCategory, FreqDesc, ProgressStage, StateAlpha
 from xippios.usda.nass.errors import RECORD_LIMIT, QueryTooLarge
 from xippios.usda.nass.models import (
     AcreageRecord,
@@ -24,6 +24,7 @@ from xippios.usda.nass.models import (
     CountyEstimateRecord,
     CropProgressRecord,
     Filters,
+    PriceReceivedRecord,
     QuickStatsRecord,
 )
 from xippios.usda.nass.params import packaged_values, validate_filters
@@ -36,6 +37,7 @@ __all__ = [
     "get_crop_condition",
     "get_crop_progress",
     "get_data",
+    "get_prices_received",
     "list_param_values",
 ]
 
@@ -326,3 +328,49 @@ async def get_acreage_async(
 
 
 get_acreage = sync(get_acreage_async)
+
+
+async def get_prices_received_async(
+    commodity: str,
+    year: int,
+    *,
+    state: StateAlpha | None = None,
+    frequency: FreqDesc | None = None,
+) -> Result[list[PriceReceivedRecord]]:
+    """Prices farmers received for a commodity in a year, monthly and marketing-year.
+
+    ``statisticcat_desc`` ``PRICE RECEIVED`` at ``domain_desc`` ``TOTAL``, state or
+    national, sorted by frequency and period: the marketing-year average first, then
+    the months. The national series also carries the price as a percentage of parity
+    (``unit_desc`` ``"PCT OF PARITY"``) next to the dollar price; the column tells them
+    apart.
+
+    Args:
+        commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``, ``"MILK"``,
+            ``"CATTLE"``.
+        year: Calendar year of the months, e.g. ``2023``.
+        state: Two-letter state code for the state series; ``None`` returns the
+            national series.
+        frequency: ``FreqDesc.MONTHLY`` or ``FreqDesc.ANNUAL`` to keep one; ``None``
+            returns both.
+    """
+    filters: dict[str, str | int] = {
+        "commodity_desc": commodity,
+        "statisticcat_desc": "PRICE RECEIVED",
+        "domain_desc": "TOTAL",
+        "agg_level_desc": "NATIONAL" if state is None else "STATE",
+        "year": year,
+    }
+    if state is not None:
+        filters["state_alpha"] = state.value
+    if frequency is not None:
+        filters["freq_desc"] = frequency.value
+    result = await get_data_async(filters)
+    rows = sorted(
+        (PriceReceivedRecord.from_record(record) for record in result.data),
+        key=lambda row: (row.freq_desc, row.begin_code, row.unit_desc),
+    )
+    return Result(data=rows, meta=result.meta)
+
+
+get_prices_received = sync(get_prices_received_async)

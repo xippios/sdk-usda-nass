@@ -17,6 +17,7 @@ from xippios.usda.nass.models import (
     AreaStatistic,
     CountyEstimateRecord,
     CropProgressRecord,
+    PriceReceivedRecord,
     QuickStatsRecord,
 )
 from xippios.usda.nass.params import (
@@ -504,5 +505,62 @@ def test_acreage_projection_keeps_upstream_names_and_values() -> None:
             assert projected.value == record.value_number
         elif name == "cv_percent":
             assert projected.cv_percent is None
+        else:
+            assert getattr(projected, name) == getattr(record, name), name
+
+
+def test_prices_received_state_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    replay_fixture("get_counts", "corn_price_received_ia_2023")
+    fetched = replay_fixture("api_GET", "corn_price_received_ia_2023")
+    result = tasks.get_prices_received("CORN", 2023, state=enums.StateAlpha.IA)
+    assert result.meta.request == {
+        "commodity_desc": "CORN",
+        "statisticcat_desc": "PRICE RECEIVED",
+        "domain_desc": "TOTAL",
+        "agg_level_desc": "STATE",
+        "year": 2023,
+        "state_alpha": "IA",
+    }
+    assert fetched.calls.last.request.url.params["statisticcat_desc"] == "PRICE RECEIVED"
+    assert len(result.data) == 13
+    first = result.data[0]
+    assert (first.freq_desc, first.reference_period_desc, first.value) == (
+        "ANNUAL", "MARKETING YEAR", Decimal("4.61"),
+    )  # fmt: skip
+    months = result.data[1:]
+    assert [row.reference_period_desc for row in months] == [
+        "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+    ]  # fmt: skip
+    assert months[0].value == Decimal("6.74")
+    assert months[-1].value == Decimal("4.89")
+    assert {row.unit_desc for row in result.data} == {"$ / BU"}
+    assert months[0].begin_code == "01"
+
+
+def test_prices_received_national_monthly(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    replay_fixture("get_counts", "corn_price_received_us_2023_monthly")
+    replay_fixture("api_GET", "corn_price_received_us_2023_monthly")
+    result = tasks.get_prices_received("CORN", 2023, frequency=enums.FreqDesc.MONTHLY)
+    assert result.meta.request["agg_level_desc"] == "NATIONAL"
+    assert result.meta.request["freq_desc"] == "MONTHLY"
+    assert "state_alpha" not in result.meta.request
+    assert len(result.data) == 24
+    assert {row.unit_desc for row in result.data} == {"$ / BU", "PCT OF PARITY"}
+    jan = [row for row in result.data if row.reference_period_desc == "JAN"]
+    assert [(row.unit_desc, row.value) for row in jan] == [
+        ("$ / BU", Decimal("6.63")),
+        ("PCT OF PARITY", Decimal("43")),
+    ]
+
+
+def test_price_projection_keeps_upstream_names_and_values() -> None:
+    record = QuickStatsRecord.model_validate(EXAMPLE_RECORD)
+    projected = PriceReceivedRecord.from_record(record)
+    assert set(PriceReceivedRecord.model_fields) <= set(QuickStatsRecord.model_fields)
+    for name in PriceReceivedRecord.model_fields:
+        if name == "value":
+            assert projected.value == record.value_number
         else:
             assert getattr(projected, name) == getattr(record, name), name
