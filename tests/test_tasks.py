@@ -2,7 +2,7 @@
 
 import inspect
 from collections.abc import Callable
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 import pytest
@@ -12,7 +12,7 @@ from xippios.core.http import status_for
 
 from xippios.usda.nass import __version__, api, enums, tasks
 from xippios.usda.nass.errors import QueryTooLarge
-from xippios.usda.nass.models import QuickStatsRecord
+from xippios.usda.nass.models import CropProgressRecord, QuickStatsRecord
 from xippios.usda.nass.params import PACKAGED_PARAMS, columns, packaged_values
 
 TASKS = [getattr(tasks, name) for name in tasks.__all__]
@@ -273,3 +273,63 @@ def test_columns_cover_every_record_field() -> None:
         'The "WHEN" (or Time) dimension',
         "The Data Value",
     }
+
+
+def test_crop_progress_state_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    replay_fixture("get_counts", "corn_progress_planted_ia_2024")
+    fetched = replay_fixture("api_GET", "corn_progress_planted_ia_2024")
+    result = tasks.get_crop_progress("CORN", 2024, state=enums.StateAlpha.IA, stage="PCT PLANTED")
+    assert result.meta.request == {
+        "commodity_desc": "CORN",
+        "statisticcat_desc": "PROGRESS",
+        "freq_desc": "WEEKLY",
+        "year": 2024,
+        "agg_level_desc": "STATE",
+        "state_alpha": "IA",
+        "unit_desc": "PCT PLANTED",
+    }
+    assert fetched.calls.last.request.url.params["statisticcat_desc"] == "PROGRESS"
+    assert len(result.data) == 11
+    weeks = [row.week_ending or date.min for row in result.data]
+    assert weeks == sorted(weeks)
+    first, last = result.data[0], result.data[-1]
+    assert first.week_ending == date(2024, 3, 31)
+    assert first.value == Decimal("0")
+    assert last.week_ending == date(2024, 6, 9)
+    assert last.value == Decimal("98")  # NASS stops the series short of 100
+    assert {row.unit_desc for row in result.data} == {"PCT PLANTED"}
+    assert {row.state_alpha for row in result.data} == {"IA"}
+    assert last.short_desc == "CORN - PROGRESS, MEASURED IN PCT PLANTED"
+    assert isinstance(last.load_time, datetime)
+
+
+def test_crop_progress_national_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    replay_fixture("get_counts", "corn_progress_planted_us_2024")
+    replay_fixture("api_GET", "corn_progress_planted_us_2024")
+    result = tasks.get_crop_progress("CORN", 2024, stage="PCT PLANTED")
+    assert result.meta.request["agg_level_desc"] == "NATIONAL"
+    assert "state_alpha" not in result.meta.request
+    assert {row.state_alpha for row in result.data} == {"US"}
+    assert {row.state_name for row in result.data} == {"US TOTAL"}
+
+
+def test_crop_condition_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    replay_fixture("get_counts", "corn_condition_good_ia_2024")
+    replay_fixture("api_GET", "corn_condition_good_ia_2024")
+    result = tasks.get_crop_condition("CORN", 2024, state=enums.StateAlpha.IA, category="PCT GOOD")
+    assert result.meta.request["statisticcat_desc"] == "CONDITION"
+    assert result.meta.request["unit_desc"] == "PCT GOOD"
+    assert len(result.data) == 21
+    assert {row.statisticcat_desc for row in result.data} == {"CONDITION"}
+    assert all(row.value is not None and 0 <= row.value <= 100 for row in result.data)
+
+
+def test_projection_keeps_upstream_names_and_values() -> None:
+    record = QuickStatsRecord.model_validate(EXAMPLE_RECORD)
+    projected = CropProgressRecord.from_record(record)
+    assert set(CropProgressRecord.model_fields) <= set(QuickStatsRecord.model_fields)
+    for name in CropProgressRecord.model_fields:
+        if name == "value":
+            assert projected.value == record.value_number
+        else:
+            assert getattr(projected, name) == getattr(record, name), name

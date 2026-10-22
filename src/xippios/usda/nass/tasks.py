@@ -10,15 +10,18 @@ Docstrings are read by agents: one sentence first, then ``Args:`` with examples 
 valid values for every parameter. ``/add-endpoint`` walks through the whole recipe.
 """
 
+from datetime import date
+
 from xippios.core import Result, ResultMeta, sync
 
 from xippios.usda.nass import api
 from xippios.usda.nass._client import SOURCE
+from xippios.usda.nass.enums import StateAlpha
 from xippios.usda.nass.errors import RECORD_LIMIT, QueryTooLarge
-from xippios.usda.nass.models import Filters, QuickStatsRecord
+from xippios.usda.nass.models import CropProgressRecord, Filters, QuickStatsRecord
 from xippios.usda.nass.params import packaged_values, validate_filters
 
-__all__ = ["get_counts", "get_data", "list_param_values"]
+__all__ = ["get_counts", "get_crop_condition", "get_crop_progress", "get_data", "list_param_values"]
 
 
 async def get_counts_async(filters: Filters) -> Result[int]:
@@ -107,3 +110,85 @@ async def list_param_values_async(param: str) -> Result[list[str]]:
 
 
 list_param_values = sync(list_param_values_async)
+
+
+async def _weekly_series(
+    statisticcat_desc: str,
+    commodity: str,
+    year: int,
+    state: StateAlpha | None,
+    unit_desc: str | None,
+) -> Result[list[CropProgressRecord]]:
+    filters: dict[str, str | int] = {
+        "commodity_desc": commodity,
+        "statisticcat_desc": statisticcat_desc,
+        "freq_desc": "WEEKLY",
+        "year": year,
+        "agg_level_desc": "NATIONAL" if state is None else "STATE",
+    }
+    if state is not None:
+        filters["state_alpha"] = state.value
+    if unit_desc is not None:
+        filters["unit_desc"] = unit_desc
+    result = await get_data_async(filters)
+    rows = sorted(
+        (CropProgressRecord.from_record(record) for record in result.data),
+        key=lambda row: (row.week_ending or date.min, row.unit_desc, row.short_desc),
+    )
+    return Result(data=rows, meta=result.meta)
+
+
+async def get_crop_progress_async(
+    commodity: str,
+    year: int,
+    *,
+    state: StateAlpha | None = None,
+    stage: str | None = None,
+) -> Result[list[CropProgressRecord]]:
+    """Weekly crop progress: the percentage planted, emerged, silking, harvested and so on.
+
+    One row per week and stage, from the NASS Crop Progress survey (``statisticcat_desc``
+    ``PROGRESS``, ``freq_desc`` ``WEEKLY``), sorted by week. Stages differ by crop;
+    ``unit_desc`` names each one and ``value`` is the percentage.
+
+    Args:
+        commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``,
+            ``"WINTER WHEAT"``, ``"COTTON"``; ``list_param_values("commodity_desc")``
+            lists them.
+        year: Crop year, e.g. ``2024``.
+        state: Two-letter state code for the state series; ``None`` returns the
+            national ``US TOTAL`` series.
+        stage: A single stage as upstream names it, e.g. ``"PCT PLANTED"``,
+            ``"PCT EMERGED"``, ``"PCT SILKING"``, ``"PCT MATURE"``, ``"PCT HARVESTED"``;
+            ``None`` returns every stage.
+    """
+    return await _weekly_series("PROGRESS", commodity, year, state, stage)
+
+
+async def get_crop_condition_async(
+    commodity: str,
+    year: int,
+    *,
+    state: StateAlpha | None = None,
+    category: str | None = None,
+) -> Result[list[CropProgressRecord]]:
+    """Weekly crop condition: the percentage of a crop rated very poor through excellent.
+
+    One row per week and category, from the NASS Crop Progress survey
+    (``statisticcat_desc`` ``CONDITION``, ``freq_desc`` ``WEEKLY``), sorted by week.
+    ``unit_desc`` names the category and ``value`` is the percentage.
+
+    Args:
+        commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``,
+            ``"WINTER WHEAT"``.
+        year: Crop year, e.g. ``2024``.
+        state: Two-letter state code for the state series; ``None`` returns the
+            national ``US TOTAL`` series.
+        category: One of ``"PCT VERY POOR"``, ``"PCT POOR"``, ``"PCT FAIR"``,
+            ``"PCT GOOD"``, ``"PCT EXCELLENT"``; ``None`` returns all five.
+    """
+    return await _weekly_series("CONDITION", commodity, year, state, category)
+
+
+get_crop_progress = sync(get_crop_progress_async)
+get_crop_condition = sync(get_crop_condition_async)

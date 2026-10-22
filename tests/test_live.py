@@ -42,3 +42,14 @@ async def test_get_data_live() -> None:
 async def test_list_param_values_live() -> None:
     result = await tasks.list_param_values_async("sector_desc")
     assert "CROPS" in result.data
+
+
+async def test_crop_progress_live() -> None:
+    from xippios.usda.nass.enums import StateAlpha
+
+    result = await tasks.get_crop_progress_async(
+        "CORN", 2024, state=StateAlpha.IA, stage="PCT PLANTED"
+    )
+    assert result.data
+    assert result.data[-1].value is not None
+    assert result.data[-1].value >= 90

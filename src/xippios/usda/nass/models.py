@@ -18,7 +18,13 @@ from decimal import Decimal, InvalidOperation
 from pydantic import Field, field_validator
 from xippios.core import UpstreamModel
 
-__all__ = ["ApiGetResponse", "Filters", "GetCountsResponse", "QuickStatsRecord"]
+__all__ = [
+    "ApiGetResponse",
+    "CropProgressRecord",
+    "Filters",
+    "GetCountsResponse",
+    "QuickStatsRecord",
+]
 
 Filters = Mapping[str, str | int]
 """Quick Stats query parameters, as upstream names them.
@@ -108,3 +114,52 @@ class ApiGetResponse(UpstreamModel):
     """Payload of ``GET /api/api_GET`` with ``format=JSON``: ``{"data": [...]}``."""
 
     data: list[QuickStatsRecord]
+
+
+class CropProgressRecord(UpstreamModel):
+    """One weekly crop progress or condition estimate: a projection of ``QuickStatsRecord``.
+
+    Columns keep their upstream names (ADR-0003); only the ones that vary within a
+    progress or condition series are kept. ``unit_desc`` carries the stage
+    (``"PCT PLANTED"``, ``"PCT EMERGED"``, ...) or the condition category
+    (``"PCT EXCELLENT"`` ... ``"PCT VERY POOR"``); ``value`` is that percentage, parsed,
+    or ``None`` for a suppression code. ``state_alpha`` is ``"US"`` for the national
+    series.
+    """
+
+    commodity_desc: str
+    class_desc: str
+    util_practice_desc: str
+    statisticcat_desc: str
+    unit_desc: str
+    short_desc: str
+    agg_level_desc: str
+    state_alpha: str
+    state_name: str
+    year: int
+    week_ending: date | None
+    reference_period_desc: str
+    value: Decimal | None
+    source_desc: str
+    load_time: datetime
+
+    @classmethod
+    def from_record(cls, record: QuickStatsRecord) -> "CropProgressRecord":
+        """Project a full record; every field keeps its upstream name and value."""
+        return cls(
+            commodity_desc=record.commodity_desc,
+            class_desc=record.class_desc,
+            util_practice_desc=record.util_practice_desc,
+            statisticcat_desc=record.statisticcat_desc,
+            unit_desc=record.unit_desc,
+            short_desc=record.short_desc,
+            agg_level_desc=record.agg_level_desc,
+            state_alpha=record.state_alpha,
+            state_name=record.state_name,
+            year=record.year,
+            week_ending=record.week_ending,
+            reference_period_desc=record.reference_period_desc,
+            value=record.value_number,
+            source_desc=record.source_desc,
+            load_time=record.load_time,
+        )
