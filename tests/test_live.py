@@ -74,3 +74,11 @@ async def test_acreage_live() -> None:
     )
     assert len(result.data) == 1
     assert result.data[0].value == Decimal("13100000")
+
+
+async def test_prices_received_live() -> None:
+    from xippios.usda.nass.enums import StateAlpha
+
+    result = await tasks.get_prices_received_async("CORN", 2023, state=StateAlpha.IA)
+    assert len(result.data) >= 12
+    assert any(row.reference_period_desc == "JAN" for row in result.data)

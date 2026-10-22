@@ -1,0 +1,50 @@
+{
+  "recorded_at": "2026-10-22T11:55:07.686974Z",
+  "request": {
+    "method": "GET",
+    "url": "https://quickstats.nass.usda.gov/api/get_counts/?commodity_desc=CORN&statisticcat_desc=PRICE+RECEIVED&domain_desc=TOTAL&agg_level_desc=STATE&state_alpha=IA&year=2023&key=REDACTED"
+  },
+  "response": {
+    "body": "{\"count\":13}",
+    "body_base64": false,
+    "headers": [
+      [
+        "date",
+        "Thu, 22 Oct 2026 11:55:05 GMT"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "server",
+        "Kestrel"
+      ],
+      [
+        "strict-transport-security",
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      [
+        "x-author",
+        "NICE HYPE (RJ)"
+      ],
+      [
+        "x-proxyversion",
+        "0.8.5"
+      ],
+      [
+        "x-cache",
+        "Miss"
+      ],
+      [
+        "x-handler-apgw-05-12",
+        "APPGW-Public"
+      ],
+      [
+        "x-content-type-options",
+        "nosniff"
+      ]
+    ],
+    "status": 200
+  }
+}

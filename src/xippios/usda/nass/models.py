@@ -27,6 +27,7 @@ __all__ = [
     "CropProgressRecord",
     "Filters",
     "GetCountsResponse",
+    "PriceReceivedRecord",
     "QuickStatsRecord",
 ]
 
@@ -291,5 +292,57 @@ class AcreageRecord(UpstreamModel):
             reference_period_desc=record.reference_period_desc,
             value=record.value_number,
             cv_percent=_decimal_or_none(record.cv_percent),
+            load_time=record.load_time,
+        )
+
+
+class PriceReceivedRecord(UpstreamModel):
+    """One price-received estimate: a projection of ``QuickStatsRecord``.
+
+    Columns keep their upstream names (ADR-0003). ``freq_desc`` is ``MONTHLY`` or
+    ``ANNUAL`` (the marketing-year average); ``reference_period_desc`` names the month or
+    ``MARKETING YEAR`` and ``begin_code``/``end_code`` carry the month numbers, ``00`` for
+    the year. ``unit_desc`` is the price unit (``"$ / BU"``) or, in the national series,
+    ``"PCT OF PARITY"``. ``value`` is parsed.
+    """
+
+    commodity_desc: str
+    class_desc: str
+    util_practice_desc: str
+    statisticcat_desc: str
+    unit_desc: str
+    short_desc: str
+    source_desc: str
+    agg_level_desc: str
+    state_alpha: str
+    state_name: str
+    year: int
+    freq_desc: str
+    reference_period_desc: str
+    begin_code: str
+    end_code: str
+    value: Decimal | None
+    load_time: datetime
+
+    @classmethod
+    def from_record(cls, record: QuickStatsRecord) -> "PriceReceivedRecord":
+        """Project a full record; every field keeps its upstream name and value."""
+        return cls(
+            commodity_desc=record.commodity_desc,
+            class_desc=record.class_desc,
+            util_practice_desc=record.util_practice_desc,
+            statisticcat_desc=record.statisticcat_desc,
+            unit_desc=record.unit_desc,
+            short_desc=record.short_desc,
+            source_desc=record.source_desc,
+            agg_level_desc=record.agg_level_desc,
+            state_alpha=record.state_alpha,
+            state_name=record.state_name,
+            year=record.year,
+            freq_desc=record.freq_desc,
+            reference_period_desc=record.reference_period_desc,
+            begin_code=record.begin_code,
+            end_code=record.end_code,
+            value=record.value_number,
             load_time=record.load_time,
         )
