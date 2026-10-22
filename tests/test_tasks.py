@@ -160,21 +160,27 @@ EXAMPLE_RECORD = {
 }  # fmt: skip
 
 
-def test_list_param_values_replays_the_documented_example(
+@pytest.mark.anyio
+async def test_get_param_values_replays_the_documented_example(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
+    """Layer 1 is unaffected by packaging: the wrapper always calls upstream."""
     route = replay_fixture("get_param_values", "sector_desc")
-    result = tasks.list_param_values("sector_desc")
-    assert result.data == [
-        "ANIMALS & PRODUCTS",
-        "CROPS",
-        "DEMOGRAPHICS",
-        "ECONOMICS",
-        "ENVIRONMENTAL",
-    ]
-    assert result.meta.endpoint == "get_param_values"
-    assert result.meta.request == {"param": "sector_desc"}
+    values = await api.get_param_values("sector_desc")
+    assert values == ["ANIMALS & PRODUCTS", "CROPS", "DEMOGRAPHICS", "ECONOMICS", "ENVIRONMENTAL"]
     assert route.calls.last.request.url.params["param"] == "sector_desc"
+
+
+def test_list_param_values_goes_live_for_an_unpackaged_parameter(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    route = replay_fixture("get_param_values", "statisticcat_desc")
+    result = tasks.list_param_values("statisticcat_desc")
+    assert route.called
+    assert result.meta.endpoint == "get_param_values"
+    assert result.meta.request == {"param": "statisticcat_desc"}
+    assert "AREA PLANTED" in result.data
+    assert len(result.data) > 200
 
 
 def test_list_param_values_unknown_parameter_is_not_found(
@@ -198,13 +204,6 @@ def test_packaged_parameters_are_answered_without_a_network_call(
     assert not respx_mock.calls
     assert "CROPS" in tasks.list_param_values("sector_desc").data
     assert "VA" in tasks.list_param_values("state_alpha").data
-
-
-def test_unpackaged_parameters_go_live(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    route = replay_fixture("get_param_values", "agg_level_desc")
-    result = tasks.list_param_values("statisticcat_desc")
-    assert route.called
-    assert result.meta.endpoint == "get_param_values"
 
 
 def test_columns_cover_every_record_field() -> None:
