@@ -1,7 +1,7 @@
 Refresh the packaged reference data for USDA NASS Quick Stats: $ARGUMENTS
 
 Reference data (commodity codes, country codes, attribute lists, report calendars)
-ships inside the package under `src/xippios/usda.nass/reference/` and is loaded
+ships inside the package under `src/xippios/usda/nass/reference/` and is loaded
 with `xippios.core.reference`. It comes from the upstream, never from memory.
 
 1. Work on a branch `chore/reference-<thing>`.
