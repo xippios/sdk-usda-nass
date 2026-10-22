@@ -14,12 +14,15 @@ fixtures.
 from collections.abc import Mapping
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+from enum import StrEnum
 
 from pydantic import Field, field_validator
 from xippios.core import UpstreamModel
 
 __all__ = [
+    "AcreageRecord",
     "ApiGetResponse",
+    "AreaStatistic",
     "CountyEstimateRecord",
     "CropProgressRecord",
     "Filters",
@@ -227,6 +230,64 @@ class CountyEstimateRecord(UpstreamModel):
             county_code=record.county_code,
             county_name=record.county_name,
             year=record.year,
+            reference_period_desc=record.reference_period_desc,
+            value=record.value_number,
+            cv_percent=_decimal_or_none(record.cv_percent),
+            load_time=record.load_time,
+        )
+
+
+class AreaStatistic(StrEnum):
+    """The two ``statisticcat_desc`` values the acreage slice covers, as upstream names them."""
+
+    AREA_PLANTED = "AREA PLANTED"
+    AREA_HARVESTED = "AREA HARVESTED"
+
+
+class AcreageRecord(UpstreamModel):
+    """One annual acreage estimate in acres: a projection of ``QuickStatsRecord``.
+
+    Columns keep their upstream names (ADR-0003). ``statisticcat_desc`` is
+    ``AREA PLANTED`` or ``AREA HARVESTED``; ``util_practice_desc`` separates grain from
+    silage on the harvested side (planted acreage is ``ALL UTILIZATION PRACTICES``);
+    ``source_desc`` tells survey from census figures. ``value`` is acres, parsed.
+    """
+
+    commodity_desc: str
+    class_desc: str
+    util_practice_desc: str
+    prodn_practice_desc: str
+    statisticcat_desc: str
+    unit_desc: str
+    short_desc: str
+    source_desc: str
+    agg_level_desc: str
+    state_alpha: str
+    state_name: str
+    year: int
+    freq_desc: str
+    reference_period_desc: str
+    value: Decimal | None
+    cv_percent: Decimal | None
+    load_time: datetime
+
+    @classmethod
+    def from_record(cls, record: QuickStatsRecord) -> "AcreageRecord":
+        """Project a full record; every field keeps its upstream name and value."""
+        return cls(
+            commodity_desc=record.commodity_desc,
+            class_desc=record.class_desc,
+            util_practice_desc=record.util_practice_desc,
+            prodn_practice_desc=record.prodn_practice_desc,
+            statisticcat_desc=record.statisticcat_desc,
+            unit_desc=record.unit_desc,
+            short_desc=record.short_desc,
+            source_desc=record.source_desc,
+            agg_level_desc=record.agg_level_desc,
+            state_alpha=record.state_alpha,
+            state_name=record.state_name,
+            year=record.year,
+            freq_desc=record.freq_desc,
             reference_period_desc=record.reference_period_desc,
             value=record.value_number,
             cv_percent=_decimal_or_none(record.cv_percent),

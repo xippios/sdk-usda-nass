@@ -3,6 +3,8 @@
 Every task function gets one live smoke test here, next to the reachability check.
 """
 
+from decimal import Decimal
+
 import pytest
 
 from xippios.usda.nass import tasks
@@ -61,3 +63,14 @@ async def test_county_yield_live() -> None:
     result = await tasks.get_county_yield_async("CORN", 2023, state=StateAlpha.DE)
     assert result.data
     assert {row.county_name for row in result.data} >= {"KENT", "SUSSEX"}
+
+
+async def test_acreage_live() -> None:
+    from xippios.usda.nass.enums import StateAlpha
+    from xippios.usda.nass.models import AreaStatistic
+
+    result = await tasks.get_acreage_async(
+        "CORN", 2023, AreaStatistic.AREA_PLANTED, state=StateAlpha.IA
+    )
+    assert len(result.data) == 1
+    assert result.data[0].value == Decimal("13100000")
