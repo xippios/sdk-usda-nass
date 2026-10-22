@@ -6,12 +6,28 @@ network call, and the column table from ``docs/upstream/param_define.md`` ships 
 ``reference/README.md`` carries the provenance.
 """
 
+import difflib
+import functools
 from datetime import date
 
 from pydantic import Field, field_validator
-from xippios.core import UpstreamModel, load_json, load_table
+from xippios.core import InvalidRequestError, UpstreamModel, load_json, load_table
 
-__all__ = ["PACKAGED_PARAMS", "Column", "PackagedValues", "columns", "packaged_values"]
+from xippios.usda.nass._client import SOURCE
+from xippios.usda.nass.models import Filters
+
+__all__ = [
+    "OPERATORS",
+    "PACKAGED_PARAMS",
+    "Column",
+    "PackagedValues",
+    "columns",
+    "packaged_values",
+    "validate_filters",
+]
+
+OPERATORS: tuple[str, ...] = ("LE", "LT", "GT", "GE", "LIKE", "NOT_LIKE", "NE")
+"""Suffixes a filter key may carry after ``__``, as ``docs/upstream/api.md`` lists them."""
 
 PACKAGE = "xippios.usda.nass"
 
@@ -71,3 +87,43 @@ def packaged_values(param: str) -> PackagedValues | None:
 def columns() -> list[Column]:
     """Every Quick Stats column, from the packaged ``columns.csv``."""
     return load_table(PACKAGE, "columns.csv", Column)
+
+
+@functools.cache
+def _column_names() -> frozenset[str]:
+    return frozenset(column.column for column in columns())
+
+
+def validate_filters(filters: Filters) -> dict[str, str | int]:
+    """Check every filter key against the packaged column table before calling upstream.
+
+    Quick Stats ignores unknown column names, so a misspelt key would silently query the
+    whole database. A key is ``<column>`` or ``<column>__<OPERATOR>``.
+
+    Args:
+        filters: The query parameters as the caller gave them.
+
+    Returns:
+        The filters as a plain dict, unchanged.
+
+    Raises:
+        InvalidRequestError: Naming every unknown column, with the closest valid names,
+            and every unknown operator.
+    """
+    known = _column_names()
+    problems: list[str] = []
+    for key in filters:
+        column, _, operator = key.partition("__")
+        if column not in known:
+            close = difflib.get_close_matches(column, sorted(known), n=3)
+            hint = f"; did you mean {', '.join(close)}?" if close else ""
+            problems.append(f"{key!r} is not a Quick Stats column{hint}")
+        elif operator and operator not in OPERATORS:
+            allowed = ", ".join(f"__{op}" for op in OPERATORS)
+            problems.append(f"{key!r}: unknown operator {operator!r}; use one of {allowed}")
+    if problems:
+        raise InvalidRequestError(
+            "; ".join(problems) + ". Columns are defined in docs/upstream/param_define.md.",
+            source=SOURCE,
+        )
+    return dict(filters)
