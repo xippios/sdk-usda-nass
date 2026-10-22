@@ -8,18 +8,18 @@ Work on a branch `feature/<operation>`. Follow the three layers (ADR-0001) exact
    name, every parameter with its valid values, the response shape, pagination, and any
    publication date or release identifier the response carries.
 
-2. **Models** in `src/xippios/usda.nass/models.py`: one `UpstreamModel` subclass per
+2. **Models** in `src/xippios/usda/nass/models.py`: one `UpstreamModel` subclass per
    payload object. Field names are the upstream names in snake_case (use `Field(alias=...)`
    for the upstream spelling). Dates become `datetime.date`/`datetime`, numbers become
    `int`/`Decimal`/`float`, upstream enumerations become `StrEnum`. No renaming to match
    another source.
 
-3. **Endpoint wrapper** in `src/xippios/usda.nass/api/<operation>.py`: one async
+3. **Endpoint wrapper** in `src/xippios/usda/nass/api/<operation>.py`: one async
    function named after the operation, parameters as upstream names them, calling
    `xippios.usda.nass._client.client` and returning models via
    `xippios.core.parse(...)`. No defaults beyond upstream's own, no composition.
 
-4. **Task function** in `src/xippios/usda.nass/tasks.py`: an async function shaped
+4. **Task function** in `src/xippios/usda/nass/tasks.py`: an async function shaped
    like what a person or agent wants (`get_<thing>(commodity, year)`), composing wrappers,
    resolving pagination with `xippios.core.paginate_*` and reference lookups, and returning
    `Result[T]` with full `ResultMeta` (`source`, `endpoint`, `request`, and `published_at`
