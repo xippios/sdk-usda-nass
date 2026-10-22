@@ -1,0 +1,46 @@
+{
+  "recorded_at": "2026-10-22T08:25:01.065490Z",
+  "request": {
+    "method": "GET",
+    "url": "https://quickstats.nass.usda.gov/api/api_GET/?commodity_desc=CORN&year=1800&state_alpha=VA&format=JSON&key=REDACTED"
+  },
+  "response": {
+    "body": "{\"error\":[\"bad request - invalid query\"]}",
+    "body_base64": false,
+    "headers": [
+      [
+        "date",
+        "Thu, 22 Oct 2026 08:24:59 GMT"
+      ],
+      [
+        "server",
+        "Kestrel"
+      ],
+      [
+        "strict-transport-security",
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      [
+        "x-author",
+        "NICE HYPE (RJ)"
+      ],
+      [
+        "x-proxyversion",
+        "0.8.5"
+      ],
+      [
+        "x-cache",
+        "Miss"
+      ],
+      [
+        "x-handler-apgw-05-12",
+        "APPGW-Public"
+      ],
+      [
+        "x-content-type-options",
+        "nosniff"
+      ]
+    ],
+    "status": 400
+  }
+}
