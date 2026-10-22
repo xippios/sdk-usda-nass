@@ -10,8 +10,6 @@ All notable changes to this project are documented here. The format follows
 
 - `get_acreage_forecasts`: the in-season acreage reports (March prospective plantings,
   June acreage, monthly forecasts), oldest first; `get_acreage` keeps the final figure.
-- `meta.published_at` on every data result: the latest `load_time` of the rows, read
-  as UTC.
 
 ### Changed
 

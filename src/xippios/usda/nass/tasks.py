@@ -15,7 +15,7 @@ belongs to the normalisation layer, not here.
 """
 
 from collections.abc import Callable
-from datetime import UTC, date
+from datetime import date
 from typing import Any
 
 from xippios.core import Result, ResultMeta, UpstreamModel, parse_decimal, sync
@@ -49,14 +49,8 @@ __all__ = [
 ]
 
 
-def _meta(endpoint: str, request: dict[str, str | int], rows: list[QuickStatsRecord]) -> ResultMeta:
-    published = max((row.load_time for row in rows), default=None)
-    return ResultMeta(
-        source=SOURCE,
-        endpoint=endpoint,
-        request=request,
-        published_at=published.replace(tzinfo=UTC) if published else None,
-    )
+def _meta(endpoint: str, request: dict[str, str | int]) -> ResultMeta:
+    return ResultMeta(source=SOURCE, endpoint=endpoint, request=request)
 
 
 def _project[M: UpstreamModel](model: type[M], record: QuickStatsRecord) -> M:
@@ -76,7 +70,7 @@ async def _slice[M: UpstreamModel](
     checked = validate_filters(filters)
     response = await api.api_GET(checked)
     rows = sorted((_project(model, record) for record in response.data), key=order)
-    return Result(data=rows, meta=_meta("api_GET", checked, response.data))
+    return Result(data=rows, meta=_meta("api_GET", checked))
 
 
 def _level(state: StateAlpha | None, filters: dict[str, str | int]) -> dict[str, str | int]:
@@ -129,11 +123,11 @@ async def get_data_async(filters: Filters) -> Result[list[QuickStatsRecord]]:
     checked = validate_filters(filters)
     count = (await api.get_counts(checked)).count
     if count == 0:
-        return Result(data=[], meta=_meta("api_GET", checked, []))
+        return Result(data=[], meta=_meta("api_GET", checked))
     if count > RECORD_LIMIT:
         raise QueryTooLarge(count)
     response = await api.api_GET(checked)
-    return Result(data=response.data, meta=_meta("api_GET", checked, response.data))
+    return Result(data=response.data, meta=_meta("api_GET", checked))
 
 
 async def list_param_values_async(param: str) -> Result[list[str]]:

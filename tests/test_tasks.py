@@ -2,7 +2,7 @@
 
 import inspect
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 import pytest
@@ -531,7 +531,7 @@ def test_projections_are_faithful(model: type[UpstreamModel]) -> None:
     assert projected.model_dump(mode="json")["value_number"] == 1234.5
 
 
-def test_slices_skip_the_count_and_set_published_at(
+def test_slices_skip_the_count_and_leave_published_at_empty(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
     counted = replay_fixture("get_counts", "corn_progress_planted_ia_2024")
@@ -540,18 +540,19 @@ def test_slices_skip_the_count_and_set_published_at(
         "CORN", 2024, state=enums.StateAlpha.IA, stage=enums.ProgressStage.PCT_PLANTED
     )
     assert not counted.called
-    assert result.meta.published_at == datetime(2024, 6, 10, 16, 0, tzinfo=UTC)
-    assert result.meta.published_at == max(row.load_time for row in result.data).replace(tzinfo=UTC)
+    assert result.meta.published_at is None
+    assert result.meta.vintage is None
+    assert all(row.load_time.tzinfo is None for row in result.data)
 
 
-def test_get_data_sets_published_at_and_keeps_the_count(
+def test_get_data_keeps_the_count_and_leaves_published_at_empty(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
     counted = replay_fixture("get_counts", "corn_va_since_2012")
     replay_fixture("api_GET", "corn_va_2012_area_planted")
     result = tasks.get_data(SMALL_FILTERS)
     assert counted.called
-    assert result.meta.published_at == datetime(2018, 1, 23, 8, 13, 26, tzinfo=UTC)
+    assert result.meta.published_at is None
 
 
 def test_acreage_forecasts_state_and_national(
@@ -596,7 +597,7 @@ async def test_mcp_tool_call_end_to_end(replay_fixture: Callable[[str, str], res
     assert len(payload["data"]) == 11
     first = payload["data"][0]
     assert (first["value"], first["value_number"], first["week_ending"]) == ("0", 0.0, "2024-03-31")
-    assert payload["meta"]["published_at"].startswith("2024-06-10T16:00:00")
+    assert payload["meta"]["published_at"] is None
     with pytest.raises(AssertionError, match=r"InvalidRequestError.*comodity_desc"):
         await mcp_call(server, "usda_nass_get_counts", {"filters": {"comodity_desc": "CORN"}})
 
