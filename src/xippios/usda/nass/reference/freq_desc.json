@@ -1,0 +1,11 @@
+{
+  "param": "freq_desc",
+  "fetched": "2026-10-22",
+  "values": [
+    "ANNUAL",
+    "MONTHLY",
+    "POINT IN TIME",
+    "SEASON",
+    "WEEKLY"
+  ]
+}

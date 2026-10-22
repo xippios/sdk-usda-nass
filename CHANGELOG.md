@@ -19,6 +19,12 @@ All notable changes to this project are documented here. The format follows
   `GET /api/get_param_values`: the values a filter parameter can take. An unknown
   parameter (upstream: HTTP 400 `{"<param>": ["no value"]}`) maps to `NotFoundError`.
   Fixtures recorded 2026-10-22.
+- Packaged reference data (`xippios.usda.nass.params`): the value lists of
+  `source_desc`, `sector_desc`, `group_desc`, `agg_level_desc`, `freq_desc` and
+  `state_alpha` (fetched 2026-10-22) and `columns.csv` from `param_define.md`.
+  `list_param_values` answers those six from the package, with `meta.endpoint`
+  `"reference"` and `meta.vintage` the fetch date; everything else stays live.
+  `scripts/refresh_reference.py` rebuilds the files.
 - Scaffold from [sdk-template](https://github.com/xippios/sdk-template): configured
   client for USDA NASS Quick Stats, empty task layer, MCP server and FastAPI router
   wired to it, test harness, CI and publishing.

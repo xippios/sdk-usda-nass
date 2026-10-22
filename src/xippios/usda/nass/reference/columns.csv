@@ -1,0 +1,40 @@
+column,dimension,max_length,definition
+source_desc,"The ""WHAT"" (or Commodity) dimension",60,"Source of data (CENSUS or SURVEY). Census program includes the Census of Ag as well as follow up projects. Survey program includes national, state, and county surveys."
+sector_desc,"The ""WHAT"" (or Commodity) dimension",60,"Five high level, broad categories useful to narrow down choices (Crops, Animals & Products, Economics, Demographics, and Environmental)."
+group_desc,"The ""WHAT"" (or Commodity) dimension",80,"Subsets within sector (e.g., under sector = Crops, the groups are Field Crops, Fruit & Tree Nuts, Horticulture, and Vegetables)."
+commodity_desc,"The ""WHAT"" (or Commodity) dimension",80,"The primary subject of interest (e.g., CORN, CATTLE, LABOR, TRACTORS, OPERATORS)."
+class_desc,"The ""WHAT"" (or Commodity) dimension",180,"Generally a physical attribute (e.g., variety, size, color, gender) of the commodity."
+prodn_practice_desc,"The ""WHAT"" (or Commodity) dimension",180,"A method of production or action taken on the commodity (e.g., IRRIGATED, ORGANIC, ON FEED)."
+util_practice_desc,"The ""WHAT"" (or Commodity) dimension",180,"Utilizations (e.g., GRAIN, FROZEN, SLAUGHTER) or marketing channels (e.g., FRESH MARKET, PROCESSING, RETAIL)."
+statisticcat_desc,"The ""WHAT"" (or Commodity) dimension",80,"The aspect of a commodity being measured (e.g., AREA HARVESTED, PRICE RECEIVED, INVENTORY, SALES)."
+unit_desc,"The ""WHAT"" (or Commodity) dimension",60,"The unit associated with the statistic category (e.g., ACRES, $ / LB, HEAD, $, OPERATIONS)."
+short_desc,"The ""WHAT"" (or Commodity) dimension",512,"A concatenation of six columns: commodity_desc, class_desc, prodn_practice_desc, util_practice_desc, statisticcat_desc, and unit_desc."
+domain_desc,"The ""WHAT"" (or Commodity) dimension",256,"Generally another characteristic of operations that produce a particular commodity (e.g., ECONOMIC CLASS, AREA OPERATED, NAICS CLASSIFICATION, SALES). For chemical usage data, the domain describes the type of chemical applied to the commodity. The domain = TOTAL will have no further breakouts; i.e., the data value pertains completely to the short_desc."
+domaincat_desc,"The ""WHAT"" (or Commodity) dimension",512,"Categories or partitions within a domain (e.g., under domain = Sales, domain categories include $1,000 TO $9,999, $10,000 TO $19,999, etc)."
+agg_level_desc,"The ""WHERE"" (or Location) dimension",40,"Aggregation level or geographic granularity of the data (e.g., State, Ag District, County, Region, Zip Code)."
+state_ansi,"The ""WHERE"" (or Location) dimension",2,American National Standards Institute (ANSI) standard 2-digit state codes.
+state_fips_code,"The ""WHERE"" (or Location) dimension",2,"NASS 2-digit state codes; include 99 and 98 for US TOTAL and OTHER STATES, respectively; otherwise match ANSI codes."
+state_alpha,"The ""WHERE"" (or Location) dimension",2,"State abbreviation, 2-character alpha code."
+state_name,"The ""WHERE"" (or Location) dimension",30,State full name.
+asd_code,"The ""WHERE"" (or Location) dimension",2,"NASS defined county groups, unique within a state, 2-digit ag statistics district code."
+asd_desc,"The ""WHERE"" (or Location) dimension",60,Ag statistics district name.
+county_ansi,"The ""WHERE"" (or Location) dimension",3,ANSI standard 3-digit county codes.
+county_code,"The ""WHERE"" (or Location) dimension",3,NASS 3-digit county codes; includes 998 for OTHER (COMBINED) COUNTIES and Alaska county codes; otherwise match ANSI codes.
+county_name,"The ""WHERE"" (or Location) dimension",30,County name.
+region_desc,"The ""WHERE"" (or Location) dimension",80,"NASS defined geographic entities not readily defined by other standard geographic levels. A region can be a less than a state (Sub-State) or a group of states (Multi-State), and may be specific to a commodity."
+zip_5,"The ""WHERE"" (or Location) dimension",5,US Postal Service 5-digit zip code.
+watershed_code,"The ""WHERE"" (or Location) dimension",8,US Geological Survey (USGS) 8-digit Hydrologic Unit Code (HUC) for watersheds.
+watershed_desc,"The ""WHERE"" (or Location) dimension",120,Name assigned to the HUC.
+congr_district_code,"The ""WHERE"" (or Location) dimension",2,US Congressional District 2-digit code.
+country_code,"The ""WHERE"" (or Location) dimension",4,"US Census Bureau, Foreign Trade Division 4-digit country code, as of April, 2007."
+country_name,"The ""WHERE"" (or Location) dimension",60,Country name.
+location_desc,"The ""WHERE"" (or Location) dimension",120,Full description for the location dimension.
+year,"The ""WHEN"" (or Time) dimension",4,The numeric year of the data.
+freq_desc,"The ""WHEN"" (or Time) dimension",30,"Length of time covered (Annual, Season, Monthly, Weekly, Point in Time). Monthly often covers more than one month. Point in Time is as of a particular day."
+begin_code,"The ""WHEN"" (or Time) dimension",2,"If applicable, a 2-digit code corresponding to the beginning of the reference period (e.g., for freq_desc = Monthly, begin_code ranges from 01 (January) to 12 (December))."
+end_code,"The ""WHEN"" (or Time) dimension",2,"If applicable, a 2-digit code corresponding to the end of the reference period (e.g., the reference period of Jan thru Mar will have begin_code = 01 and end_code = 03)."
+reference_period_desc,"The ""WHEN"" (or Time) dimension",40,"The specific time frame, within a freq_desc."
+week_ending,"The ""WHEN"" (or Time) dimension",10,"Week ending date, used when freq_desc = Weekly."
+load_time,"The ""WHEN"" (or Time) dimension",19,Date and time indicating when record was inserted into Quick Stats database.
+Value,The Data Value,24,Published data value or suppression reason code.
+CV (%),The Data Value,7,Coefficient of variation. Available for the 2012 Census of Agriculture only. County-level CVs are generalized.
