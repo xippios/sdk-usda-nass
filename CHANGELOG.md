@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `get_crop_progress` and `get_crop_condition`: weekly state or national series from the
+  Crop Progress survey (`statisticcat_desc` PROGRESS / CONDITION), as
+  `CropProgressRecord`, a projection of `QuickStatsRecord` under upstream column names
+  with `value` parsed. Fixtures recorded 2026-10-22.
 - Filter-key validation (`params.validate_filters`): `get_counts` and `get_data` reject
   unknown columns and operators with `InvalidRequestError` before calling upstream,
   naming the closest valid column names.

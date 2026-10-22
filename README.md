@@ -38,6 +38,19 @@ records[0].value, records[0].value_number  # '510,000', Decimal('510000')
 50,000 raise `QueryTooLarge` with the count and a hint to narrow, before anything is
 fetched. `list_param_values("sector_desc")` lists the values a filter can take.
 
+Task-shaped functions sit on top for the slices an agent reaches in one call:
+
+```python
+from xippios.usda.nass import tasks
+from xippios.usda.nass.enums import StateAlpha
+
+weekly = tasks.get_crop_progress("CORN", 2024, state=StateAlpha.IA, stage="PCT PLANTED").data
+weekly[-1].week_ending, weekly[-1].value  # datetime.date(2024, 6, 9), Decimal('98')
+```
+
+They return projections of the Quick Stats record under upstream column names, never a
+renamed or computed field (ADR-0003).
+
 Filters are Quick Stats column names, optionally suffixed with an operator (`__GE`,
 `__LE`, `__LIKE`, ...), mapped to values; the columns are listed in
 `docs/upstream/param_define.md`. Quick Stats ignores unknown column names, so the
@@ -70,6 +83,8 @@ HTTP instead of stdio.
 | `get_counts` | `tasks.get_counts(filters)` | `usda_nass_get_counts` | alpha |
 | `api_GET` | `tasks.get_data(filters)` | `usda_nass_get_data` | alpha |
 | `get_param_values` | `tasks.list_param_values(param)` | `usda_nass_list_param_values` | alpha |
+| `api_GET` (PROGRESS, WEEKLY) | `tasks.get_crop_progress(commodity, year, state=, stage=)` | `usda_nass_get_crop_progress` | alpha |
+| `api_GET` (CONDITION, WEEKLY) | `tasks.get_crop_condition(commodity, year, state=, category=)` | `usda_nass_get_crop_condition` | alpha |
 
 ## Upstream terms and attribution
 
