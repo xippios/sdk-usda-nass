@@ -13,7 +13,7 @@ The snapshot in `docs/upstream/` is the reference for every endpoint wrapper
 4. Diff against the previous snapshot: `git diff --stat docs/upstream/` and read the
    changes. Summarise in the PR description what changed upstream: new or removed
    operations, renamed or newly required parameters, changed semantics, and which
-   wrappers in `src/xippios/usda.nass/api/` are affected.
+   wrappers in `src/xippios/usda/nass/api/` are affected.
 5. Do not change any code in this PR. If wrappers must follow, list them as follow-up
    issues or `/add-endpoint` runs.
 6. Open the PR with the definition-of-done checklist. Do not merge.
