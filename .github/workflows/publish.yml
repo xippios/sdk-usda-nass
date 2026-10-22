@@ -1,6 +1,6 @@
 # Release = a human tags vX.Y.Z on main → this workflow → environment `pypi` →
 # a human approves → trusted publishing uploads. No tokens anywhere (conventions §12).
-name: publish
+name: Publish to PyPI
 
 on:
   push:

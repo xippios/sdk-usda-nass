@@ -1,6 +1,6 @@
 # The org ruleset requires a check named `ci` on main. The matrix job is `test`;
 # the single `ci` job below aggregates it so the required check has one name.
-name: ci
+name: CI
 
 on:
   push:
