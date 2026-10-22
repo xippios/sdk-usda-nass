@@ -53,3 +53,11 @@ async def test_crop_progress_live() -> None:
     assert result.data
     assert result.data[-1].value is not None
     assert result.data[-1].value >= 90
+
+
+async def test_county_yield_live() -> None:
+    from xippios.usda.nass.enums import StateAlpha
+
+    result = await tasks.get_county_yield_async("CORN", 2023, state=StateAlpha.DE)
+    assert result.data
+    assert {row.county_name for row in result.data} >= {"KENT", "SUSSEX"}

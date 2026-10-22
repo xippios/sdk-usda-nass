@@ -18,10 +18,23 @@ from xippios.usda.nass import api
 from xippios.usda.nass._client import SOURCE
 from xippios.usda.nass.enums import ConditionCategory, ProgressStage, StateAlpha
 from xippios.usda.nass.errors import RECORD_LIMIT, QueryTooLarge
-from xippios.usda.nass.models import CropProgressRecord, Filters, QuickStatsRecord
+from xippios.usda.nass.models import (
+    CountyEstimateRecord,
+    CropProgressRecord,
+    Filters,
+    QuickStatsRecord,
+)
 from xippios.usda.nass.params import packaged_values, validate_filters
 
-__all__ = ["get_counts", "get_crop_condition", "get_crop_progress", "get_data", "list_param_values"]
+__all__ = [
+    "get_counts",
+    "get_county_production",
+    "get_county_yield",
+    "get_crop_condition",
+    "get_crop_progress",
+    "get_data",
+    "list_param_values",
+]
 
 
 async def get_counts_async(filters: Filters) -> Result[int]:
@@ -193,3 +206,74 @@ async def get_crop_condition_async(
 
 get_crop_progress = sync(get_crop_progress_async)
 get_crop_condition = sync(get_crop_condition_async)
+
+
+async def _county_series(
+    statisticcat_desc: str, commodity: str, year: int, state: StateAlpha | None
+) -> Result[list[CountyEstimateRecord]]:
+    filters: dict[str, str | int] = {
+        "commodity_desc": commodity,
+        "statisticcat_desc": statisticcat_desc,
+        "agg_level_desc": "COUNTY",
+        "freq_desc": "ANNUAL",
+        "reference_period_desc": "YEAR",
+        "year": year,
+    }
+    if state is not None:
+        filters["state_alpha"] = state.value
+    result = await get_data_async(filters)
+    rows = sorted(
+        (CountyEstimateRecord.from_record(record) for record in result.data),
+        key=lambda row: (
+            row.state_alpha,
+            row.county_name,
+            row.util_practice_desc,
+            row.prodn_practice_desc,
+            row.unit_desc,
+        ),
+    )
+    return Result(data=rows, meta=result.meta)
+
+
+async def get_county_yield_async(
+    commodity: str, year: int, *, state: StateAlpha | None = None
+) -> Result[list[CountyEstimateRecord]]:
+    """County yields of a crop for a year, one row per county, utilisation and practice.
+
+    Annual final estimates (``statisticcat_desc`` ``YIELD``, ``reference_period_desc``
+    ``YEAR``) at ``agg_level_desc`` ``COUNTY``, sorted by state, county, utilisation and
+    practice. ``unit_desc`` names the unit, ``"BU / ACRE"`` for grain and ``"TONS / ACRE"``
+    for silage; ``value`` is the yield.
+
+    Args:
+        commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``, ``"WHEAT"``.
+        year: Crop year, e.g. ``2023``. County estimates for a year appear the following
+            spring.
+        state: Two-letter state code to restrict to one state; ``None`` returns every
+            county in the country, which stays under the 50,000-record limit for one crop
+            and year.
+    """
+    return await _county_series("YIELD", commodity, year, state)
+
+
+async def get_county_production_async(
+    commodity: str, year: int, *, state: StateAlpha | None = None
+) -> Result[list[CountyEstimateRecord]]:
+    """County production of a crop for a year, one row per county, utilisation and practice.
+
+    Annual final estimates (``statisticcat_desc`` ``PRODUCTION``, ``reference_period_desc``
+    ``YEAR``) at ``agg_level_desc`` ``COUNTY``, sorted by state, county, utilisation and
+    practice. ``unit_desc`` names the unit, ``"BU"`` for grain and ``"TONS"`` for silage;
+    ``value`` is the quantity.
+
+    Args:
+        commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``, ``"WHEAT"``.
+        year: Crop year, e.g. ``2023``.
+        state: Two-letter state code to restrict to one state; ``None`` returns every
+            county in the country.
+    """
+    return await _county_series("PRODUCTION", commodity, year, state)
+
+
+get_county_yield = sync(get_county_yield_async)
+get_county_production = sync(get_county_production_async)

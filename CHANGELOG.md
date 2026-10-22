@@ -8,6 +8,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `get_county_yield` and `get_county_production`: annual final county estimates
+  (`agg_level_desc` COUNTY, `reference_period_desc` YEAR) for a crop and year, one or
+  all states, as `CountyEstimateRecord` (projection with `value` and `cv_percent`
+  parsed; utilisation and production practice kept apart). Fixtures recorded
+  2026-10-22 for Delaware corn 2023.
 - `ProgressStage` and `ConditionCategory` enums, derived by the refresh script from one
   national year of weekly rows (`reference/progress_stages.json`,
   `reference/condition_categories.json`, with the query recorded). `get_crop_progress`
