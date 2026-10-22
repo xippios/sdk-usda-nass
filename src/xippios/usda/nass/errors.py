@@ -1,6 +1,6 @@
 """Quick Stats failure modes with a distinct, documented meaning (conventions §5)."""
 
-from xippios.core import XippiosError
+from xippios.core import InvalidRequestError
 
 from xippios.usda.nass._client import SOURCE
 
@@ -10,8 +10,8 @@ RECORD_LIMIT = 50_000
 """Most records ``api_GET`` returns for one query (``docs/upstream/api.md``)."""
 
 
-class QueryTooLarge(XippiosError):
-    """The query would return more than Quick Stats' 50,000-record maximum.
+class QueryTooLarge(InvalidRequestError):
+    """The query would return more than Quick Stats' 50,000-record maximum (HTTP 422).
 
     Raised by ``get_data`` before fetching, from the count ``get_counts`` reports, and by
     the ``api_GET`` wrapper when upstream answers HTTP 413 ``exceeds limit=50000``.

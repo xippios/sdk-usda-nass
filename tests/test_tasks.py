@@ -7,12 +7,13 @@ from decimal import Decimal
 
 import pytest
 import respx
-from xippios.core import NotFoundError
+from xippios.core import InvalidRequestError, NotFoundError
+from xippios.core.http import status_for
 
-from xippios.usda.nass import __version__, api, tasks
+from xippios.usda.nass import __version__, api, enums, tasks
 from xippios.usda.nass.errors import QueryTooLarge
 from xippios.usda.nass.models import QuickStatsRecord
-from xippios.usda.nass.params import PACKAGED_PARAMS, columns
+from xippios.usda.nass.params import PACKAGED_PARAMS, columns, packaged_values
 
 TASKS = [getattr(tasks, name) for name in tasks.__all__]
 
@@ -55,12 +56,60 @@ def test_get_counts_replays_the_documented_example(
     assert "key" in sent
 
 
-def test_unknown_columns_are_ignored_upstream(
+@pytest.mark.anyio
+async def test_unknown_columns_are_ignored_upstream(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    """Characterisation: Quick Stats drops unknown columns and counts the whole database."""
+    """Characterisation at layer 1: Quick Stats drops unknown columns and counts everything."""
     replay_fixture("get_counts", "unknown_column")
-    assert tasks.get_counts({"not_a_column": "x"}).data == 57873464
+    assert (await api.get_counts({"not_a_column": "x"})).count == 57873464
+
+
+def test_unknown_filter_keys_are_rejected_before_any_call(respx_mock: respx.MockRouter) -> None:
+    with pytest.raises(InvalidRequestError) as info:
+        tasks.get_counts({"comodity_desc": "CORN", "year__GTE": 2012})
+    message = str(info.value)
+    assert "'comodity_desc' is not a Quick Stats column" in message
+    assert "did you mean commodity_desc" in message
+    assert "'year__GTE': unknown operator 'GTE'" in message
+    assert "__GE" in message
+    assert not respx_mock.calls
+
+
+def test_every_documented_operator_passes_validation(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    replay_fixture("get_counts", "corn_va_since_2012")
+    for key in ["year__LE", "year__LT", "year__GT", "year__GE", "commodity_desc__LIKE",
+                "commodity_desc__NOT_LIKE", "state_alpha__NE", "Value"]:  # fmt: skip
+        assert tasks.get_counts({key: "x"}).data == 22345
+
+
+def test_query_too_large_is_an_invalid_request_for_http_too() -> None:
+    assert issubclass(QueryTooLarge, InvalidRequestError)
+    assert status_for(QueryTooLarge(70_000)) == 422
+
+
+def test_enums_match_the_packaged_lists() -> None:
+    for param in PACKAGED_PARAMS:
+        cls = getattr(enums, "".join(part.capitalize() for part in param.split("_")))
+        packaged = packaged_values(param)
+        assert packaged is not None
+        assert [member.value for member in cls] == packaged.values, param
+    assert enums.StateAlpha.VA.value == "VA"
+    assert enums.SectorDesc.ANIMALS_AND_PRODUCTS.value == "ANIMALS & PRODUCTS"
+    assert enums.AggLevelDesc.REGION_MULTI_STATE.value == "REGION : MULTI-STATE"
+
+
+def test_enum_members_are_accepted_as_filter_values(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    route = replay_fixture("get_counts", "corn_va_since_2012")
+    result = tasks.get_counts(
+        {"state_alpha": enums.StateAlpha.VA, "sector_desc": enums.SectorDesc.CROPS}
+    )
+    assert result.meta.request["state_alpha"] == "VA"
+    assert route.calls.last.request.url.params["sector_desc"] == "CROPS"
 
 
 SMALL_FILTERS: dict[str, str | int] = {
@@ -98,7 +147,7 @@ def test_get_data_refuses_before_fetching_when_over_the_limit(
     replay_fixture("get_counts", "unknown_column")
     fetched = replay_fixture("api_GET", "exceeds_limit")
     with pytest.raises(QueryTooLarge) as info:
-        tasks.get_data({"not_a_column": "x"})
+        tasks.get_data({"commodity_desc": "CORN"})
     assert info.value.count == 57873464
     assert "57,873,464" in str(info.value)
     assert "narrow" in str(info.value).lower()

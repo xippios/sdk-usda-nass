@@ -16,7 +16,7 @@ from xippios.usda.nass import api
 from xippios.usda.nass._client import SOURCE
 from xippios.usda.nass.errors import RECORD_LIMIT, QueryTooLarge
 from xippios.usda.nass.models import Filters, QuickStatsRecord
-from xippios.usda.nass.params import packaged_values
+from xippios.usda.nass.params import packaged_values, validate_filters
 
 __all__ = ["get_counts", "get_data", "list_param_values"]
 
@@ -29,7 +29,9 @@ async def get_counts_async(filters: Filters) -> Result[int]:
 
     Args:
         filters: Quick Stats columns, optionally suffixed with an operator, mapped to
-            values. Columns are the What, Where and When dimensions, for example
+            values. Keys are checked against the column table before anything is sent;
+            an unknown column or operator raises ``InvalidRequestError`` naming it.
+            Columns are the What, Where and When dimensions, for example
             ``commodity_desc`` (``"CORN"``), ``statisticcat_desc`` (``"AREA PLANTED"``),
             ``agg_level_desc`` (``"STATE"``, ``"COUNTY"``), ``state_alpha`` (``"VA"``),
             ``year`` (``2012``), ``freq_desc`` (``"ANNUAL"``). Operators are suffixes:
@@ -37,8 +39,9 @@ async def get_counts_async(filters: Filters) -> Result[int]:
             so ``{"commodity_desc": "CORN", "year__GE": 2012, "state_alpha": "VA"}``
             counts corn records for Virginia from 2012 on.
     """
-    response = await api.get_counts(filters)
-    meta = ResultMeta(source=SOURCE, endpoint="get_counts", request=dict(filters))
+    checked = validate_filters(filters)
+    response = await api.get_counts(checked)
+    meta = ResultMeta(source=SOURCE, endpoint="get_counts", request=checked)
     return Result(data=response.count, meta=meta)
 
 
@@ -61,13 +64,14 @@ async def get_data_async(filters: Filters) -> Result[list[QuickStatsRecord]]:
             ``{"commodity_desc": "CORN", "statisticcat_desc": "AREA PLANTED",
             "agg_level_desc": "STATE", "state_alpha": "VA", "year": 2012}``.
     """
-    count = (await api.get_counts(filters)).count
-    meta = ResultMeta(source=SOURCE, endpoint="api_GET", request=dict(filters))
+    checked = validate_filters(filters)
+    count = (await api.get_counts(checked)).count
+    meta = ResultMeta(source=SOURCE, endpoint="api_GET", request=checked)
     if count == 0:
         return Result(data=[], meta=meta)
     if count > RECORD_LIMIT:
         raise QueryTooLarge(count)
-    response = await api.api_GET(filters)
+    response = await api.api_GET(checked)
     return Result(data=response.data, meta=meta)
 
 

@@ -40,8 +40,10 @@ fetched. `list_param_values("sector_desc")` lists the values a filter can take.
 
 Filters are Quick Stats column names, optionally suffixed with an operator (`__GE`,
 `__LE`, `__LIKE`, ...), mapped to values; the columns are listed in
-`docs/upstream/param_define.md`. Quick Stats ignores unknown column names, so a
-misspelt filter counts the whole database.
+`docs/upstream/param_define.md`. Quick Stats ignores unknown column names, so the
+package checks every key against its column table and raises `InvalidRequestError`,
+naming the closest valid names, before anything is sent. `xippios.usda.nass.enums`
+holds StrEnums for the six packaged lists (`StateAlpha.VA`, `SectorDesc.CROPS`, ...).
 
 ## MCP
 

@@ -1429,7 +1429,7 @@ wheels = [
 [[package]]
 name = "xippios-core"
 version = "0.1.0"
-source = { git = "https://github.com/xippios/sdk-core.git?rev=main#840ec693145d1dff5f39ad9050b41b20f03e8119" }
+source = { git = "https://github.com/xippios/sdk-core.git?rev=main#ed3042b70698c5f8ab1caada90f6c30bfb2ffe1e" }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
