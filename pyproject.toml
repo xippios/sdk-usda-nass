@@ -46,11 +46,6 @@ dev = [
   "detect-secrets>=1.5",
 ]
 
-[tool.uv.sources]
-# Development only: xippios-core from git until it is on PyPI. Remove this block
-# (re-run copier with core_git_ref="") once the published package is available.
-xippios-core = { git = "https://github.com/xippios/sdk-core.git", rev = "main" }
-
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
