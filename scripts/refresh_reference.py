@@ -3,8 +3,10 @@
 Writes ``src/xippios/usda/nass/reference/<param>.json`` for every packaged parameter
 list through the layer-1 wrapper (never the task, which would answer from the package),
 ``columns.csv`` from the column table in ``docs/upstream/param_define.md``, and
-``enums.py`` with one ``StrEnum`` per packaged list (member names derived from the values,
-values verbatim). Run from the repository root with the API key in the environment::
+``enums.py`` with one ``StrEnum`` per packaged and derived list (member names derived from
+the values, values verbatim). The derived lists, progress stages and condition categories,
+come from one national year of weekly ``api_GET`` rows. Run from the repository root with
+the API key in the environment::
 
     uv run python scripts/refresh_reference.py
 """
@@ -18,7 +20,7 @@ from pathlib import Path
 from xippios.core import sync
 
 from xippios.usda.nass import api
-from xippios.usda.nass.params import PACKAGED_PARAMS
+from xippios.usda.nass.params import DERIVED_LISTS, PACKAGED_PARAMS
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_DIR = ROOT / "src/xippios/usda/nass"
@@ -62,9 +64,12 @@ def member_name(value: str) -> str:
     return f"_{name}" if name[:1].isdigit() else name
 
 
+_ENUM_NAMES = {"progress_stages": "ProgressStage", "condition_categories": "ConditionCategory"}
+
+
 def class_name(param: str) -> str:
-    """``agg_level_desc`` → ``AggLevelDesc``."""
-    return "".join(part.capitalize() for part in param.split("_"))
+    """``agg_level_desc`` → ``AggLevelDesc``; derived lists have fixed singular names."""
+    return _ENUM_NAMES.get(param, "".join(part.capitalize() for part in param.split("_")))
 
 
 def write_enums(lists: dict[str, list[str]], today: str) -> None:
@@ -84,16 +89,34 @@ def write_enums(lists: dict[str, list[str]], today: str) -> None:
         names = [member_name(v) for v in values]
         if len(set(names)) != len(names):
             raise SystemExit(f"{param}: member names collide: {names}")
+        what = (
+            f"``unit_desc`` values of {param.replace('_', ' ')}"
+            if param in _ENUM_NAMES
+            else f"Values of ``{param}``"
+        )
         lines += ["", "", f"class {class_name(param)}(StrEnum):"]
-        lines += [f'    """Values of ``{param}`` (fetched {today})."""', ""]
+        lines += [f'    """{what} (fetched {today})."""', ""]
         lines += [f'    {name} = "{value}"' for name, value in zip(names, values, strict=True)]
     ENUMS.write_text("\n".join(lines) + "\n")
     print(f"{ENUMS.name}: {len(lists)} enums")  # noqa: T201
 
 
+def derive(name: str, filters: dict[str, str | int], year: int, today: str) -> list[str]:
+    """Distinct ``unit_desc`` values of one national year of weekly rows, written to a file."""
+    query: dict[str, str | int] = {**filters, "freq_desc": "WEEKLY", "year": year}
+    rows = sync(api.api_GET)(query).data
+    values = sorted({row.unit_desc for row in rows})
+    path = REFERENCE / f"{name}.json"
+    payload = {"param": "unit_desc", "fetched": today, "values": values, "derived_from": query}
+    path.write_text(json.dumps(payload, indent=2) + "\n")
+    print(f"{path.name}: {len(values)} values from {len(rows)} rows")  # noqa: T201
+    return values
+
+
 def main() -> None:
-    """Fetch every packaged list, rebuild columns.csv and enums.py."""
-    today = datetime.now(UTC).date().isoformat()
+    """Fetch the packaged lists, derive stages and categories, rebuild columns.csv and enums.py."""
+    now = datetime.now(UTC)
+    today = now.date().isoformat()
     fetch = sync(api.get_param_values)
     lists: dict[str, list[str]] = {}
     for param in PACKAGED_PARAMS:
@@ -104,6 +127,8 @@ def main() -> None:
             json.dumps({"param": param, "fetched": today, "values": values}, indent=2) + "\n"
         )
         print(f"{path.name}: {len(values)} values")  # noqa: T201
+    for name, filters in DERIVED_LISTS.items():
+        lists[name] = derive(name, filters, now.year - 1, today)
     write_enums(lists, today)
     with (REFERENCE / "columns.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(

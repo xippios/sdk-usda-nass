@@ -13,7 +13,13 @@ from xippios.core.http import status_for
 from xippios.usda.nass import __version__, api, enums, tasks
 from xippios.usda.nass.errors import QueryTooLarge
 from xippios.usda.nass.models import CropProgressRecord, QuickStatsRecord
-from xippios.usda.nass.params import PACKAGED_PARAMS, columns, packaged_values
+from xippios.usda.nass.params import (
+    DERIVED_LISTS,
+    PACKAGED_PARAMS,
+    columns,
+    derived_values,
+    packaged_values,
+)
 
 TASKS = [getattr(tasks, name) for name in tasks.__all__]
 
@@ -278,7 +284,9 @@ def test_columns_cover_every_record_field() -> None:
 def test_crop_progress_state_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
     replay_fixture("get_counts", "corn_progress_planted_ia_2024")
     fetched = replay_fixture("api_GET", "corn_progress_planted_ia_2024")
-    result = tasks.get_crop_progress("CORN", 2024, state=enums.StateAlpha.IA, stage="PCT PLANTED")
+    result = tasks.get_crop_progress(
+        "CORN", 2024, state=enums.StateAlpha.IA, stage=enums.ProgressStage.PCT_PLANTED
+    )
     assert result.meta.request == {
         "commodity_desc": "CORN",
         "statisticcat_desc": "PROGRESS",
@@ -306,7 +314,7 @@ def test_crop_progress_state_series(replay_fixture: Callable[[str, str], respx.R
 def test_crop_progress_national_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
     replay_fixture("get_counts", "corn_progress_planted_us_2024")
     replay_fixture("api_GET", "corn_progress_planted_us_2024")
-    result = tasks.get_crop_progress("CORN", 2024, stage="PCT PLANTED")
+    result = tasks.get_crop_progress("CORN", 2024, stage=enums.ProgressStage.PCT_PLANTED)
     assert result.meta.request["agg_level_desc"] == "NATIONAL"
     assert "state_alpha" not in result.meta.request
     assert {row.state_alpha for row in result.data} == {"US"}
@@ -316,7 +324,9 @@ def test_crop_progress_national_series(replay_fixture: Callable[[str, str], resp
 def test_crop_condition_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
     replay_fixture("get_counts", "corn_condition_good_ia_2024")
     replay_fixture("api_GET", "corn_condition_good_ia_2024")
-    result = tasks.get_crop_condition("CORN", 2024, state=enums.StateAlpha.IA, category="PCT GOOD")
+    result = tasks.get_crop_condition(
+        "CORN", 2024, state=enums.StateAlpha.IA, category=enums.ConditionCategory.PCT_GOOD
+    )
     assert result.meta.request["statisticcat_desc"] == "CONDITION"
     assert result.meta.request["unit_desc"] == "PCT GOOD"
     assert len(result.data) == 21
@@ -333,3 +343,18 @@ def test_projection_keeps_upstream_names_and_values() -> None:
             assert projected.value == record.value_number
         else:
             assert getattr(projected, name) == getattr(record, name), name
+
+
+def test_derived_enums_match_their_lists_and_provenance() -> None:
+    stages = derived_values("progress_stages")
+    categories = derived_values("condition_categories")
+    assert [m.value for m in enums.ProgressStage] == stages.values
+    assert [m.value for m in enums.ConditionCategory] == categories.values
+    assert stages.derived_from is not None
+    assert stages.derived_from["statisticcat_desc"] == "PROGRESS"
+    assert stages.derived_from["agg_level_desc"] == "NATIONAL"
+    assert set(DERIVED_LISTS) == {"progress_stages", "condition_categories"}
+    assert enums.ProgressStage.PCT_PLANTED.value == "PCT PLANTED"
+    assert [m.value for m in enums.ConditionCategory] == [
+        "PCT EXCELLENT", "PCT FAIR", "PCT GOOD", "PCT POOR", "PCT VERY POOR",
+    ]  # fmt: skip

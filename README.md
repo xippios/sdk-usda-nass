@@ -42,9 +42,11 @@ Task-shaped functions sit on top for the slices an agent reaches in one call:
 
 ```python
 from xippios.usda.nass import tasks
-from xippios.usda.nass.enums import StateAlpha
+from xippios.usda.nass.enums import ProgressStage, StateAlpha
 
-weekly = tasks.get_crop_progress("CORN", 2024, state=StateAlpha.IA, stage="PCT PLANTED").data
+weekly = tasks.get_crop_progress(
+    "CORN", 2024, state=StateAlpha.IA, stage=ProgressStage.PCT_PLANTED
+).data
 weekly[-1].week_ending, weekly[-1].value  # datetime.date(2024, 6, 9), Decimal('98')
 ```
 
@@ -56,7 +58,9 @@ Filters are Quick Stats column names, optionally suffixed with an operator (`__G
 `docs/upstream/param_define.md`. Quick Stats ignores unknown column names, so the
 package checks every key against its column table and raises `InvalidRequestError`,
 naming the closest valid names, before anything is sent. `xippios.usda.nass.enums`
-holds StrEnums for the six packaged lists (`StateAlpha.VA`, `SectorDesc.CROPS`, ...).
+holds StrEnums for the six packaged lists (`StateAlpha.VA`, `SectorDesc.CROPS`, ...) and
+for the progress stages and condition categories derived from the data
+(`ProgressStage.PCT_PLANTED`, `ConditionCategory.PCT_GOOD`).
 
 ## MCP
 

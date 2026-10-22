@@ -6,7 +6,16 @@ edit by hand. Member names are derived from the values, values are upstream's.
 
 from enum import StrEnum
 
-__all__ = ["AggLevelDesc", "FreqDesc", "GroupDesc", "SectorDesc", "SourceDesc", "StateAlpha"]
+__all__ = [
+    "AggLevelDesc",
+    "ConditionCategory",
+    "FreqDesc",
+    "GroupDesc",
+    "ProgressStage",
+    "SectorDesc",
+    "SourceDesc",
+    "StateAlpha",
+]
 
 
 class SourceDesc(StrEnum):
@@ -139,3 +148,34 @@ class StateAlpha(StrEnum):
     WI = "WI"
     WV = "WV"
     WY = "WY"
+
+
+class ProgressStage(StrEnum):
+    """``unit_desc`` values of progress stages (fetched 2026-10-22)."""
+
+    PCT_BLOOMING = "PCT BLOOMING"
+    PCT_BOLLS_OPENING = "PCT BOLLS OPENING"
+    PCT_COLORING = "PCT COLORING"
+    PCT_DENTED = "PCT DENTED"
+    PCT_DOUGH = "PCT DOUGH"
+    PCT_DROPPING_LEAVES = "PCT DROPPING LEAVES"
+    PCT_EMERGED = "PCT EMERGED"
+    PCT_HARVESTED = "PCT HARVESTED"
+    PCT_HEADED = "PCT HEADED"
+    PCT_MATURE = "PCT MATURE"
+    PCT_PEGGING = "PCT PEGGING"
+    PCT_PLANTED = "PCT PLANTED"
+    PCT_SETTING_BOLLS = "PCT SETTING BOLLS"
+    PCT_SETTING_PODS = "PCT SETTING PODS"
+    PCT_SILKING = "PCT SILKING"
+    PCT_SQUARING = "PCT SQUARING"
+
+
+class ConditionCategory(StrEnum):
+    """``unit_desc`` values of condition categories (fetched 2026-10-22)."""
+
+    PCT_EXCELLENT = "PCT EXCELLENT"
+    PCT_FAIR = "PCT FAIR"
+    PCT_GOOD = "PCT GOOD"
+    PCT_POOR = "PCT POOR"
+    PCT_VERY_POOR = "PCT VERY POOR"

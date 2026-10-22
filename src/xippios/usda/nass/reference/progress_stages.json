@@ -1,0 +1,28 @@
+{
+  "param": "unit_desc",
+  "fetched": "2026-10-22",
+  "values": [
+    "PCT BLOOMING",
+    "PCT BOLLS OPENING",
+    "PCT COLORING",
+    "PCT DENTED",
+    "PCT DOUGH",
+    "PCT DROPPING LEAVES",
+    "PCT EMERGED",
+    "PCT HARVESTED",
+    "PCT HEADED",
+    "PCT MATURE",
+    "PCT PEGGING",
+    "PCT PLANTED",
+    "PCT SETTING BOLLS",
+    "PCT SETTING PODS",
+    "PCT SILKING",
+    "PCT SQUARING"
+  ],
+  "derived_from": {
+    "statisticcat_desc": "PROGRESS",
+    "agg_level_desc": "NATIONAL",
+    "freq_desc": "WEEKLY",
+    "year": 2025
+  }
+}

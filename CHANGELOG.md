@@ -8,6 +8,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `ProgressStage` and `ConditionCategory` enums, derived by the refresh script from one
+  national year of weekly rows (`reference/progress_stages.json`,
+  `reference/condition_categories.json`, with the query recorded). `get_crop_progress`
+  and `get_crop_condition` take them instead of strings.
+
 - `get_crop_progress` and `get_crop_condition`: weekly state or national series from the
   Crop Progress survey (`statisticcat_desc` PROGRESS / CONDITION), as
   `CropProgressRecord`, a projection of `QuickStatsRecord` under upstream column names

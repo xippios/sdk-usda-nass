@@ -1,0 +1,17 @@
+{
+  "param": "unit_desc",
+  "fetched": "2026-10-22",
+  "values": [
+    "PCT EXCELLENT",
+    "PCT FAIR",
+    "PCT GOOD",
+    "PCT POOR",
+    "PCT VERY POOR"
+  ],
+  "derived_from": {
+    "statisticcat_desc": "CONDITION",
+    "agg_level_desc": "NATIONAL",
+    "freq_desc": "WEEKLY",
+    "year": 2025
+  }
+}
