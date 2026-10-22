@@ -8,6 +8,23 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `get_acreage_forecasts`: the in-season acreage reports (March prospective plantings,
+  June acreage, monthly forecasts), oldest first; `get_acreage` keeps the final figure.
+- `meta.published_at` on every data result: the latest `load_time` of the rows, read
+  as UTC.
+
+### Changed
+
+- Projections keep `value` as the published string and expose `value_number` as a
+  computed field that travels as a JSON number; `QuickStatsRecord.value_number` likewise.
+  Projections are built with `UpstreamModel.project` (ADR-0008).
+- Task-shaped functions skip the count check; their fixed filters keep results small and
+  an over-limit answer still raises `QueryTooLarge`.
+- Upstream's error shapes are mapped once in `_client.classify`; the wrappers use
+  `get_json` and no longer inspect status codes. `scripts/refresh_reference.py` renders
+  enums through `xippios.core.reference.render_str_enums`. Core pinned to the ADR-0008
+  commit.
+
 - `get_prices_received`: monthly and marketing-year prices received for a commodity,
   state or national, as `PriceReceivedRecord` (projection with the period codes kept).
   Fixtures recorded 2026-10-22 for Iowa and national corn 2023.

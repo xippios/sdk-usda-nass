@@ -1,0 +1,50 @@
+{
+  "recorded_at": "2026-10-22T13:19:01.064289Z",
+  "request": {
+    "method": "GET",
+    "url": "https://quickstats.nass.usda.gov/api/api_GET/?commodity_desc=CORN&unit_desc=ACRES&domain_desc=TOTAL&prodn_practice_desc=ALL+PRODUCTION+PRACTICES&freq_desc=ANNUAL&reference_period_desc__NE=YEAR&year=2023&statisticcat_desc=AREA+HARVESTED&agg_level_desc=STATE&state_alpha=IA&format=JSON&key=REDACTED"
+  },
+  "response": {
+    "body": "{\"data\":[{\"zip_5\":\"\",\"country_name\":\"UNITED STATES\",\"week_ending\":\"\",\"end_code\":\"00\",\"country_code\":\"9000\",\"load_time\":\"2023-08-11 12:00:00.000\",\"county_ansi\":\"\",\"state_alpha\":\"IA\",\"county_name\":\"\",\"region_desc\":\"\",\"state_ansi\":\"19\",\"short_desc\":\"CORN, GRAIN - ACRES HARVESTED\",\"util_practice_desc\":\"GRAIN\",\"begin_code\":\"00\",\"source_desc\":\"SURVEY\",\"domain_desc\":\"TOTAL\",\"sector_desc\":\"CROPS\",\"domaincat_desc\":\"NOT SPECIFIED\",\"reference_period_desc\":\"YEAR - AUG FORECAST\",\"congr_district_code\":\"\",\"Value\":\"12,900,000\",\"freq_desc\":\"ANNUAL\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"asd_code\":\"\",\"year\":2023,\"CV (%)\":\"\",\"group_desc\":\"FIELD CROPS\",\"agg_level_desc\":\"STATE\",\"statisticcat_desc\":\"AREA HARVESTED\",\"commodity_desc\":\"CORN\",\"location_desc\":\"IOWA\",\"unit_desc\":\"ACRES\",\"watershed_desc\":\"\",\"class_desc\":\"ALL CLASSES\",\"state_name\":\"IOWA\",\"county_code\":\"\",\"state_fips_code\":\"19\",\"asd_desc\":\"\",\"watershed_code\":\"00000000\"},{\"group_desc\":\"FIELD CROPS\",\"CV (%)\":\"\",\"agg_level_desc\":\"STATE\",\"year\":2023,\"location_desc\":\"IOWA\",\"statisticcat_desc\":\"AREA HARVESTED\",\"commodity_desc\":\"CORN\",\"asd_code\":\"\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"freq_desc\":\"ANNUAL\",\"asd_desc\":\"\",\"county_code\":\"\",\"state_fips_code\":\"19\",\"watershed_code\":\"00000000\",\"watershed_desc\":\"\",\"unit_desc\":\"ACRES\",\"class_desc\":\"ALL CLASSES\",\"state_name\":\"IOWA\",\"county_ansi\":\"\",\"load_time\":\"2023-06-30 12:00:00.000\",\"country_code\":\"9000\",\"end_code\":\"00\",\"county_name\":\"\",\"state_alpha\":\"IA\",\"zip_5\":\"\",\"country_name\":\"UNITED STATES\",\"week_ending\":\"\",\"congr_district_code\":\"\",\"sector_desc\":\"CROPS\",\"domaincat_desc\":\"NOT SPECIFIED\",\"domain_desc\":\"TOTAL\",\"reference_period_desc\":\"YEAR - JUN ACREAGE\",\"Value\":\"12,900,000\",\"short_desc\":\"CORN, GRAIN - ACRES HARVESTED\",\"region_desc\":\"\",\"state_ansi\":\"19\",\"begin_code\":\"00\",\"source_desc\":\"SURVEY\",\"util_practice_desc\":\"GRAIN\"},{\"watershed_code\":\"00000000\",\"county_code\":\"\",\"state_fips_code\":\"19\",\"asd_desc\":\"\",\"class_desc\":\"ALL CLASSES\",\"state_name\":\"IOWA\",\"unit_desc\":\"ACRES\",\"watershed_desc\":\"\",\"statisticcat_desc\":\"AREA HARVESTED\",\"commodity_desc\":\"CORN\",\"location_desc\":\"IOWA\",\"year\":2023,\"group_desc\":\"FIELD CROPS\",\"CV (%)\":\"\",\"agg_level_desc\":\"STATE\",\"freq_desc\":\"ANNUAL\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"asd_code\":\"\",\"Value\":\"12,600,000\",\"domain_desc\":\"TOTAL\",\"sector_desc\":\"CROPS\",\"domaincat_desc\":\"NOT SPECIFIED\",\"reference_period_desc\":\"YEAR - NOV FORECAST\",\"congr_district_code\":\"\",\"util_practice_desc\":\"GRAIN\",\"source_desc\":\"SURVEY\",\"begin_code\":\"00\",\"region_desc\":\"\",\"state_ansi\":\"19\",\"short_desc\":\"CORN, GRAIN - ACRES HARVESTED\",\"state_alpha\":\"IA\",\"county_name\":\"\",\"country_code\":\"9000\",\"end_code\":\"00\",\"load_time\":\"2023-11-09 12:00:00.000\",\"county_ansi\":\"\",\"country_name\":\"UNITED STATES\",\"week_ending\":\"\",\"zip_5\":\"\"},{\"source_desc\":\"SURVEY\",\"begin_code\":\"00\",\"util_practice_desc\":\"GRAIN\",\"short_desc\":\"CORN, GRAIN - ACRES HARVESTED\",\"state_ansi\":\"19\",\"region_desc\":\"\",\"Value\":\"12,600,000\",\"congr_district_code\":\"\",\"sector_desc\":\"CROPS\",\"domain_desc\":\"TOTAL\",\"domaincat_desc\":\"NOT SPECIFIED\",\"reference_period_desc\":\"YEAR - OCT FORECAST\",\"country_name\":\"UNITED STATES\",\"week_ending\":\"\",\"zip_5\":\"\",\"county_name\":\"\",\"state_alpha\":\"IA\",\"county_ansi\":\"\",\"load_time\":\"2023-10-12 12:00:00.000\",\"end_code\":\"00\",\"country_code\":\"9000\",\"class_desc\":\"ALL CLASSES\",\"state_name\":\"IOWA\",\"unit_desc\":\"ACRES\",\"watershed_desc\":\"\",\"watershed_code\":\"00000000\",\"asd_desc\":\"\",\"county_code\":\"\",\"state_fips_code\":\"19\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"asd_code\":\"\",\"freq_desc\":\"ANNUAL\",\"location_desc\":\"IOWA\",\"statisticcat_desc\":\"AREA HARVESTED\",\"commodity_desc\":\"CORN\",\"CV (%)\":\"\",\"group_desc\":\"FIELD CROPS\",\"agg_level_desc\":\"STATE\",\"year\":2023},{\"domaincat_desc\":\"NOT SPECIFIED\",\"domain_desc\":\"TOTAL\",\"sector_desc\":\"CROPS\",\"reference_period_desc\":\"YEAR - SEP FORECAST\",\"congr_district_code\":\"\",\"Value\":\"12,600,000\",\"state_ansi\":\"19\",\"region_desc\":\"\",\"short_desc\":\"CORN, GRAIN - ACRES HARVESTED\",\"util_practice_desc\":\"GRAIN\",\"begin_code\":\"00\",\"source_desc\":\"SURVEY\",\"country_code\":\"9000\",\"end_code\":\"00\",\"load_time\":\"2023-09-12 12:00:00.000\",\"county_ansi\":\"\",\"state_alpha\":\"IA\",\"county_name\":\"\",\"zip_5\":\"\",\"country_name\":\"UNITED STATES\",\"week_ending\":\"\",\"county_code\":\"\",\"state_fips_code\":\"19\",\"asd_desc\":\"\",\"watershed_code\":\"00000000\",\"watershed_desc\":\"\",\"unit_desc\":\"ACRES\",\"class_desc\":\"ALL CLASSES\",\"state_name\":\"IOWA\",\"year\":2023,\"group_desc\":\"FIELD CROPS\",\"CV (%)\":\"\",\"agg_level_desc\":\"STATE\",\"statisticcat_desc\":\"AREA HARVESTED\",\"commodity_desc\":\"CORN\",\"location_desc\":\"IOWA\",\"freq_desc\":\"ANNUAL\",\"asd_code\":\"\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\"}]}",
+    "body_base64": false,
+    "headers": [
+      [
+        "date",
+        "Thu, 22 Oct 2026 13:18:58 GMT"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "server",
+        "Kestrel"
+      ],
+      [
+        "strict-transport-security",
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      [
+        "x-author",
+        "NICE HYPE (RJ)"
+      ],
+      [
+        "x-proxyversion",
+        "0.8.5"
+      ],
+      [
+        "x-cache",
+        "Miss"
+      ],
+      [
+        "x-handler-apgw-05-12",
+        "APPGW-Public"
+      ],
+      [
+        "x-content-type-options",
+        "nosniff"
+      ]
+    ],
+    "status": 200
+  }
+}

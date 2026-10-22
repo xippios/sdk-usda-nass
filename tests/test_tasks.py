@@ -2,16 +2,18 @@
 
 import inspect
 from collections.abc import Callable
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
 import respx
-from xippios.core import InvalidRequestError, NotFoundError
+from xippios.core import InvalidRequestError, NotFoundError, UpstreamModel
 from xippios.core.http import status_for
+from xippios.core.testing import assert_projection, mcp_call
 
 from xippios.usda.nass import __version__, api, enums, tasks
 from xippios.usda.nass.errors import QueryTooLarge
+from xippios.usda.nass.mcp import server
 from xippios.usda.nass.models import (
     AcreageRecord,
     AreaStatistic,
@@ -278,7 +280,10 @@ def test_columns_cover_every_record_field() -> None:
         "CV (%)",
         "reference_period_desc",
     }
-    record_fields = {(field.alias or name) for name, field in QuickStatsRecord.model_fields.items()}
+    record_fields = {
+        (str(field.validation_alias) if field.validation_alias else name)
+        for name, field in QuickStatsRecord.model_fields.items()
+    }
     assert record_fields <= names
     assert {column.dimension for column in columns()} == {
         'The "WHAT" (or Commodity) dimension',
@@ -309,9 +314,9 @@ def test_crop_progress_state_series(replay_fixture: Callable[[str, str], respx.R
     assert weeks == sorted(weeks)
     first, last = result.data[0], result.data[-1]
     assert first.week_ending == date(2024, 3, 31)
-    assert first.value == Decimal("0")
+    assert (first.value, first.value_number) == ("0", Decimal("0"))
     assert last.week_ending == date(2024, 6, 9)
-    assert last.value == Decimal("98")  # NASS stops the series short of 100
+    assert last.value_number == Decimal("98")  # NASS stops the series short of 100
     assert {row.unit_desc for row in result.data} == {"PCT PLANTED"}
     assert {row.state_alpha for row in result.data} == {"IA"}
     assert last.short_desc == "CORN - PROGRESS, MEASURED IN PCT PLANTED"
@@ -338,18 +343,7 @@ def test_crop_condition_series(replay_fixture: Callable[[str, str], respx.Route]
     assert result.meta.request["unit_desc"] == "PCT GOOD"
     assert len(result.data) == 21
     assert {row.statisticcat_desc for row in result.data} == {"CONDITION"}
-    assert all(row.value is not None and 0 <= row.value <= 100 for row in result.data)
-
-
-def test_projection_keeps_upstream_names_and_values() -> None:
-    record = QuickStatsRecord.model_validate(EXAMPLE_RECORD)
-    projected = CropProgressRecord.from_record(record)
-    assert set(CropProgressRecord.model_fields) <= set(QuickStatsRecord.model_fields)
-    for name in CropProgressRecord.model_fields:
-        if name == "value":
-            assert projected.value == record.value_number
-        else:
-            assert getattr(projected, name) == getattr(record, name), name
+    assert all(row.value_number is not None and 0 <= row.value_number <= 100 for row in result.data)
 
 
 def test_derived_enums_match_their_lists_and_provenance() -> None:
@@ -393,7 +387,7 @@ def test_county_yield_series(replay_fixture: Callable[[str, str], respx.Route]) 
         for row in result.data
         if row.county_name == "KENT" and row.prodn_practice_desc == "ALL PRODUCTION PRACTICES"
     )
-    assert kent_all.value == Decimal("194.5")
+    assert (kent_all.value, kent_all.value_number) == ("194.5", Decimal("194.5"))
     assert kent_all.cv_percent == Decimal("2.5")
     assert kent_all.county_code == "001"
     assert kent_all.asd_desc == "CENTRAL"
@@ -415,7 +409,7 @@ def test_county_production_series(replay_fixture: Callable[[str, str], respx.Rou
         for row in result.data
         if row.county_name == "SUSSEX" and row.prodn_practice_desc == "ALL PRODUCTION PRACTICES"
     )
-    assert sussex_all.value == Decimal("18397000")
+    assert sussex_all.value_number == Decimal("18397000")
     assert sussex_all.cv_percent == Decimal("8.7")
 
 
@@ -427,23 +421,6 @@ def test_county_series_without_state_covers_the_country(
     result = tasks.get_county_yield("CORN", 2023)
     assert "state_alpha" not in result.meta.request
     assert result.meta.request["agg_level_desc"] == "COUNTY"
-
-
-def test_county_projection_keeps_upstream_names_and_values() -> None:
-    record = QuickStatsRecord.model_validate({**EXAMPLE_RECORD, "CV (%)": "2.5"})
-    projected = CountyEstimateRecord.from_record(record)
-    assert set(CountyEstimateRecord.model_fields) <= set(QuickStatsRecord.model_fields)
-    for name in CountyEstimateRecord.model_fields:
-        if name == "value":
-            assert projected.value == record.value_number
-        elif name == "cv_percent":
-            assert projected.cv_percent == Decimal("2.5")
-        else:
-            assert getattr(projected, name) == getattr(record, name), name
-    assert (
-        CountyEstimateRecord.from_record(QuickStatsRecord.model_validate(EXAMPLE_RECORD)).cv_percent
-        is None
-    )
 
 
 def test_acreage_planted_state(replay_fixture: Callable[[str, str], respx.Route]) -> None:
@@ -465,7 +442,7 @@ def test_acreage_planted_state(replay_fixture: Callable[[str, str], respx.Route]
     assert fetched.calls.last.request.url.params["unit_desc"] == "ACRES"
     assert len(result.data) == 1
     row = result.data[0]
-    assert row.value == Decimal("13100000")
+    assert row.value_number == Decimal("13100000")
     assert row.util_practice_desc == "ALL UTILIZATION PRACTICES"
     assert row.source_desc == "SURVEY"
     assert row.cv_percent is None
@@ -480,7 +457,7 @@ def test_acreage_harvested_splits_grain_and_silage(
         "CORN", 2023, AreaStatistic.AREA_HARVESTED, state=enums.StateAlpha.IA
     )
     assert result.meta.request["statisticcat_desc"] == "AREA HARVESTED"
-    assert [(row.util_practice_desc, row.value) for row in result.data] == [
+    assert [(row.util_practice_desc, row.value_number) for row in result.data] == [
         ("GRAIN", Decimal("12550000")),
         ("SILAGE", Decimal("380000")),
     ]
@@ -493,20 +470,7 @@ def test_acreage_national(replay_fixture: Callable[[str, str], respx.Route]) -> 
     assert result.meta.request["agg_level_desc"] == "NATIONAL"
     assert "state_alpha" not in result.meta.request
     assert result.data[0].state_alpha == "US"
-    assert result.data[0].value == Decimal("94641000")
-
-
-def test_acreage_projection_keeps_upstream_names_and_values() -> None:
-    record = QuickStatsRecord.model_validate(EXAMPLE_RECORD)
-    projected = AcreageRecord.from_record(record)
-    assert set(AcreageRecord.model_fields) <= set(QuickStatsRecord.model_fields)
-    for name in AcreageRecord.model_fields:
-        if name == "value":
-            assert projected.value == record.value_number
-        elif name == "cv_percent":
-            assert projected.cv_percent is None
-        else:
-            assert getattr(projected, name) == getattr(record, name), name
+    assert result.data[0].value_number == Decimal("94641000")
 
 
 def test_prices_received_state_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
@@ -524,15 +488,15 @@ def test_prices_received_state_series(replay_fixture: Callable[[str, str], respx
     assert fetched.calls.last.request.url.params["statisticcat_desc"] == "PRICE RECEIVED"
     assert len(result.data) == 13
     first = result.data[0]
-    assert (first.freq_desc, first.reference_period_desc, first.value) == (
+    assert (first.freq_desc, first.reference_period_desc, first.value_number) == (
         "ANNUAL", "MARKETING YEAR", Decimal("4.61"),
     )  # fmt: skip
     months = result.data[1:]
     assert [row.reference_period_desc for row in months] == [
         "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
     ]  # fmt: skip
-    assert months[0].value == Decimal("6.74")
-    assert months[-1].value == Decimal("4.89")
+    assert months[0].value_number == Decimal("6.74")
+    assert months[-1].value_number == Decimal("4.89")
     assert {row.unit_desc for row in result.data} == {"$ / BU"}
     assert months[0].begin_code == "01"
 
@@ -549,18 +513,110 @@ def test_prices_received_national_monthly(
     assert len(result.data) == 24
     assert {row.unit_desc for row in result.data} == {"$ / BU", "PCT OF PARITY"}
     jan = [row for row in result.data if row.reference_period_desc == "JAN"]
-    assert [(row.unit_desc, row.value) for row in jan] == [
+    assert [(row.unit_desc, row.value_number) for row in jan] == [
         ("$ / BU", Decimal("6.63")),
         ("PCT OF PARITY", Decimal("43")),
     ]
 
 
-def test_price_projection_keeps_upstream_names_and_values() -> None:
-    record = QuickStatsRecord.model_validate(EXAMPLE_RECORD)
-    projected = PriceReceivedRecord.from_record(record)
-    assert set(PriceReceivedRecord.model_fields) <= set(QuickStatsRecord.model_fields)
-    for name in PriceReceivedRecord.model_fields:
-        if name == "value":
-            assert projected.value == record.value_number
-        else:
-            assert getattr(projected, name) == getattr(record, name), name
+@pytest.mark.parametrize(
+    "model", [CropProgressRecord, CountyEstimateRecord, AcreageRecord, PriceReceivedRecord]
+)
+def test_projections_are_faithful(model: type[UpstreamModel]) -> None:
+    record = QuickStatsRecord.model_validate({**EXAMPLE_RECORD, "CV (%)": "2.5"})
+    overrides = {"cv_percent": Decimal("2.5")} if "cv_percent" in model.model_fields else {}
+    projected = model.project(record, **overrides)
+    assert_projection(projected, record, **overrides)
+    assert set(model.model_fields) <= set(QuickStatsRecord.model_fields)
+    assert projected.model_dump(mode="json")["value_number"] == 1234.5
+
+
+def test_slices_skip_the_count_and_set_published_at(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    counted = replay_fixture("get_counts", "corn_progress_planted_ia_2024")
+    replay_fixture("api_GET", "corn_progress_planted_ia_2024")
+    result = tasks.get_crop_progress(
+        "CORN", 2024, state=enums.StateAlpha.IA, stage=enums.ProgressStage.PCT_PLANTED
+    )
+    assert not counted.called
+    assert result.meta.published_at == datetime(2024, 6, 10, 16, 0, tzinfo=UTC)
+    assert result.meta.published_at == max(row.load_time for row in result.data).replace(tzinfo=UTC)
+
+
+def test_get_data_sets_published_at_and_keeps_the_count(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    counted = replay_fixture("get_counts", "corn_va_since_2012")
+    replay_fixture("api_GET", "corn_va_2012_area_planted")
+    result = tasks.get_data(SMALL_FILTERS)
+    assert counted.called
+    assert result.meta.published_at == datetime(2018, 1, 23, 8, 13, 26, tzinfo=UTC)
+
+
+def test_acreage_forecasts_state_and_national(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    replay_fixture("api_GET", "corn_area_harvested_forecasts_ia_2023")
+    result = tasks.get_acreage_forecasts(
+        "CORN", 2023, AreaStatistic.AREA_HARVESTED, state=enums.StateAlpha.IA
+    )
+    assert result.meta.request["reference_period_desc__NE"] == "YEAR"
+    assert "reference_period_desc" not in result.meta.request
+    assert [row.reference_period_desc for row in result.data] == [
+        "YEAR - JUN ACREAGE", "YEAR - AUG FORECAST", "YEAR - SEP FORECAST",
+        "YEAR - OCT FORECAST", "YEAR - NOV FORECAST",
+    ]  # fmt: skip
+    assert [row.value_number for row in result.data][:2] == [
+        Decimal("12900000"),
+        Decimal("12900000"),
+    ]
+    loads = [row.load_time for row in result.data]
+    assert loads == sorted(loads)
+
+
+def test_acreage_forecasts_national(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    replay_fixture("api_GET", "corn_area_planted_forecasts_us_2023")
+    result = tasks.get_acreage_forecasts("CORN", 2023, AreaStatistic.AREA_PLANTED)
+    assert result.meta.request["agg_level_desc"] == "NATIONAL"
+    assert [row.reference_period_desc for row in result.data][:2] == [
+        "YEAR - MAR ACREAGE", "YEAR - JUN ACREAGE",
+    ]  # fmt: skip
+    assert result.data[0].value_number == Decimal("91996000")
+
+
+@pytest.mark.anyio
+async def test_mcp_tool_call_end_to_end(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    replay_fixture("api_GET", "corn_progress_planted_ia_2024")
+    payload = await mcp_call(
+        server,
+        "usda_nass_get_crop_progress",
+        {"commodity": "CORN", "year": 2024, "state": "IA", "stage": "PCT PLANTED"},
+    )
+    assert len(payload["data"]) == 11
+    first = payload["data"][0]
+    assert (first["value"], first["value_number"], first["week_ending"]) == ("0", 0.0, "2024-03-31")
+    assert payload["meta"]["published_at"].startswith("2024-06-10T16:00:00")
+    with pytest.raises(AssertionError, match=r"InvalidRequestError.*comodity_desc"):
+        await mcp_call(server, "usda_nass_get_counts", {"filters": {"comodity_desc": "CORN"}})
+
+
+def test_http_route_end_to_end(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from xippios.usda.nass.http import router
+
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+    replay_fixture("api_GET", "corn_area_planted_ia_2023")
+    response = client.get(
+        "/usda-nass/get_acreage",
+        params={"commodity": "CORN", "year": 2023, "statistic": "AREA PLANTED", "state": "IA"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"][0]["value_number"] == 13100000
+    rejected = client.post("/usda-nass/get_counts", json={"filters": {"comodity_desc": "CORN"}})
+    assert rejected.status_code == 422
+    assert rejected.json()["title"] == "InvalidRequestError"

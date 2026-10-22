@@ -8,6 +8,7 @@ in ``_client`` are internal.
 from xippios.usda.nass._version import __version__
 from xippios.usda.nass.tasks import (
     get_acreage,
+    get_acreage_forecasts,
     get_counts,
     get_county_production,
     get_county_yield,
@@ -21,6 +22,7 @@ from xippios.usda.nass.tasks import (
 __all__ = [
     "__version__",
     "get_acreage",
+    "get_acreage_forecasts",
     "get_counts",
     "get_county_production",
     "get_county_yield",

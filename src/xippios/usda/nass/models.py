@@ -6,18 +6,20 @@ named as upstream names them in snake_case. Within-source hygiene only: dates be
 No cross-source normalisation (ADR-0003): an upstream concept stays an upstream concept.
 
 Quick Stats sends every value as a string; the models coerce the numeric and temporal
-ones and keep the rest verbatim, empty strings included. Column meanings are in
+ones and keep the rest verbatim, empty strings included. ``value`` stays the published
+string, because a suppression code such as ``"(D)"`` is information; ``value_number``
+is its parsed form and travels as a JSON number. Column meanings are in
 ``docs/upstream/param_define.md``; the response shapes in ``api.md`` and the recorded
 fixtures.
 """
 
 from collections.abc import Mapping
 from datetime import date, datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from enum import StrEnum
 
-from pydantic import Field, field_validator
-from xippios.core import UpstreamModel
+from pydantic import Field, computed_field, field_validator
+from xippios.core import UpstreamModel, parse_decimal
 
 __all__ = [
     "AcreageRecord",
@@ -38,7 +40,7 @@ Keys are column names from ``docs/upstream/param_define.md`` (``commodity_desc``
 ``state_alpha``, ``year``, ...), optionally suffixed with an operator: ``__LE``, ``__LT``,
 ``__GT``, ``__GE``, ``__LIKE``, ``__NOT_LIKE``, ``__NE``. Example:
 ``{"commodity_desc": "CORN", "year__GE": 2012, "state_alpha": "VA"}``. Upstream ignores
-unknown column names rather than rejecting them.
+unknown column names rather than rejecting them; the tasks validate keys first.
 """
 
 
@@ -52,13 +54,25 @@ class GetCountsResponse(UpstreamModel):
     count: int
 
 
-class QuickStatsRecord(UpstreamModel):
+class _Published(UpstreamModel):
+    """The published figure as Quick Stats sends it, plus its parsed form."""
+
+    value: str = Field(validation_alias="Value")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def value_number(self) -> Decimal | None:
+        """``value`` as a number, or ``None`` for a suppression code."""
+        return parse_decimal(self.value)
+
+
+class QuickStatsRecord(_Published):
     """One published estimate from ``api_GET``, every column Quick Stats returns.
 
-    Columns keep their upstream names; ``Value`` and ``CV (%)`` get snake_case names with
-    the upstream spelling as alias. ``value`` stays a string because it carries either a
-    number with thousands separators (``"510,000"``) or a suppression code such as
-    ``"(D)"``; ``value_number`` parses the numeric case.
+    Columns keep their upstream names; ``Value`` and ``CV (%)`` are read under the
+    upstream spelling and carried as ``value`` and ``cv_percent``. ``value`` stays a
+    string because it carries either a number with thousands separators (``"510,000"``)
+    or a suppression code such as ``"(D)"``; ``value_number`` parses the numeric case.
     """
 
     source_desc: str
@@ -98,21 +112,12 @@ class QuickStatsRecord(UpstreamModel):
     reference_period_desc: str
     week_ending: date | None
     load_time: datetime
-    value: str = Field(alias="Value")
-    cv_percent: str = Field(alias="CV (%)")
+    cv_percent: str = Field(validation_alias="CV (%)")
 
     @field_validator("week_ending", mode="before")
     @classmethod
     def _empty_is_none(cls, raw: object) -> object:
         return None if raw == "" else raw
-
-    @property
-    def value_number(self) -> Decimal | None:
-        """``value`` as a number, or ``None`` for a suppression code."""
-        try:
-            return Decimal(self.value.replace(",", ""))
-        except InvalidOperation:
-            return None
 
 
 class ApiGetResponse(UpstreamModel):
@@ -121,15 +126,15 @@ class ApiGetResponse(UpstreamModel):
     data: list[QuickStatsRecord]
 
 
-class CropProgressRecord(UpstreamModel):
+class CropProgressRecord(_Published):
     """One weekly crop progress or condition estimate: a projection of ``QuickStatsRecord``.
 
     Columns keep their upstream names (ADR-0003); only the ones that vary within a
     progress or condition series are kept. ``unit_desc`` carries the stage
     (``"PCT PLANTED"``, ``"PCT EMERGED"``, ...) or the condition category
-    (``"PCT EXCELLENT"`` ... ``"PCT VERY POOR"``); ``value`` is that percentage, parsed,
-    or ``None`` for a suppression code. ``state_alpha`` is ``"US"`` for the national
-    series.
+    (``"PCT EXCELLENT"`` ... ``"PCT VERY POOR"``); ``value`` is that percentage as
+    published and ``value_number`` its parsed form. ``state_alpha`` is ``"US"`` for the
+    national series.
     """
 
     commodity_desc: str
@@ -144,48 +149,18 @@ class CropProgressRecord(UpstreamModel):
     year: int
     week_ending: date | None
     reference_period_desc: str
-    value: Decimal | None
     source_desc: str
     load_time: datetime
 
-    @classmethod
-    def from_record(cls, record: QuickStatsRecord) -> "CropProgressRecord":
-        """Project a full record; every field keeps its upstream name and value."""
-        return cls(
-            commodity_desc=record.commodity_desc,
-            class_desc=record.class_desc,
-            util_practice_desc=record.util_practice_desc,
-            statisticcat_desc=record.statisticcat_desc,
-            unit_desc=record.unit_desc,
-            short_desc=record.short_desc,
-            agg_level_desc=record.agg_level_desc,
-            state_alpha=record.state_alpha,
-            state_name=record.state_name,
-            year=record.year,
-            week_ending=record.week_ending,
-            reference_period_desc=record.reference_period_desc,
-            value=record.value_number,
-            source_desc=record.source_desc,
-            load_time=record.load_time,
-        )
 
-
-def _decimal_or_none(raw: str) -> Decimal | None:
-    try:
-        return Decimal(raw.replace(",", ""))
-    except InvalidOperation:
-        return None
-
-
-class CountyEstimateRecord(UpstreamModel):
+class CountyEstimateRecord(_Published):
     """One annual county estimate (yield or production): a projection of ``QuickStatsRecord``.
 
     Columns keep their upstream names (ADR-0003). ``prodn_practice_desc`` separates the
     all-practices figure from irrigated and non-irrigated ones where a state reports
     them; ``util_practice_desc`` separates grain from silage; ``unit_desc`` names the
-    unit (``"BU / ACRE"``, ``"TONS / ACRE"``, ``"BU"``, ``"TONS"``). ``value`` is parsed,
-    ``None`` for a suppression code; ``cv_percent`` is the coefficient of variation
-    when published.
+    unit (``"BU / ACRE"``, ``"TONS / ACRE"``, ``"BU"``, ``"TONS"``). ``cv_percent`` is the
+    coefficient of variation when published, parsed.
     """
 
     commodity_desc: str
@@ -206,36 +181,8 @@ class CountyEstimateRecord(UpstreamModel):
     county_name: str
     year: int
     reference_period_desc: str
-    value: Decimal | None
     cv_percent: Decimal | None
     load_time: datetime
-
-    @classmethod
-    def from_record(cls, record: QuickStatsRecord) -> "CountyEstimateRecord":
-        """Project a full record; every field keeps its upstream name and value."""
-        return cls(
-            commodity_desc=record.commodity_desc,
-            class_desc=record.class_desc,
-            util_practice_desc=record.util_practice_desc,
-            prodn_practice_desc=record.prodn_practice_desc,
-            statisticcat_desc=record.statisticcat_desc,
-            unit_desc=record.unit_desc,
-            short_desc=record.short_desc,
-            source_desc=record.source_desc,
-            agg_level_desc=record.agg_level_desc,
-            state_alpha=record.state_alpha,
-            state_name=record.state_name,
-            asd_code=record.asd_code,
-            asd_desc=record.asd_desc,
-            county_ansi=record.county_ansi,
-            county_code=record.county_code,
-            county_name=record.county_name,
-            year=record.year,
-            reference_period_desc=record.reference_period_desc,
-            value=record.value_number,
-            cv_percent=_decimal_or_none(record.cv_percent),
-            load_time=record.load_time,
-        )
 
 
 class AreaStatistic(StrEnum):
@@ -245,13 +192,14 @@ class AreaStatistic(StrEnum):
     AREA_HARVESTED = "AREA HARVESTED"
 
 
-class AcreageRecord(UpstreamModel):
-    """One annual acreage estimate in acres: a projection of ``QuickStatsRecord``.
+class AcreageRecord(_Published):
+    """One acreage estimate in acres: a projection of ``QuickStatsRecord``.
 
     Columns keep their upstream names (ADR-0003). ``statisticcat_desc`` is
-    ``AREA PLANTED`` or ``AREA HARVESTED``; ``util_practice_desc`` separates grain from
-    silage on the harvested side (planted acreage is ``ALL UTILIZATION PRACTICES``);
-    ``source_desc`` tells survey from census figures. ``value`` is acres, parsed.
+    ``AREA PLANTED`` or ``AREA HARVESTED``; ``reference_period_desc`` is ``YEAR`` for a
+    final figure or names the forecast (``YEAR - AUG FORECAST``); ``util_practice_desc``
+    separates grain from silage on the harvested side; ``source_desc`` tells survey from
+    census figures.
     """
 
     commodity_desc: str
@@ -268,42 +216,18 @@ class AcreageRecord(UpstreamModel):
     year: int
     freq_desc: str
     reference_period_desc: str
-    value: Decimal | None
     cv_percent: Decimal | None
     load_time: datetime
 
-    @classmethod
-    def from_record(cls, record: QuickStatsRecord) -> "AcreageRecord":
-        """Project a full record; every field keeps its upstream name and value."""
-        return cls(
-            commodity_desc=record.commodity_desc,
-            class_desc=record.class_desc,
-            util_practice_desc=record.util_practice_desc,
-            prodn_practice_desc=record.prodn_practice_desc,
-            statisticcat_desc=record.statisticcat_desc,
-            unit_desc=record.unit_desc,
-            short_desc=record.short_desc,
-            source_desc=record.source_desc,
-            agg_level_desc=record.agg_level_desc,
-            state_alpha=record.state_alpha,
-            state_name=record.state_name,
-            year=record.year,
-            freq_desc=record.freq_desc,
-            reference_period_desc=record.reference_period_desc,
-            value=record.value_number,
-            cv_percent=_decimal_or_none(record.cv_percent),
-            load_time=record.load_time,
-        )
 
-
-class PriceReceivedRecord(UpstreamModel):
+class PriceReceivedRecord(_Published):
     """One price-received estimate: a projection of ``QuickStatsRecord``.
 
     Columns keep their upstream names (ADR-0003). ``freq_desc`` is ``MONTHLY`` or
     ``ANNUAL`` (the marketing-year average); ``reference_period_desc`` names the month or
     ``MARKETING YEAR`` and ``begin_code``/``end_code`` carry the month numbers, ``00`` for
     the year. ``unit_desc`` is the price unit (``"$ / BU"``) or, in the national series,
-    ``"PCT OF PARITY"``. ``value`` is parsed.
+    ``"PCT OF PARITY"``.
     """
 
     commodity_desc: str
@@ -321,28 +245,4 @@ class PriceReceivedRecord(UpstreamModel):
     reference_period_desc: str
     begin_code: str
     end_code: str
-    value: Decimal | None
     load_time: datetime
-
-    @classmethod
-    def from_record(cls, record: QuickStatsRecord) -> "PriceReceivedRecord":
-        """Project a full record; every field keeps its upstream name and value."""
-        return cls(
-            commodity_desc=record.commodity_desc,
-            class_desc=record.class_desc,
-            util_practice_desc=record.util_practice_desc,
-            statisticcat_desc=record.statisticcat_desc,
-            unit_desc=record.unit_desc,
-            short_desc=record.short_desc,
-            source_desc=record.source_desc,
-            agg_level_desc=record.agg_level_desc,
-            state_alpha=record.state_alpha,
-            state_name=record.state_name,
-            year=record.year,
-            freq_desc=record.freq_desc,
-            reference_period_desc=record.reference_period_desc,
-            begin_code=record.begin_code,
-            end_code=record.end_code,
-            value=record.value_number,
-            load_time=record.load_time,
-        )
