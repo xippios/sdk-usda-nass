@@ -21,11 +21,15 @@ Set `NASS_API_KEY` in the environment. Nothing is read from files.
 ```python
 from xippios.usda.nass import tasks
 
-# result = tasks.<task>(...)
-# result.data, result.meta.retrieved_at, result.meta.request
+result = tasks.get_counts({"commodity_desc": "CORN", "year__GE": 2012, "state_alpha": "VA"})
+result.data  # 22345 records would come back from api_GET
+result.meta.request  # the filters, for provenance
 ```
 
-Task functions are listed in the status table below as they are added.
+Filters are Quick Stats column names, optionally suffixed with an operator (`__GE`,
+`__LE`, `__LIKE`, ...), mapped to values; the columns are listed in
+`docs/upstream/param_define.md`. Quick Stats ignores unknown column names, so a
+misspelt filter counts the whole database.
 
 ## MCP
 
@@ -49,7 +53,7 @@ HTTP instead of stdio.
 
 | Upstream operation | Task function | MCP tool | Status |
 | --- | --- | --- | --- |
-| (none yet) | | | |
+| `get_counts` | `tasks.get_counts(filters)` | `usda_nass_get_counts` | alpha |
 
 ## Upstream terms and attribution
 

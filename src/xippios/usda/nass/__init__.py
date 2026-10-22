@@ -6,5 +6,6 @@ in ``_client`` are internal.
 """
 
 from xippios.usda.nass._version import __version__
+from xippios.usda.nass.tasks import get_counts
 
-__all__ = ["__version__"]
+__all__ = ["__version__", "get_counts"]

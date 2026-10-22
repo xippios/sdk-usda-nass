@@ -6,3 +6,7 @@ takes the parameters as upstream names them (snake_cased), calls
 mirror the payload. No composition and no defaults beyond upstream's own. The reference
 is the snapshot in ``docs/upstream/``.
 """
+
+from xippios.usda.nass.api.get_counts import get_counts
+
+__all__ = ["get_counts"]
