@@ -9,8 +9,9 @@ exactly what is named there.
 Docstrings are read by agents: one sentence first, then ``Args:`` with examples of
 valid values for every parameter. ``/add-endpoint`` walks through the whole recipe.
 
-Every result's ``meta.published_at`` is the latest ``load_time`` of the rows returned,
-when the row entered Quick Stats; upstream gives no zone, so it is read as UTC.
+``meta.published_at`` stays empty: Quick Stats publishes no release time, and the
+per-row ``load_time`` carries no zone. Reading one into it would be a guess; that
+belongs to the normalisation layer, not here.
 """
 
 from collections.abc import Callable
