@@ -6,4 +6,5 @@ refreshed deliberately by PR so that changes show up as diffs.
 
 | File | URL | Fetched |
 | --- | --- | --- |
-| (nothing fetched yet) | https://quickstats.nass.usda.gov/api | |
+| api.md | https://quickstats.nass.usda.gov/api | 2026-10-22 |
+| param_define.md | https://quickstats.nass.usda.gov/param_define | 2026-10-22 |
