@@ -38,7 +38,7 @@ Work on a branch `feature/<operation>`. Follow the three layers (ADR-0001) exact
    for key patterns before committing.
 
 7. **Docs.** `CHANGELOG.md` under Unreleased; the README status table gets a row
-   (upstream operation, task function, MCP tool name `usda.nass_<task>`, status).
+   (upstream operation, task function, MCP tool name `usda_nass_<task>`, status).
 
 8. **Checks**, all of them:
    `uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest && uv run pre-commit run --all-files`.

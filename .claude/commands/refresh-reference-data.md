@@ -5,11 +5,13 @@ ships inside the package under `src/xippios/usda/nass/reference/` and is loaded
 with `xippios.core.reference`. It comes from the upstream, never from memory.
 
 1. Work on a branch `chore/reference-<thing>`.
-2. Identify the upstream list endpoint or published file for each list named in the
-   arguments, using `docs/upstream/`. Fetch it through the configured client
-   (`xippios.usda.nass._client.client`) or by downloading the published file.
-3. Write it as CSV (header row, upstream column names in snake_case) or JSON (a list of
-   objects) under `reference/`, sorted deterministically so diffs stay readable.
+2. Identify the upstream list endpoint for each list named in the arguments, using
+   `docs/upstream/`; a wrapper for it belongs in `api/` (`/add-endpoint`).
+3. Add the list to `LISTS` in `scripts/refresh_reference.py` (name as upstream calls it,
+   fetcher through `api/`) and to `PACKAGED_LISTS` in `params.py`, then run the script:
+   it writes `reference/<name>.json` with the fetch date and regenerates `enums.py`.
+   Tables that are not plain value lists go under `reference/` as CSV with upstream
+   column names, written by the same script.
 4. Update the provenance table in `reference/README.md`: file, origin (endpoint or
    URL), fetch date.
 5. If a `list_<thing>` task does not exist yet for this list, add one with

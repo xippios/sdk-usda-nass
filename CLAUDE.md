@@ -51,7 +51,11 @@ src/xippios/usda/nass/
   tasks.py         task functions; __all__ is what the adapters register
   mcp.py           xippios-usda-nass-mcp entry point
   http.py          FastAPI router
+  params.py        packaged value lists: PACKAGED_LISTS, packaged_values()
+  enums.py         StrEnums generated from the packaged lists; never edited by hand
   reference/       packaged code lists (CSV/JSON) plus README with provenance
+scripts/
+  refresh_reference.py   fetches the packaged lists through api/ and regenerates enums.py
 tests/
   conftest.py      enables xippios.core.testing.plugin; placeholder key for replay
   fixtures/        recorded responses, <endpoint>/<case>.json, never hand-written
@@ -84,12 +88,17 @@ Run `/add-endpoint <upstream operation>`. In short:
    re-export it from `__init__.py`.
 5. Docstring for agents: one sentence, then `Args:` with examples of valid values for
    every parameter. The MCP tool description and the OpenAPI summary come from it.
-6. `/record-fixture` for at least one case, a replay test in `test_tasks.py`, a live
-   smoke test in `test_live.py`.
+6. `/record-fixture` for at least one case, a replay test in `test_tasks.py` that also
+   calls the tool end to end with `xippios.core.testing.mcp_call`, a live smoke test in
+   `test_live.py`.
 7. `CHANGELOG.md` under Unreleased, README status table, then the full check suite.
 
 Reference lookups (commodities, countries, attributes) are tasks too, named
-`list_<thing>`, so agents can form valid calls.
+`list_<thing>`, so agents can form valid calls. A task-shaped function that returns a
+subset of an upstream record builds its model with `UpstreamModel.project`; nothing is
+renamed or computed, parsing a value (`parse_decimal`) is the only override. Upstream's
+documented error shapes go into `ClientConfig.classify` in `_client.py`, once; wrappers
+use `client.get_json` and never inspect status codes.
 
 ## How to record a fixture
 
