@@ -1,9 +1,12 @@
 """Pydantic models mirroring USDA NASS Quick Stats payloads.
 
 One model per upstream object, subclassing ``xippios.core.UpstreamModel``, with fields
-named as upstream names them in snake_case. Within-source hygiene only: dates become
-``datetime.date``, numbers become numbers, upstream enumerations become ``StrEnum``.
-No cross-source normalisation (ADR-0003): an upstream concept stays an upstream concept.
+named as upstream names them in snake_case. Where upstream spells a field differently,
+``Field(validation_alias=...)`` accepts that spelling on input; never ``alias=``, which the
+adapters would serialise, handing agents the upstream spelling. Within-source hygiene only:
+dates become ``datetime.date``, numbers become numbers, upstream enumerations become
+``StrEnum``. No cross-source normalisation (ADR-0003): an upstream concept stays an
+upstream concept.
 
 Quick Stats sends every value as a string; the models coerce the numeric and temporal
 ones and keep the rest verbatim, empty strings included. ``value`` stays the published
