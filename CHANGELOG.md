@@ -13,6 +13,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Updated to sdk-template v0.1.5: `.gitattributes` keeps `docs/upstream/` byte-exact,
+  `.gitignore` covers `.env.*` and `.envrc.*`, the detect-secrets baseline skips
+  `.copier-answers.yml`, `_client` exports `auth`, the MCP instructions and three commands
+  are reworded. Replay tests now always send the placeholder key, whatever the shell
+  holds: outside live tests the fixture sets the variable and pins `auth.key`;
+  `test_replay_tests_send_the_placeholder_key` checks that a request carries the
+  placeholder and not the shell's key.
 - Projections keep `value` as the published string and expose `value_number` as a
   computed field that travels as a JSON number; `QuickStatsRecord.value_number` likewise.
   Projections are built with `UpstreamModel.project` (ADR-0008).

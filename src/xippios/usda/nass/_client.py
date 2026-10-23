@@ -70,4 +70,13 @@ config = ClientConfig(
 auth = QueryKeyAuth("key", API_KEY_ENV, source=SOURCE)
 client = AsyncClient(config, auth=auth)
 
-__all__ = ["API_KEY_ENV", "BASE_URL", "RATE_LIMIT", "SOURCE", "classify", "client", "config"]
+__all__ = [
+    "API_KEY_ENV",
+    "BASE_URL",
+    "RATE_LIMIT",
+    "SOURCE",
+    "auth",
+    "classify",
+    "client",
+    "config",
+]

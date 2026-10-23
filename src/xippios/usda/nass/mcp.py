@@ -12,7 +12,8 @@ from xippios.usda.nass._version import __version__
 
 INSTRUCTIONS = (
     "USDA NASS Quick Stats via xippios. "
-    "Tools are read-only. Call the list tools first to find valid codes, then query."
+    "Tools are read-only. Where list tools (usda_nass_list_*) exist, "
+    "call them first to find valid codes, then query."
 )
 
 server = build_server(
