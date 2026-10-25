@@ -317,7 +317,6 @@ def test_columns_cover_every_record_field() -> None:
 
 
 def test_crop_progress_state_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_progress_planted_ia_2024")
     fetched = replay_fixture("api_GET", "corn_progress_planted_ia_2024")
     result = tasks.get_crop_progress(
         "CORN", 2024, state=enums.StateAlpha.IA, stage=enums.ProgressStage.PCT_PLANTED
@@ -347,7 +346,6 @@ def test_crop_progress_state_series(replay_fixture: Callable[[str, str], respx.R
 
 
 def test_crop_progress_national_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_progress_planted_us_2024")
     replay_fixture("api_GET", "corn_progress_planted_us_2024")
     result = tasks.get_crop_progress("CORN", 2024, stage=enums.ProgressStage.PCT_PLANTED)
     assert result.meta.request["agg_level_desc"] == "NATIONAL"
@@ -357,7 +355,6 @@ def test_crop_progress_national_series(replay_fixture: Callable[[str, str], resp
 
 
 def test_crop_condition_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_condition_good_ia_2024")
     replay_fixture("api_GET", "corn_condition_good_ia_2024")
     result = tasks.get_crop_condition(
         "CORN", 2024, state=enums.StateAlpha.IA, category=enums.ConditionCategory.PCT_GOOD
@@ -385,7 +382,6 @@ def test_derived_enums_match_their_lists_and_provenance() -> None:
 
 
 def test_county_yield_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_yield_de_2023_county")
     fetched = replay_fixture("api_GET", "corn_yield_de_2023_county")
     result = tasks.get_county_yield("CORN", 2023, state=enums.StateAlpha.DE)
     assert result.meta.request == {
@@ -422,7 +418,6 @@ def test_county_yield_series(replay_fixture: Callable[[str, str], respx.Route]) 
 
 
 def test_county_production_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_production_de_2023_county")
     replay_fixture("api_GET", "corn_production_de_2023_county")
     result = tasks.get_county_production("CORN", 2023, state=enums.StateAlpha.DE)
     assert result.meta.request["statisticcat_desc"] == "PRODUCTION"
@@ -439,7 +434,6 @@ def test_county_production_series(replay_fixture: Callable[[str, str], respx.Rou
 def test_county_series_without_state_covers_the_country(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    replay_fixture("get_counts", "corn_yield_de_2023_county")
     replay_fixture("api_GET", "corn_yield_de_2023_county")
     result = tasks.get_county_yield("CORN", 2023)
     assert "state_alpha" not in result.meta.request
@@ -447,7 +441,6 @@ def test_county_series_without_state_covers_the_country(
 
 
 def test_acreage_planted_state(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_area_planted_ia_2023")
     fetched = replay_fixture("api_GET", "corn_area_planted_ia_2023")
     result = tasks.get_acreage("CORN", 2023, AreaStatistic.AREA_PLANTED, state=enums.StateAlpha.IA)
     assert result.meta.request == {
@@ -474,7 +467,6 @@ def test_acreage_planted_state(replay_fixture: Callable[[str, str], respx.Route]
 def test_acreage_harvested_splits_grain_and_silage(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    replay_fixture("get_counts", "corn_area_harvested_ia_2023")
     replay_fixture("api_GET", "corn_area_harvested_ia_2023")
     result = tasks.get_acreage(
         "CORN", 2023, AreaStatistic.AREA_HARVESTED, state=enums.StateAlpha.IA
@@ -487,7 +479,6 @@ def test_acreage_harvested_splits_grain_and_silage(
 
 
 def test_acreage_national(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_area_planted_us_2023")
     replay_fixture("api_GET", "corn_area_planted_us_2023")
     result = tasks.get_acreage("CORN", 2023, AreaStatistic.AREA_PLANTED)
     assert result.meta.request["agg_level_desc"] == "NATIONAL"
@@ -497,7 +488,6 @@ def test_acreage_national(replay_fixture: Callable[[str, str], respx.Route]) -> 
 
 
 def test_prices_received_state_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_price_received_ia_2023")
     fetched = replay_fixture("api_GET", "corn_price_received_ia_2023")
     result = tasks.get_prices_received("CORN", 2023, state=enums.StateAlpha.IA)
     assert result.meta.request == {
@@ -527,7 +517,6 @@ def test_prices_received_state_series(replay_fixture: Callable[[str, str], respx
 def test_prices_received_national_monthly(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    replay_fixture("get_counts", "corn_price_received_us_2023_monthly")
     replay_fixture("api_GET", "corn_price_received_us_2023_monthly")
     result = tasks.get_prices_received("CORN", 2023, frequency=enums.FreqDesc.MONTHLY)
     assert result.meta.request["agg_level_desc"] == "NATIONAL"
