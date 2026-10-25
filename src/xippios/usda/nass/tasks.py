@@ -14,7 +14,7 @@ per-row ``load_time`` carries no zone. Reading one into it would be a guess; tha
 belongs to the normalisation layer, not here.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import date
 from typing import Any
 
@@ -47,6 +47,32 @@ __all__ = [
     "get_prices_received",
     "list_param_values",
 ]
+
+try:
+    from xippios.core.mcp import ResultCap
+except ImportError:  # pragma: no cover - a base install, without the mcp extra, has no server
+    MCP_CAPS: "Mapping[str, ResultCap]" = {}
+else:
+    MCP_CAPS = {
+        "list_param_values": ResultCap(
+            max_rows=1000,
+            note=(
+                "usda_nass_list_param_values takes no filter to reach the rest; a value past "
+                "the cap is still accepted as a filter value by usda_nass_get_counts and "
+                "usda_nass_get_data"
+            ),
+        ),
+    }
+"""MCP result caps of their own, by task function name (conventions §8, ADR-0016).
+
+``list_param_values`` is the reference lookup an agent needs whole to form valid filters:
+lists fetched live run past the family's default of 200 rows (``statisticcat_desc`` has
+278 values, 5,411 bytes of compact JSON, recorded 2026-10-22), while every packaged list
+has fewer than 60. Its cap keeps the default 64 KB, and its note promises no filter, since
+the tool has none. Every other tool keeps the default, 200 rows or 64 KB, with core's
+note. ``ResultCap`` lives in ``xippios.core.mcp``, which needs the ``mcp`` extra, so a base
+install, which serves no MCP tool, has no caps.
+"""
 
 
 def _meta(endpoint: str, request: dict[str, str | int]) -> ResultMeta:

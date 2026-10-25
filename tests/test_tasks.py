@@ -1,20 +1,18 @@
 """Structural checks every task must satisfy. Per-task tests with recorded fixtures go below."""
 
 import inspect
-import os
 from collections.abc import Callable
 from datetime import date, datetime
 from decimal import Decimal
+from urllib.parse import parse_qsl, urlsplit
 
-import httpx
 import pytest
 import respx
 from xippios.core import InvalidRequestError, NotFoundError, UpstreamModel
 from xippios.core.http import status_for
-from xippios.core.testing import assert_projection, mcp_call
+from xippios.core.testing import assert_projection, mcp_call, sent_urls
 
 from xippios.usda.nass import __version__, api, enums, tasks
-from xippios.usda.nass._client import API_KEY_ENV, BASE_URL, auth
 from xippios.usda.nass.errors import QueryTooLarge
 from xippios.usda.nass.mcp import server
 from xippios.usda.nass.models import (
@@ -33,33 +31,20 @@ from xippios.usda.nass.params import (
     packaged_values,
 )
 
-SHELL_KEY = os.environ.get(API_KEY_ENV)
-"""The key the shell held when the tests were collected, before any fixture; never printed."""
-
 TASKS = [getattr(tasks, name) for name in tasks.__all__]
+
+
+def sent_query(route: respx.Route) -> dict[str, str]:
+    """The query of the last request ``route`` received, read from ``sent_urls(route)``.
+
+    The URL text is scrubbed, its key ``REDACTED``, so no request carrying the key sits in
+    a test's frame, where a failure or ``pytest -l`` would print it.
+    """
+    return dict(parse_qsl(urlsplit(sent_urls(route)[-1]).query, keep_blank_values=True))
 
 
 def test_package_has_a_version() -> None:
     assert __version__
-
-
-def test_replay_tests_send_the_placeholder_key(placeholder_api_key: str | None) -> None:
-    """A request sent outside a live test carries the placeholder, never the shell's key.
-
-    Every assertion is on a boolean, so a failure says where the key went, never the key.
-    """
-    assert placeholder_api_key is not None
-    env_holds_placeholder = os.environ[API_KEY_ENV] == placeholder_api_key
-    assert env_holds_placeholder, f"{API_KEY_ENV} does not hold the placeholder"
-    sent = next(auth.sync_auth_flow(httpx.Request("GET", BASE_URL)))
-    carried = sent.url.params.get(auth.param, "")
-    where = f"the {auth.param} query parameter"
-    sends_placeholder = carried == placeholder_api_key
-    assert sends_placeholder, f"{where} does not carry the placeholder"
-    if SHELL_KEY and placeholder_api_key != SHELL_KEY:
-        outgoing = [str(sent.url), *sent.headers.values(), carried]
-        leaked = any(SHELL_KEY in part for part in outgoing)
-        assert not leaked, f"the key in {API_KEY_ENV} went out with the request"
 
 
 @pytest.mark.parametrize("task", TASKS, ids=tasks.__all__)
@@ -89,7 +74,7 @@ def test_get_counts_replays_the_documented_example(
     assert result.meta.source == "usda-nass"
     assert result.meta.endpoint == "get_counts"
     assert result.meta.request == EXAMPLE_FILTERS
-    sent = route.calls.last.request.url.params
+    sent = sent_query(route)
     assert sent["commodity_desc"] == "CORN"
     assert sent["year__GE"] == "2012"
     assert sent["state_alpha"] == "VA"
@@ -149,7 +134,7 @@ def test_enum_members_are_accepted_as_filter_values(
         {"state_alpha": enums.StateAlpha.VA, "sector_desc": enums.SectorDesc.CROPS}
     )
     assert result.meta.request["state_alpha"] == "VA"
-    assert route.calls.last.request.url.params["sector_desc"] == "CROPS"
+    assert sent_query(route)["sector_desc"] == "CROPS"
 
 
 SMALL_FILTERS: dict[str, str | int] = {
@@ -178,7 +163,7 @@ def test_get_data_parses_every_column(replay_fixture: Callable[[str, str], respx
     assert record.week_ending is None
     assert record.load_time == datetime(2015, 6, 3, 15, 8, 31)
     assert record.short_desc == "CORN - ACRES PLANTED"
-    assert fetched.calls.last.request.url.params["format"] == "JSON"
+    assert sent_query(fetched)["format"] == "JSON"
 
 
 def test_get_data_refuses_before_fetching_when_over_the_limit(
@@ -257,7 +242,7 @@ async def test_get_param_values_replays_the_documented_example(
     route = replay_fixture("get_param_values", "sector_desc")
     values = await api.get_param_values("sector_desc")
     assert values == ["ANIMALS & PRODUCTS", "CROPS", "DEMOGRAPHICS", "ECONOMICS", "ENVIRONMENTAL"]
-    assert route.calls.last.request.url.params["param"] == "sector_desc"
+    assert sent_query(route)["param"] == "sector_desc"
 
 
 def test_list_param_values_goes_live_for_an_unpackaged_parameter(
@@ -270,6 +255,19 @@ def test_list_param_values_goes_live_for_an_unpackaged_parameter(
     assert result.meta.request == {"param": "statisticcat_desc"}
     assert "AREA PLANTED" in result.data
     assert len(result.data) > 200
+
+
+@pytest.mark.anyio
+async def test_list_param_values_over_mcp_is_whole_past_the_default_cap(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """278 values, past the default cap of 200 rows: the tool's own cap, ``tasks.MCP_CAPS``
+    (ADR-0016), lets every one through, so no note is added."""
+    replay_fixture("get_param_values", "statisticcat_desc")
+    payload = await mcp_call(server, "usda_nass_list_param_values", {"param": "statisticcat_desc"})
+    assert len(payload["data"]) == 278
+    assert "note" not in payload
+    assert tasks.MCP_CAPS["list_param_values"].max_rows == 1000
 
 
 def test_list_param_values_unknown_parameter_is_not_found(
@@ -319,7 +317,6 @@ def test_columns_cover_every_record_field() -> None:
 
 
 def test_crop_progress_state_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_progress_planted_ia_2024")
     fetched = replay_fixture("api_GET", "corn_progress_planted_ia_2024")
     result = tasks.get_crop_progress(
         "CORN", 2024, state=enums.StateAlpha.IA, stage=enums.ProgressStage.PCT_PLANTED
@@ -333,7 +330,7 @@ def test_crop_progress_state_series(replay_fixture: Callable[[str, str], respx.R
         "state_alpha": "IA",
         "unit_desc": "PCT PLANTED",
     }
-    assert fetched.calls.last.request.url.params["statisticcat_desc"] == "PROGRESS"
+    assert sent_query(fetched)["statisticcat_desc"] == "PROGRESS"
     assert len(result.data) == 11
     weeks = [row.week_ending or date.min for row in result.data]
     assert weeks == sorted(weeks)
@@ -349,7 +346,6 @@ def test_crop_progress_state_series(replay_fixture: Callable[[str, str], respx.R
 
 
 def test_crop_progress_national_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_progress_planted_us_2024")
     replay_fixture("api_GET", "corn_progress_planted_us_2024")
     result = tasks.get_crop_progress("CORN", 2024, stage=enums.ProgressStage.PCT_PLANTED)
     assert result.meta.request["agg_level_desc"] == "NATIONAL"
@@ -359,7 +355,6 @@ def test_crop_progress_national_series(replay_fixture: Callable[[str, str], resp
 
 
 def test_crop_condition_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_condition_good_ia_2024")
     replay_fixture("api_GET", "corn_condition_good_ia_2024")
     result = tasks.get_crop_condition(
         "CORN", 2024, state=enums.StateAlpha.IA, category=enums.ConditionCategory.PCT_GOOD
@@ -387,7 +382,6 @@ def test_derived_enums_match_their_lists_and_provenance() -> None:
 
 
 def test_county_yield_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_yield_de_2023_county")
     fetched = replay_fixture("api_GET", "corn_yield_de_2023_county")
     result = tasks.get_county_yield("CORN", 2023, state=enums.StateAlpha.DE)
     assert result.meta.request == {
@@ -399,7 +393,7 @@ def test_county_yield_series(replay_fixture: Callable[[str, str], respx.Route]) 
         "year": 2023,
         "state_alpha": "DE",
     }
-    assert fetched.calls.last.request.url.params["agg_level_desc"] == "COUNTY"
+    assert sent_query(fetched)["agg_level_desc"] == "COUNTY"
     assert len(result.data) == 9
     assert [row.county_name for row in result.data[:3]] == ["KENT"] * 3
     assert {row.county_name for row in result.data} == {"KENT", "NEW CASTLE", "SUSSEX"}
@@ -424,7 +418,6 @@ def test_county_yield_series(replay_fixture: Callable[[str, str], respx.Route]) 
 
 
 def test_county_production_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_production_de_2023_county")
     replay_fixture("api_GET", "corn_production_de_2023_county")
     result = tasks.get_county_production("CORN", 2023, state=enums.StateAlpha.DE)
     assert result.meta.request["statisticcat_desc"] == "PRODUCTION"
@@ -441,7 +434,6 @@ def test_county_production_series(replay_fixture: Callable[[str, str], respx.Rou
 def test_county_series_without_state_covers_the_country(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    replay_fixture("get_counts", "corn_yield_de_2023_county")
     replay_fixture("api_GET", "corn_yield_de_2023_county")
     result = tasks.get_county_yield("CORN", 2023)
     assert "state_alpha" not in result.meta.request
@@ -449,7 +441,6 @@ def test_county_series_without_state_covers_the_country(
 
 
 def test_acreage_planted_state(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_area_planted_ia_2023")
     fetched = replay_fixture("api_GET", "corn_area_planted_ia_2023")
     result = tasks.get_acreage("CORN", 2023, AreaStatistic.AREA_PLANTED, state=enums.StateAlpha.IA)
     assert result.meta.request == {
@@ -464,7 +455,7 @@ def test_acreage_planted_state(replay_fixture: Callable[[str, str], respx.Route]
         "year": 2023,
         "state_alpha": "IA",
     }
-    assert fetched.calls.last.request.url.params["unit_desc"] == "ACRES"
+    assert sent_query(fetched)["unit_desc"] == "ACRES"
     assert len(result.data) == 1
     row = result.data[0]
     assert row.value_number == Decimal("13100000")
@@ -476,7 +467,6 @@ def test_acreage_planted_state(replay_fixture: Callable[[str, str], respx.Route]
 def test_acreage_harvested_splits_grain_and_silage(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    replay_fixture("get_counts", "corn_area_harvested_ia_2023")
     replay_fixture("api_GET", "corn_area_harvested_ia_2023")
     result = tasks.get_acreage(
         "CORN", 2023, AreaStatistic.AREA_HARVESTED, state=enums.StateAlpha.IA
@@ -489,7 +479,6 @@ def test_acreage_harvested_splits_grain_and_silage(
 
 
 def test_acreage_national(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_area_planted_us_2023")
     replay_fixture("api_GET", "corn_area_planted_us_2023")
     result = tasks.get_acreage("CORN", 2023, AreaStatistic.AREA_PLANTED)
     assert result.meta.request["agg_level_desc"] == "NATIONAL"
@@ -499,7 +488,6 @@ def test_acreage_national(replay_fixture: Callable[[str, str], respx.Route]) -> 
 
 
 def test_prices_received_state_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("get_counts", "corn_price_received_ia_2023")
     fetched = replay_fixture("api_GET", "corn_price_received_ia_2023")
     result = tasks.get_prices_received("CORN", 2023, state=enums.StateAlpha.IA)
     assert result.meta.request == {
@@ -510,7 +498,7 @@ def test_prices_received_state_series(replay_fixture: Callable[[str, str], respx
         "year": 2023,
         "state_alpha": "IA",
     }
-    assert fetched.calls.last.request.url.params["statisticcat_desc"] == "PRICE RECEIVED"
+    assert sent_query(fetched)["statisticcat_desc"] == "PRICE RECEIVED"
     assert len(result.data) == 13
     first = result.data[0]
     assert (first.freq_desc, first.reference_period_desc, first.value_number) == (
@@ -529,7 +517,6 @@ def test_prices_received_state_series(replay_fixture: Callable[[str, str], respx
 def test_prices_received_national_monthly(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    replay_fixture("get_counts", "corn_price_received_us_2023_monthly")
     replay_fixture("api_GET", "corn_price_received_us_2023_monthly")
     result = tasks.get_prices_received("CORN", 2023, frequency=enums.FreqDesc.MONTHLY)
     assert result.meta.request["agg_level_desc"] == "NATIONAL"

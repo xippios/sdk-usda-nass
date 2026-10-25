@@ -30,6 +30,15 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy
       - run: uv run pytest
+      # The definition of done's CI block includes pre-commit (secret detection). Its ruff
+      # hooks run the version uv.lock pins (keep their rev in step), so where the two ruff
+      # steps above passed they change nothing; a hook that would change a file fails.
+      - name: Cache pre-commit hook environments
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-py${{ matrix.python }}-${{ hashFiles('.pre-commit-config.yaml') }}
+      - run: uv run pre-commit run --all-files
 
   ci:
     name: ci

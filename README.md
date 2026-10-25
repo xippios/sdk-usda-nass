@@ -80,9 +80,11 @@ for the progress stages and condition categories derived from the data
 }
 ```
 
-Tools are read-only and named `usda.nass_<verb>_<noun>`. Results are capped at
-200 rows or 64 KB with a note on how to narrow the query. `--http` serves streamable
-HTTP instead of stdio.
+Tools are read-only and named `usda_nass_<verb>_<noun>`. Results are capped, at
+200 rows or 64 KB unless a tool has a cap of its own, with a note on how to see the rest:
+`usda_nass_list_param_values` returns up to 1,000 values, since lists fetched live run
+longer than 200 (`statisticcat_desc` has 278). `--http` serves streamable HTTP instead
+of stdio.
 
 ## Status
 

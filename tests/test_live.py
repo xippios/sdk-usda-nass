@@ -5,16 +5,28 @@ Every task function gets one live smoke test here, next to the reachability chec
 
 from decimal import Decimal
 
+import httpx
 import pytest
 
 from xippios.usda.nass import tasks
-from xippios.usda.nass._client import client
+from xippios.usda.nass._client import BASE_URL, config
 
 pytestmark = [pytest.mark.live, pytest.mark.anyio]
 
 
 async def test_upstream_answers() -> None:
-    response = await client.request("GET", "/", raise_on_error=False)
+    """The base URL answers without a server error.
+
+    A plain request, not the package's client, so no key goes out and no call counts
+    against the key's quota; a keyed gateway's answer to it (a 403 or a 404, say) still
+    shows the host is up.
+    """
+    async with httpx.AsyncClient(
+        headers={"User-Agent": config.user_agent},
+        timeout=config.timeouts.to_httpx(),
+        follow_redirects=True,
+    ) as http:
+        response = await http.get(BASE_URL)
     assert response.status_code < 500
 
 

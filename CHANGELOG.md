@@ -8,11 +8,28 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `MCP_CAPS` in `tasks.py`: over MCP, `usda_nass_list_param_values` returns up to 1,000
+  values (`ResultCap(max_rows=1000)`, the default 64 KB), since lists fetched live run past
+  the default 200 rows (`statisticcat_desc` has 278); its note says the tool takes no
+  filter and that a value past the cap is still accepted as a filter value by
+  `get_counts` and `get_data` (conventions §8, ADR-0016).
+- `scripts/refresh_reference.py --render-only` regenerates `enums.py` from the packaged
+  lists, packaged and derived, without a request or a key.
 - `get_acreage_forecasts`: the in-season acreage reports (March prospective plantings,
   June acreage, monthly forecasts), oldest first; `get_acreage` keeps the final figure.
 
 ### Changed
 
+- Adopted xippios-core 0.2.0, sdk-template v0.2.0 and conventions 1.13 (conventions §15).
+  `xippios-core~=0.2.0`, its extras likewise, from PyPI; CI runs pre-commit; the nightly
+  `live.yml` runs the live tests at 01:51 UTC; mypy checks `scripts/`; the sdist ships no
+  tests; `enums.py` is re-rendered by core's renderer (its first line only).
+- `RATE_LIMIT` is `RateLimit(per_minute=30, burst=1)`, a self-imposed pace since Quick
+  Stats documents no limit; it allowed a burst of 30 (ADR-0010).
+- Replay tests read what was sent through `xippios.core.testing.sent_urls(route)` instead
+  of `route.calls`, so no request carrying the key sits in a test's frame (ADR-0013).
+- `test_upstream_answers` is a keyless reachability probe, a plain GET to `BASE_URL`
+  through `httpx`, so it spends no keyed call.
 - Updated to sdk-template v0.1.5: `.gitattributes` keeps `docs/upstream/` byte-exact,
   `.gitignore` covers `.env.*` and `.envrc.*`, the detect-secrets baseline skips
   `.copier-answers.yml`, `_client` exports `auth`, the MCP instructions and three commands
@@ -82,3 +99,12 @@ All notable changes to this project are documented here. The format follows
 - Scaffold from [sdk-template](https://github.com/xippios/sdk-template): configured
   client for USDA NASS Quick Stats, empty task layer, MCP server and FastAPI router
   wired to it, test harness, CI and publishing.
+
+### Removed
+
+- The `placeholder_api_key` fixture and `PLACEHOLDER_KEY` in `tests/conftest.py`, and
+  `test_replay_tests_send_the_placeholder_key`: core 0.2.0's test plugin pins the
+  placeholder key in every test not marked live and sets `NASS_API_KEY`, named under
+  `xippios_placeholder_key_envs`, to it (ADR-0013).
+- The `get_counts` mounts of eleven slice tests, whose tasks skip the count, and the
+  fifteen fixtures no test replays.
