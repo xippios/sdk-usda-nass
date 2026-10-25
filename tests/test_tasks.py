@@ -272,6 +272,19 @@ def test_list_param_values_goes_live_for_an_unpackaged_parameter(
     assert len(result.data) > 200
 
 
+@pytest.mark.anyio
+async def test_list_param_values_over_mcp_is_whole_past_the_default_cap(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """278 values, past the default cap of 200 rows: the tool's own cap, ``tasks.MCP_CAPS``
+    (ADR-0016), lets every one through, so no note is added."""
+    replay_fixture("get_param_values", "statisticcat_desc")
+    payload = await mcp_call(server, "usda_nass_list_param_values", {"param": "statisticcat_desc"})
+    assert len(payload["data"]) == 278
+    assert "note" not in payload
+    assert tasks.MCP_CAPS["list_param_values"].max_rows == 1000
+
+
 def test_list_param_values_unknown_parameter_is_not_found(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
