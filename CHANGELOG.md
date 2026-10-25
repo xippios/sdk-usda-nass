@@ -103,3 +103,8 @@ All notable changes to this project are documented here. The format follows
   `xippios_placeholder_key_envs`, to it (ADR-0013).
 - The `get_counts` mounts of eleven slice tests, whose tasks skip the count, and the
   fifteen fixtures no test replays.
+
+### Security
+
+- `virtualenv` bumped to 21.14.13 in `uv.lock` (GHSA-cx6f-vjhg-g3cc, CVE-2026-115586):
+  the dev group's `pre-commit` dependency; the published wheel never carried it.
