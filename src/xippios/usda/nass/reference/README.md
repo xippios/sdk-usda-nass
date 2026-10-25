@@ -33,12 +33,15 @@ Rules:
 
 | File | Origin | Fetched |
 | --- | --- | --- |
-| `source_desc.json` | `GET /api/get_param_values?param=source_desc` | 2026-10-22 |
-| `sector_desc.json` | `GET /api/get_param_values?param=sector_desc` | 2026-10-22 |
-| `group_desc.json` | `GET /api/get_param_values?param=group_desc` | 2026-10-22 |
-| `agg_level_desc.json` | `GET /api/get_param_values?param=agg_level_desc` | 2026-10-22 |
-| `freq_desc.json` | `GET /api/get_param_values?param=freq_desc` | 2026-10-22 |
-| `state_alpha.json` | `GET /api/get_param_values?param=state_alpha` | 2026-10-22 |
-| `progress_stages.json` | distinct `unit_desc` of `GET /api/api_GET` with statisticcat_desc=PROGRESS, agg_level_desc=NATIONAL, freq_desc=WEEKLY, year=2024 | 2026-10-22 |
-| `condition_categories.json` | distinct `unit_desc` of `GET /api/api_GET` with statisticcat_desc=CONDITION, agg_level_desc=NATIONAL, freq_desc=WEEKLY, year=2024 | 2026-10-22 |
-| `columns.csv` | `docs/upstream/param_define.md` (snapshot of https://quickstats.nass.usda.gov/param_define, fetched 2026-10-22) | 2026-10-22 |
+| `source_desc.json` | `GET /api/get_param_values?param=source_desc` | 2026-10-25 |
+| `sector_desc.json` | `GET /api/get_param_values?param=sector_desc` | 2026-10-25 |
+| `group_desc.json` | `GET /api/get_param_values?param=group_desc` | 2026-10-25 |
+| `agg_level_desc.json` | `GET /api/get_param_values?param=agg_level_desc` | 2026-10-25 |
+| `freq_desc.json` | `GET /api/get_param_values?param=freq_desc` | 2026-10-25 |
+| `state_alpha.json` | `GET /api/get_param_values?param=state_alpha` | 2026-10-25 |
+| `progress_stages.json` | distinct `unit_desc` of `GET /api/api_GET` with statisticcat_desc=PROGRESS, agg_level_desc=NATIONAL, freq_desc=WEEKLY, year=2025 | 2026-10-25 |
+| `condition_categories.json` | distinct `unit_desc` of `GET /api/api_GET` with statisticcat_desc=CONDITION, agg_level_desc=NATIONAL, freq_desc=WEEKLY, year=2025 | 2026-10-25 |
+| `columns.csv` | `docs/upstream/param_define.md` (snapshot of https://quickstats.nass.usda.gov/param_define, fetched 2026-10-22) | 2026-10-25 |
+
+The two derived lists come from the year before the fetch; each file records the query
+under `derived_from`.

@@ -101,6 +101,9 @@ of stdio.
 | `api_GET` (AREA PLANTED / HARVESTED, forecasts) | `tasks.get_acreage_forecasts(commodity, year, statistic, state=)` | `usda_nass_get_acreage_forecasts` | alpha |
 | `api_GET` (PRICE RECEIVED) | `tasks.get_prices_received(commodity, year, state=, frequency=)` | `usda_nass_get_prices_received` | alpha |
 
+All ten tasks are covered in 0.1.0, the first release. Alpha: the public surface may
+change in a minor version before 1.0 (conventions §12); `CHANGELOG.md` lists every change.
+
 ## Upstream terms and attribution
 
 Data comes from USDA NASS Quick Stats (https://quickstats.nass.usda.gov) under its own terms of use;
