@@ -19,14 +19,14 @@ __all__ = [
 
 
 class SourceDesc(StrEnum):
-    """Values of ``source_desc`` (fetched 2026-10-22)."""
+    """Values of ``source_desc`` (fetched 2026-10-25)."""
 
     CENSUS = "CENSUS"
     SURVEY = "SURVEY"
 
 
 class SectorDesc(StrEnum):
-    """Values of ``sector_desc`` (fetched 2026-10-22)."""
+    """Values of ``sector_desc`` (fetched 2026-10-25)."""
 
     ANIMALS_AND_PRODUCTS = "ANIMALS & PRODUCTS"
     CROPS = "CROPS"
@@ -36,7 +36,7 @@ class SectorDesc(StrEnum):
 
 
 class GroupDesc(StrEnum):
-    """Values of ``group_desc`` (fetched 2026-10-22)."""
+    """Values of ``group_desc`` (fetched 2026-10-25)."""
 
     ANIMAL_TOTALS = "ANIMAL TOTALS"
     AQUACULTURE = "AQUACULTURE"
@@ -61,7 +61,7 @@ class GroupDesc(StrEnum):
 
 
 class AggLevelDesc(StrEnum):
-    """Values of ``agg_level_desc`` (fetched 2026-10-22)."""
+    """Values of ``agg_level_desc`` (fetched 2026-10-25)."""
 
     AGRICULTURAL_DISTRICT = "AGRICULTURAL DISTRICT"
     AMERICAN_INDIAN_RESERVATION = "AMERICAN INDIAN RESERVATION"
@@ -77,7 +77,7 @@ class AggLevelDesc(StrEnum):
 
 
 class FreqDesc(StrEnum):
-    """Values of ``freq_desc`` (fetched 2026-10-22)."""
+    """Values of ``freq_desc`` (fetched 2026-10-25)."""
 
     ANNUAL = "ANNUAL"
     MONTHLY = "MONTHLY"
@@ -87,7 +87,7 @@ class FreqDesc(StrEnum):
 
 
 class StateAlpha(StrEnum):
-    """Values of ``state_alpha`` (fetched 2026-10-22)."""
+    """Values of ``state_alpha`` (fetched 2026-10-25)."""
 
     AK = "AK"
     AL = "AL"
@@ -151,7 +151,7 @@ class StateAlpha(StrEnum):
 
 
 class ProgressStage(StrEnum):
-    """Values of ``progress_stages`` (fetched 2026-10-22)."""
+    """Values of ``progress_stages`` (fetched 2026-10-25)."""
 
     PCT_BLOOMING = "PCT BLOOMING"
     PCT_BOLLS_OPENING = "PCT BOLLS OPENING"
@@ -172,7 +172,7 @@ class ProgressStage(StrEnum):
 
 
 class ConditionCategory(StrEnum):
-    """Values of ``condition_categories`` (fetched 2026-10-22)."""
+    """Values of ``condition_categories`` (fetched 2026-10-25)."""
 
     PCT_EXCELLENT = "PCT EXCELLENT"
     PCT_FAIR = "PCT FAIR"
