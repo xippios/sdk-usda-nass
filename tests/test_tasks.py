@@ -283,10 +283,12 @@ def test_packaged_parameters_are_answered_without_a_network_call(
 ) -> None:
     """respx is active with no routes mounted, so any upstream call would fail loudly."""
     for param in PACKAGED_PARAMS:
+        packaged = packaged_values(param)
+        assert packaged is not None, param
         result = tasks.list_param_values(param)
         assert result.data, param
         assert result.meta.endpoint == "reference"
-        assert result.meta.vintage == "2026-10-22"
+        assert result.meta.vintage == packaged.fetched.isoformat()
         assert result.meta.request == {"param": param}
     assert not respx_mock.calls
     assert "CROPS" in tasks.list_param_values("sector_desc").data
