@@ -21,7 +21,8 @@ from xippios.usda.nass._version import __version__
 SOURCE = "usda-nass"
 BASE_URL = "https://quickstats.nass.usda.gov/api"
 API_KEY_ENV = "NASS_API_KEY"  # pragma: allowlist secret (a variable name, not a key)
-RATE_LIMIT = RateLimit(per_minute=30)
+# A self-imposed pace: upstream documents no limit (ADR-0010 decision 1).
+RATE_LIMIT = RateLimit(per_minute=30, burst=1)
 
 _NO_MATCH = "bad request - invalid query"
 
