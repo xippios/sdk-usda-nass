@@ -48,7 +48,8 @@ cannot serve them, when its filters bound the years as `year`, `year__GE` with
 drops `year__GE` beside `year__LT`), so a two-sided year range is served only by this
 split. That form is always split, every year counted before anything is fetched; `year`
 is counted and fetched once, and `year__GE` alone is counted first and split only over
-the limit. One call splits into at most 20 years: a longer split raises
+the limit. One call splits into at most 20 years in Python and over HTTP, and 5 by
+default on the MCP server, whose `--split-years` sets 1 to 20: a longer split raises
 `InvalidRequestError` naming the ceiling, for a two-sided range before any call, for
 `year__GE` alone after its count, while an open range within the limit is fetched whole
 however far back it starts. A year counting 0 is skipped: it has no records, or none
@@ -106,7 +107,9 @@ Tools are read-only and named `usda_nass_<verb>_<noun>`. Results are capped, at
 200 rows or 64 KB unless a tool has a cap of its own, with a note on how to see the rest:
 `usda_nass_list_param_values` returns up to 1,000 values, since lists fetched live run
 longer than 200 (`statisticcat_desc` has 278). `--http` serves streamable HTTP instead
-of stdio.
+of stdio. `--split-years YEARS`, 1 to 20 and 5 by default, is the most years one
+`usda_nass_get_data` call with `split_by_year` splits into, at most 11 keyed calls at 5;
+the setting holds for the whole process.
 
 ## Status
 
