@@ -1,6 +1,6 @@
-"""Live smoke tests: skipped unless XIPPIOS_LIVE_TESTS=1 (conventions §10).
+"""Live smoke tests, one per task, skipped unless XIPPIOS_LIVE_TESTS=1 (conventions §10).
 
-Every task function gets one live smoke test here, next to the reachability check.
+``/add-endpoint`` adds them.
 """
 
 from decimal import Decimal
@@ -17,9 +17,8 @@ pytestmark = [pytest.mark.live, pytest.mark.anyio]
 async def test_upstream_answers() -> None:
     """The base URL answers without a server error.
 
-    A plain request, not the package's client, so no key goes out and no call counts
-    against the key's quota; a keyed gateway's answer to it (a 403 or a 404, say) still
-    shows the host is up.
+    A plain request, not the package's client, so no key goes out and it spends no keyed
+    call; a keyed gateway's answer to it (a 403 or a 404, say) still shows the host is up.
     """
     async with httpx.AsyncClient(
         headers={"User-Agent": config.user_agent},

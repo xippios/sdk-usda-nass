@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Adopted xippios-core 0.3.0, sdk-template v0.3.0 and conventions 1.22 (conventions §15).
+- **BREAKING**: depends on `xippios-core~=0.3.0`, its `mcp`, `http` and `testing` extras
+  likewise, from PyPI; a core minor keeps no compatibility with the one before it while
+  core is 0.x (conventions §12).
+- **BREAKING**: `list_param_values` answers a packaged parameter with `meta.endpoint`
+  `"get_param_values"`, the operation the list was fetched from, `meta.retrieved_at` the
+  list's `fetched` and `meta.vintage` `None` (ADR-0022, rule 1), where 0.1.0 wrote
+  `"reference"` and the fetch date as `vintage`. The packaged files are core's
+  packaged-list files, `{"param", "endpoint", "fetched", "records"}` with an optional
+  `"note"`, converted without a request: values and order unchanged, `fetched` the date
+  it was (2026-10-25, read as 00:00 UTC), the derived lists' query under `note`.
+
+### Removed
+
+- **BREAKING**: `params.PackagedValues`, `params.packaged_values` and
+  `params.derived_values`: a packaged list is read with
+  `xippios.core.PackagedList.load("xippios.usda.nass", name)` (ADR-0022).
+
 ## [0.1.0] - 2026-10-25
 
 ### Added

@@ -1,11 +1,22 @@
 {
   "param": "sector_desc",
+  "endpoint": "get_param_values",
   "fetched": "2026-10-25",
-  "values": [
-    "ANIMALS & PRODUCTS",
-    "CROPS",
-    "DEMOGRAPHICS",
-    "ECONOMICS",
-    "ENVIRONMENTAL"
+  "records": [
+    {
+      "sector_desc": "ANIMALS & PRODUCTS"
+    },
+    {
+      "sector_desc": "CROPS"
+    },
+    {
+      "sector_desc": "DEMOGRAPHICS"
+    },
+    {
+      "sector_desc": "ECONOMICS"
+    },
+    {
+      "sector_desc": "ENVIRONMENTAL"
+    }
   ]
 }

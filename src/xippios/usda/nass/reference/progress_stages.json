@@ -1,28 +1,56 @@
 {
   "param": "unit_desc",
+  "endpoint": "api_GET",
   "fetched": "2026-10-25",
-  "values": [
-    "PCT BLOOMING",
-    "PCT BOLLS OPENING",
-    "PCT COLORING",
-    "PCT DENTED",
-    "PCT DOUGH",
-    "PCT DROPPING LEAVES",
-    "PCT EMERGED",
-    "PCT HARVESTED",
-    "PCT HEADED",
-    "PCT MATURE",
-    "PCT PEGGING",
-    "PCT PLANTED",
-    "PCT SETTING BOLLS",
-    "PCT SETTING PODS",
-    "PCT SILKING",
-    "PCT SQUARING"
-  ],
-  "derived_from": {
-    "statisticcat_desc": "PROGRESS",
-    "agg_level_desc": "NATIONAL",
-    "freq_desc": "WEEKLY",
-    "year": 2025
-  }
+  "note": "distinct unit_desc of api_GET with statisticcat_desc=PROGRESS, agg_level_desc=NATIONAL, freq_desc=WEEKLY, year=2025",
+  "records": [
+    {
+      "unit_desc": "PCT BLOOMING"
+    },
+    {
+      "unit_desc": "PCT BOLLS OPENING"
+    },
+    {
+      "unit_desc": "PCT COLORING"
+    },
+    {
+      "unit_desc": "PCT DENTED"
+    },
+    {
+      "unit_desc": "PCT DOUGH"
+    },
+    {
+      "unit_desc": "PCT DROPPING LEAVES"
+    },
+    {
+      "unit_desc": "PCT EMERGED"
+    },
+    {
+      "unit_desc": "PCT HARVESTED"
+    },
+    {
+      "unit_desc": "PCT HEADED"
+    },
+    {
+      "unit_desc": "PCT MATURE"
+    },
+    {
+      "unit_desc": "PCT PEGGING"
+    },
+    {
+      "unit_desc": "PCT PLANTED"
+    },
+    {
+      "unit_desc": "PCT SETTING BOLLS"
+    },
+    {
+      "unit_desc": "PCT SETTING PODS"
+    },
+    {
+      "unit_desc": "PCT SILKING"
+    },
+    {
+      "unit_desc": "PCT SQUARING"
+    }
+  ]
 }

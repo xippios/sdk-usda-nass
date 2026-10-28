@@ -1,8 +1,13 @@
 {
   "param": "source_desc",
+  "endpoint": "get_param_values",
   "fetched": "2026-10-25",
-  "values": [
-    "CENSUS",
-    "SURVEY"
+  "records": [
+    {
+      "source_desc": "CENSUS"
+    },
+    {
+      "source_desc": "SURVEY"
+    }
   ]
 }

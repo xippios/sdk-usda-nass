@@ -1,18 +1,25 @@
-"""Structural checks every task must satisfy. Per-task tests with recorded fixtures go below."""
+"""Replay tests on recorded fixtures, at least one per task (conventions §10).
 
-import inspect
+``/add-endpoint`` and ``/record-fixture`` add them.
+"""
+
 from collections.abc import Callable
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
-from urllib.parse import parse_qsl, urlsplit
 
 import pytest
 import respx
-from xippios.core import InvalidRequestError, NotFoundError, UpstreamModel
+from xippios.core import (
+    InvalidRequestError,
+    NotFoundError,
+    PackagedList,
+    UpstreamModel,
+    load_json,
+)
 from xippios.core.http import status_for
-from xippios.core.testing import assert_projection, mcp_call, sent_urls
+from xippios.core.testing import assert_projection, mcp_call, sent_query
 
-from xippios.usda.nass import __version__, api, enums, tasks
+from xippios.usda.nass import api, enums, tasks
 from xippios.usda.nass.errors import QueryTooLarge
 from xippios.usda.nass.mcp import server
 from xippios.usda.nass.models import (
@@ -23,40 +30,7 @@ from xippios.usda.nass.models import (
     PriceReceivedRecord,
     QuickStatsRecord,
 )
-from xippios.usda.nass.params import (
-    DERIVED_LISTS,
-    PACKAGED_PARAMS,
-    columns,
-    derived_values,
-    packaged_values,
-)
-
-TASKS = [getattr(tasks, name) for name in tasks.__all__]
-
-
-def sent_query(route: respx.Route) -> dict[str, str]:
-    """The query of the last request ``route`` received, read from ``sent_urls(route)``.
-
-    The URL text is scrubbed, its key ``REDACTED``, so no request carrying the key sits in
-    a test's frame, where a failure or ``pytest -l`` would print it.
-    """
-    return dict(parse_qsl(urlsplit(sent_urls(route)[-1]).query, keep_blank_values=True))
-
-
-def test_package_has_a_version() -> None:
-    assert __version__
-
-
-@pytest.mark.parametrize("task", TASKS, ids=tasks.__all__)
-def test_task_is_a_sync_facade_with_an_agent_docstring(task: object) -> None:
-    assert callable(task)
-    assert hasattr(task, "async_fn"), "write the async function and derive the sync one with sync()"
-    doc = inspect.getdoc(task) or ""
-    assert doc, "task functions need a docstring: agents read it"
-    assert doc.splitlines()[0].endswith("."), "the first line is one sentence"
-    if inspect.signature(task).parameters:
-        assert "Args:" in doc, "explain every parameter under Args: with valid-value examples"
-
+from xippios.usda.nass.params import DERIVED_LISTS, PACKAGE, PACKAGED_PARAMS, columns
 
 EXAMPLE_FILTERS: dict[str, str | int] = {
     "commodity_desc": "CORN",
@@ -115,12 +89,18 @@ def test_query_too_large_is_an_invalid_request_for_http_too() -> None:
     assert status_for(QueryTooLarge(70_000)) == 422
 
 
+def fetched_as_written(name: str) -> datetime:
+    """A packaged file's ``fetched``, read from its text: a bare date is 00:00 UTC that day."""
+    when = datetime.fromisoformat(load_json(PACKAGE, f"{name}.json")["fetched"])
+    return when if when.tzinfo else when.replace(tzinfo=UTC)
+
+
 def test_enums_match_the_packaged_lists() -> None:
     for param in PACKAGED_PARAMS:
         cls = getattr(enums, "".join(part.capitalize() for part in param.split("_")))
-        packaged = packaged_values(param)
-        assert packaged is not None
-        assert [member.value for member in cls] == packaged.values, param
+        packaged = PackagedList.load(PACKAGE, param)
+        values = [record[param] for record in packaged.records]
+        assert [member.value for member in cls] == values, param
     assert enums.StateAlpha.VA.value == "VA"
     assert enums.SectorDesc.ANIMALS_AND_PRODUCTS.value == "ANIMALS & PRODUCTS"
     assert enums.AggLevelDesc.REGION_MULTI_STATE.value == "REGION : MULTI-STATE"
@@ -283,12 +263,13 @@ def test_packaged_parameters_are_answered_without_a_network_call(
 ) -> None:
     """respx is active with no routes mounted, so any upstream call would fail loudly."""
     for param in PACKAGED_PARAMS:
-        packaged = packaged_values(param)
-        assert packaged is not None, param
+        packaged = PackagedList.load(PACKAGE, param)
         result = tasks.list_param_values(param)
-        assert result.data, param
-        assert result.meta.endpoint == "reference"
-        assert result.meta.vintage == packaged.fetched.isoformat()
+        assert result.data == [record[param] for record in packaged.records], param
+        assert result.meta.endpoint == "get_param_values"
+        assert result.meta.retrieved_at == fetched_as_written(param)
+        assert result.meta.vintage is None
+        assert result.meta.published_at is None
         assert result.meta.request == {"param": param}
     assert not respx_mock.calls
     assert "CROPS" in tasks.list_param_values("sector_desc").data
@@ -369,13 +350,17 @@ def test_crop_condition_series(replay_fixture: Callable[[str, str], respx.Route]
 
 
 def test_derived_enums_match_their_lists_and_provenance() -> None:
-    stages = derived_values("progress_stages")
-    categories = derived_values("condition_categories")
-    assert [m.value for m in enums.ProgressStage] == stages.values
-    assert [m.value for m in enums.ConditionCategory] == categories.values
-    assert stages.derived_from is not None
-    assert stages.derived_from["statisticcat_desc"] == "PROGRESS"
-    assert stages.derived_from["agg_level_desc"] == "NATIONAL"
+    stages = PackagedList.load(PACKAGE, "progress_stages")
+    categories = PackagedList.load(PACKAGE, "condition_categories")
+    assert [m.value for m in enums.ProgressStage] == [r["unit_desc"] for r in stages.records]
+    assert [m.value for m in enums.ConditionCategory] == [
+        r["unit_desc"] for r in categories.records
+    ]
+    for derived in (stages, categories):
+        assert (derived.param, derived.endpoint) == ("unit_desc", "api_GET")
+    assert stages.note is not None
+    assert "statisticcat_desc=PROGRESS" in stages.note
+    assert "agg_level_desc=NATIONAL" in stages.note
     assert set(DERIVED_LISTS) == {"progress_stages", "condition_categories"}
     assert enums.ProgressStage.PCT_PLANTED.value == "PCT PLANTED"
     assert [m.value for m in enums.ConditionCategory] == [

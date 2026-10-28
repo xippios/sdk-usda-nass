@@ -1,35 +1,25 @@
 # Reference data for USDA NASS Quick Stats
 
 Code lists and column definitions ship here, versioned with the package, and load through
-`xippios.usda.nass.params` (built on `xippios.core.reference`):
+`xippios.core.PackagedList` and `xippios.usda.nass.params` (built on `xippios.core.reference`):
 
 ```python
-from xippios.usda.nass.params import columns, packaged_values
+from xippios.core import PackagedList
+from xippios.usda.nass.params import PACKAGE, columns
 
-packaged_values("state_alpha").values  # ['AK', 'AL', ...], no network call
+states = PackagedList.load(PACKAGE, "state_alpha")
+[record["state_alpha"] for record in states.records]  # ['AK', 'AL', ...], no network call
 [c.column for c in columns()]  # every Quick Stats column, from param_define.md
 ```
 
-Rules:
-
-- Files come from the upstream through `scripts/refresh_reference.py`
-  (`/refresh-reference-data`), never typed in by hand; the script also regenerates
-  `enums.py` with `xippios.core.reference`: one `StrEnum` per value list
-  (`render_str_enums`), or one `IntEnum` per list of integer ids (`render_int_enums`).
-  Quick Stats' lists are value lists, so `enums.py` holds a `StrEnum` for each of the
-  eight `.json` files below; `--render-only` regenerates it from them without a request.
-- Files keep upstream's names: a value list keeps its Quick Stats parameter as `param`
-  (`unit_desc` for the two derived lists) and its values verbatim, and `columns.csv` keeps
-  every column name as `param_define.md` spells it.
-- Every file has a row below naming where it came from and the date.
-- Agents get a lookup task for every packaged list so they can form valid calls: one
-  lookup task per list, `list_<thing>`, served as the MCP tool `usda_nass_list_<thing>`,
-  or the upstream's own lookup operation when it serves every list through one. Quick
-  Stats serves every list through `get_param_values`, so `list_param_values` (the MCP
-  tool `usda_nass_list_param_values`) answers from the packaged lists for the six
-  parameters below and goes live for every other parameter. The two derived lists are
-  the values of `get_crop_progress`'s `stage` and `get_crop_condition`'s `category`,
-  listed in those tools' input schemas.
+Each `reference/<name>.json` holds `{"param", "endpoint", "fetched", "records"}` and an
+optional `"note"`: upstream's records under upstream's field names, a value list as records
+of one field named by its Quick Stats parameter (`unit_desc` for the two derived lists),
+written by `/refresh-reference-data`'s script with `PackagedList.write`, never by hand, and
+read with `PackagedList.load`; `columns.csv` is the column table of
+`docs/upstream/param_define.md`, rebuilt by the same script. One row per file: Origin is the
+endpoint or URL it was fetched from, or the `docs/upstream/` file it was rebuilt from;
+Fetched is the UTC time of that fetch, or the snapshot's `Fetched` time for a rebuilt file.
 
 | File | Origin | Fetched |
 | --- | --- | --- |
@@ -41,7 +31,7 @@ Rules:
 | `state_alpha.json` | `GET /api/get_param_values?param=state_alpha` | 2026-10-25 |
 | `progress_stages.json` | distinct `unit_desc` of `GET /api/api_GET` with statisticcat_desc=PROGRESS, agg_level_desc=NATIONAL, freq_desc=WEEKLY, year=2025 | 2026-10-25 |
 | `condition_categories.json` | distinct `unit_desc` of `GET /api/api_GET` with statisticcat_desc=CONDITION, agg_level_desc=NATIONAL, freq_desc=WEEKLY, year=2025 | 2026-10-25 |
-| `columns.csv` | `docs/upstream/param_define.md` (snapshot of https://quickstats.nass.usda.gov/param_define, fetched 2026-10-22) | 2026-10-25 |
+| `columns.csv` | `docs/upstream/param_define.md` (snapshot of https://quickstats.nass.usda.gov/param_define) | 2026-10-22 |
 
 The two derived lists come from the year before the fetch; each file records the query
-under `derived_from`.
+under `note`.
