@@ -790,6 +790,8 @@ async def get_census_farms_async(
         state: Two-letter state code, e.g. ``StateAlpha.IA``: that state's figures, or
             with ``by_county`` its counties'. ``None`` returns the national
             ``US TOTAL`` figures, or with ``by_county`` every county of the country.
+            The 2022 Census counts no state rows for ``StateAlpha.PR``, and a code
+            without rows raises ``NotFoundError``.
         by_county: ``True`` returns county figures (``agg_level_desc`` ``COUNTY``), of
             ``state`` when given; ``False``, the default, the state or national ones.
     """
