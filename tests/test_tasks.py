@@ -175,7 +175,7 @@ async def test_api_get_maps_upstream_errors(
 ) -> None:
     replay_fixture("api_GET", "exceeds_limit")
     with pytest.raises(QueryTooLarge) as info:
-        await api.api_GET({"commodity_desc": "CORN"})
+        await api.api_get({"commodity_desc": "CORN"})
     assert info.value.count is None
 
 
@@ -185,7 +185,7 @@ async def test_api_get_maps_no_match_to_not_found(
 ) -> None:
     replay_fixture("api_GET", "no_match")
     with pytest.raises(NotFoundError, match="invalid query"):
-        await api.api_GET({"commodity_desc": "CORN", "year": 1800})
+        await api.api_get({"commodity_desc": "CORN", "year": 1800})
 
 
 def test_value_number_handles_suppression_codes() -> None:

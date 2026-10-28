@@ -14,7 +14,7 @@ class QueryTooLarge(InvalidRequestError):
     """The query would return more than Quick Stats' 50,000-record maximum (HTTP 422).
 
     Raised by ``get_data`` before fetching, from the count ``get_counts`` reports, and by
-    the ``api_GET`` wrapper when upstream answers HTTP 413 ``exceeds limit=50000``.
+    the ``api_get`` wrapper when upstream answers HTTP 413 ``exceeds limit=50000``.
 
     Attributes:
         count: Records the query would return, when known.

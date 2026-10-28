@@ -102,7 +102,7 @@ def note(query: Mapping[str, str | int]) -> str:
 def derive(name: str, filters: dict[str, str | int], year: int) -> None:
     """Distinct ``unit_desc`` values of one national year of weekly rows, written to a file."""
     query: dict[str, str | int] = {**filters, "freq_desc": "WEEKLY", "year": year}
-    rows = sync(api.api_GET)(query).data
+    rows = sync(api.api_get)(query).data
     values = sorted({row.unit_desc for row in rows})
     print(f"{name}: {len(rows)} rows")  # noqa: T201
     packaged = PackagedList(

@@ -92,7 +92,7 @@ async def _slice[M: UpstreamModel](
     An over-limit answer still raises ``QueryTooLarge`` from the wrapper.
     """
     checked = validate_filters(filters)
-    response = await api.api_GET(checked)
+    response = await api.api_get(checked)
     rows = sorted((_project(model, record) for record in response.data), key=order)
     return Result(data=rows, meta=_meta("api_GET", checked))
 
@@ -150,7 +150,7 @@ async def get_data_async(filters: Filters) -> Result[list[QuickStatsRecord]]:
         return Result(data=[], meta=_meta("api_GET", checked))
     if count > RECORD_LIMIT:
         raise QueryTooLarge(count)
-    response = await api.api_GET(checked)
+    response = await api.api_get(checked)
     return Result(data=response.data, meta=_meta("api_GET", checked))
 
 
