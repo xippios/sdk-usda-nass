@@ -13,7 +13,9 @@ sets itself in ``member_names`` (on 2026-10-28: the 61 ``unit_desc`` values with
 named by one rule, and two ``domain_desc`` values, named literally), each class naming
 the day its list was fetched, and formatted with ``ruff format`` and ``ruff check --fix``,
 as it is committed (ADR-0008); and ``columns.csv`` is rebuilt from the column table in
-``docs/upstream/param_define.md``. Quick Stats' lists are value lists, so there is no
+``docs/upstream/param_define.md``, which the snapshot keeps as HTML (conventions §3). The
+table is parsed before any file is written, so a snapshot the parser cannot read leaves
+every packaged file as it was. Quick Stats' lists are value lists, so there is no
 ``IntEnum`` path. Run from the repository root with what the list endpoints need in the
 environment, the API key, since every Quick Stats endpoint takes it::
 
@@ -27,11 +29,13 @@ after a core release changes the renderer (conventions §15, item 6), it changes
 
 import argparse
 import csv
+import io
 import re
 import subprocess
 import sys
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from html.parser import HTMLParser
 from pathlib import Path
 
 from xippios.core import PackagedList, sync
@@ -47,34 +51,101 @@ PARAM_DEFINE = ROOT / "docs/upstream/param_define.md"
 ENUMS = PACKAGE_DIR / "enums.py"
 GENERATOR = "scripts/refresh_reference.py"
 
+COLUMNS = REFERENCE / "columns.csv"
+
+# The snapshot's column names where they differ from the columns' names in the data: the
+# stray space upstream prints in one key, and the two data value columns as api_GET names
+# them.
 _ARTIFACTS = {
-    "reference_period_  desc": "reference_period_desc",
+    "reference_period_ desc": "reference_period_desc",
     "CV %": "CV (%)",
     "value": "Value",
 }
+_HEADER = ["Column or Header Name", "Max Length", "Definition"]
+_FIELDS = ["column", "dimension", "max_length", "definition"]
+
+
+class _TableRows(HTMLParser):
+    """The ``<tr>`` rows of an HTML document, each a list of its cells' text and colspan.
+
+    A cell's text is its character data with whitespace collapsed, entities unescaped
+    (``convert_charrefs``), whatever inline markup it holds.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.rows: list[list[tuple[str, int]]] = []
+        self._row: list[tuple[str, int]] | None = None
+        self._cell: list[str] | None = None
+        self._colspan = 1
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """Open a row, or a cell inside an open row."""
+        if tag == "tr":
+            self._row = []
+        elif tag in {"td", "th"} and self._row is not None:
+            self._cell = []
+            self._colspan = int(dict(attrs).get("colspan") or 1)
+
+    def handle_endtag(self, tag: str) -> None:
+        """Close the open cell into its row, or the open row into the rows."""
+        if tag in {"td", "th"} and self._row is not None and self._cell is not None:
+            self._row.append((" ".join("".join(self._cell).split()), self._colspan))
+            self._cell = None
+        elif tag == "tr" and self._row is not None:
+            self.rows.append(self._row)
+            self._row = None
+
+    def handle_data(self, data: str) -> None:
+        """Collect the text of the open cell."""
+        if self._cell is not None:
+            self._cell.append(data)
 
 
 def columns_from_snapshot() -> list[dict[str, str]]:
-    """Column name, max length and definition from the snapshot's table."""
+    """Column name, dimension, max length and definition from the snapshot's HTML table.
+
+    The first ``<tr>`` is the header; a ``<tr>`` of one ``colspan="3"`` cell names the
+    dimension of the rows below it; every other row is one column. The search page's
+    header in parentheses after a column name is dropped, and ``_ARTIFACTS`` maps the
+    names upstream prints differently from the data.
+    """
+    table = _TableRows()
+    table.feed(PARAM_DEFINE.read_text(encoding="utf-8"))
+    table.close()
+    if not table.rows or [text for text, _ in table.rows[0]] != _HEADER:
+        raise SystemExit(f"no HTML column table headed {_HEADER} in {PARAM_DEFINE}")
     rows: list[dict[str, str]] = []
     dimension = ""
-    for line in PARAM_DEFINE.read_text(encoding="utf-8").splitlines():
-        if not line.startswith("| ") or line.startswith("| ---") or "**" in line:
+    for cells in table.rows[1:]:
+        if len(cells) == 1 and cells[0][1] == len(_HEADER):
+            dimension = cells[0][0]
             continue
-        cells = [cell.strip() for cell in line.strip("|").split("|")]
-        if len(cells) != 3 or not cells[0]:
-            continue
-        if not cells[1] and not cells[2]:
-            dimension = cells[0]
-            continue
-        raw = re.sub(r"\s*\(.*\)$", "", cells[0]).strip()
+        if len(cells) != len(_HEADER) or not dimension:
+            raise SystemExit(f"unexpected row in {PARAM_DEFINE}: {[text for text, _ in cells]}")
+        (column, _), (max_length, _), (definition, _) = cells
+        raw = re.sub(r"\s*\(.*\)$", "", column)
         name = _ARTIFACTS.get(raw, raw)
         rows.append(
-            {"column": name, "dimension": dimension, "max_length": cells[1], "definition": cells[2]}
+            {
+                "column": name,
+                "dimension": dimension,
+                "max_length": max_length,
+                "definition": definition,
+            }
         )
     if not 35 <= len(rows) <= 45:
         raise SystemExit(f"expected about 39 columns in {PARAM_DEFINE}, parsed {len(rows)}")
     return rows
+
+
+def columns_csv(rows: list[dict[str, str]]) -> str:
+    """``columns.csv`` as committed: a header line, then one line per column, CRLF-ended."""
+    buffer = io.StringIO(newline="")
+    writer = csv.DictWriter(buffer, fieldnames=_FIELDS)
+    writer.writeheader()
+    writer.writerows(rows)
+    return buffer.getvalue()
 
 
 _ENUM_NAMES = {
@@ -180,7 +251,12 @@ def render() -> None:
 
 
 def refresh() -> None:
-    """Fetch the packaged lists, derive stages and categories, rebuild enums.py and columns.csv."""
+    """Fetch the packaged lists, derive stages and categories, rebuild enums.py and columns.csv.
+
+    The column table is parsed first: a snapshot the parser cannot read stops the run
+    before any request and before any file is written.
+    """
+    columns = columns_csv(columns_from_snapshot())
     year = datetime.now(UTC).year - 1
     fetch = sync(api.get_param_values)
     for param in PACKAGED_PARAMS:
@@ -195,12 +271,7 @@ def refresh() -> None:
     for name, filters in DERIVED_LISTS.items():
         derive(name, filters, year)
     render()
-    with (REFERENCE / "columns.csv").open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(
-            handle, fieldnames=["column", "dimension", "max_length", "definition"]
-        )
-        writer.writeheader()
-        writer.writerows(columns_from_snapshot())
+    COLUMNS.write_text(columns, encoding="utf-8", newline="")
     print("columns.csv rebuilt from docs/upstream/param_define.md")  # noqa: T201
 
 
