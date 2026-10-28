@@ -780,11 +780,14 @@ async def get_census_farms_async(
     unit. Every county of the country is a large answer (2022: 3,078 rows for
     ``OPERATIONS``, 12,312 for ``AREA OPERATED``, counted 2026-10-28), well under the
     50,000-record limit: the MCP tool returns its first rows within the result cap
-    (64 KB, about 100 rows) with a note, so give ``state`` there.
+    (64 KB, about 100 rows, a projected row being about 600 bytes) with a note, so give
+    ``state`` there. A state's counties are cut too past about 100 rows, so for
+    ``AREA OPERATED``, four rows a county, a state of more than about 25 counties is cut.
 
     Args:
         year: A Census year, e.g. ``2022`` or ``2017``; the Census of Agriculture is
-            taken every five years, and a year without one raises ``NotFoundError``.
+            taken every five years, and a year without rows under these filters raises
+            ``NotFoundError``.
         statistic: ``FarmStatistic.OPERATIONS`` (the number of farms) or
             ``FarmStatistic.AREA_OPERATED`` (land in farms).
         state: Two-letter state code, e.g. ``StateAlpha.IA``: that state's figures, or
