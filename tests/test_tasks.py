@@ -34,7 +34,7 @@ from xippios.core.testing import (
 
 from xippios.usda.nass import api, enums, tasks
 from xippios.usda.nass._client import BASE_URL
-from xippios.usda.nass.errors import QueryTooLarge
+from xippios.usda.nass.errors import SPLIT_CEILING, QueryTooLarge
 from xippios.usda.nass.mcp import server
 from xippios.usda.nass.models import (
     AcreageRecord,
@@ -755,12 +755,19 @@ IA_FILTERS: dict[str, str | int] = {"state_alpha": "IA", "year__GE": 2023, "year
 IA_SINCE_FILTERS: dict[str, str | int] = {"state_alpha": "IA", "year__GE": 2023}
 IA_COUNTS = {2023: 8635, 2024: 12799}  # get_counts/ia_2023_2024_<year>, recorded 2026-10-28
 IA_CHUNKS = {2023: "corn_price_received_ia_2023", 2024: "corn_progress_planted_ia_2024"}
+THIS_YEAR = datetime.now(UTC).year
 CORN_COUNTY_FILTERS: dict[str, str | int] = {
     "commodity_desc": "CORN",
     "agg_level_desc": "COUNTY",
     "year__GE": 2020,
     "year__LE": 2021,
 }
+
+THROUGH_THE_LIMIT = (  # QueryTooLarge's hint for a whole query (conventions §8)
+    "Narrow the filters, for example by year, state_alpha, agg_level_desc or "
+    "statisticcat_desc, or call get_data with split_by_year=True (over MCP, the tool "
+    "usda_nass_get_data) on a bounded year range of at most 20 years."
+)
 
 
 def sent_in_order(router: respx.MockRouter) -> list[tuple[str, str | None]]:
@@ -832,6 +839,39 @@ def test_get_data_splits_a_two_sided_year_range_by_year(
             assert not {"year__GE", "year__LE"} & set(sent)
 
 
+def test_split_of_year_ge_alone_keeps_the_first_count(
+    replay_fixture: ReplayFixture, respx_mock: respx.MockRouter
+) -> None:
+    """``year__GE`` alone is an open range upstream serves whole, so it is counted first and
+    split only over the limit. ``get_counts/corn_county_2020_2021``, which upstream counted
+    as ``year__GE=2020`` alone (85,535), stands in for Iowa's count from 2023 on (31,461,
+    within the limit) to drive the split; ``get_counts/no_match`` (a count of 0) answers
+    the years from 2025 to the current one, whose counts are not recorded."""
+    routes = mount_ia_split(replay_fixture)
+    first = replay_fixture(
+        "get_counts",
+        "corn_county_2020_2021",
+        url=f"{BASE_URL}/get_counts/?state_alpha=IA&year__GE=2023",
+        match_params=["year__GE"],
+    )
+    later = replay_fixture("get_counts", "no_match")
+    result = tasks.get_data(IA_SINCE_FILTERS, split_by_year=True)
+    years = range(2023, THIS_YEAR + 1)
+    assert sent_in_order(respx_mock) == [
+        ("/api/get_counts/", None),
+        *(("/api/get_counts/", str(year)) for year in years),
+        ("/api/api_GET/", "2023"),
+        ("/api/api_GET/", "2024"),
+    ]
+    assert sent_query(first) == {"state_alpha": "IA", "year__GE": "2023", "key": REDACTED}
+    sent_later = [httpx.URL(url).params.get("year") for url in sent_urls(later)]
+    assert sent_later == [str(year) for year in years if year not in IA_COUNTS]
+    assert (routes["fetch_2023"].call_count, routes["fetch_2024"].call_count) == (1, 1)
+    assert [row.year for row in result.data] == [2023] * 13 + [2024] * 11
+    assert result.meta.total == sum(IA_COUNTS.values()) == 21434  # the years counted 0 add 0
+    assert result.meta.request == {**IA_SINCE_FILTERS, "split_by_year": True}
+
+
 def test_get_data_without_split_refuses_the_two_year_query(
     replay_fixture: ReplayFixture,
 ) -> None:
@@ -841,8 +881,27 @@ def test_get_data_without_split_refuses_the_two_year_query(
         tasks.get_data(CORN_COUNTY_FILTERS)
     assert (info.value.count, info.value.year) == (85535, None)
     assert str(info.value).startswith("query would return 85,535 records")
+    assert str(info.value).endswith(THROUGH_THE_LIMIT)
     assert counted.call_count == 1
     assert not fetched.called
+
+
+@pytest.mark.anyio
+async def test_query_too_large_names_the_way_through_the_limit(
+    replay_fixture: ReplayFixture,
+) -> None:
+    """Narrower filters, or ``get_data`` with ``split_by_year`` on at most 20 years
+    (conventions §8); a year over the limit on its own names narrower filters only."""
+    assert SPLIT_CEILING == 20
+    assert str(QueryTooLarge(85_535)).endswith(THROUGH_THE_LIMIT)
+    assert str(QueryTooLarge(None)).endswith(THROUGH_THE_LIMIT)  # upstream's HTTP 413
+    alone = str(QueryTooLarge(57_873_464, year=2021))
+    assert "split_by_year cannot fetch it. Narrow the filters, for example by state_alpha" in alone
+    assert "split_by_year=True" not in alone
+    replay_fixture("get_counts", "corn_county_2020_2021")
+    text = await mcp_call_text(server, "usda_nass_get_data", {"filters": CORN_COUNTY_FILTERS})
+    assert text.startswith("error: QueryTooLarge: query would return 85,535 records")
+    assert text.endswith(THROUGH_THE_LIMIT)
 
 
 def test_split_refuses_a_year_over_the_limit_before_fetching(
@@ -947,6 +1006,56 @@ def test_split_bounds_year_ge_alone_at_the_current_utc_year(
     sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
     assert sent == [str(start), str(start + 1)]
     assert sent[-1] == str(datetime.now(UTC).year)
+    assert (result.data, result.meta.total) == ([], 0)
+    assert not fetched.called
+
+
+@pytest.mark.parametrize(
+    ("years", "first", "last"),
+    [
+        ({"year__GE": 2000, "year__LE": 2020}, 2000, 2020),
+        ({"year__GE": THIS_YEAR - 20}, THIS_YEAR - 20, THIS_YEAR),
+    ],
+)
+def test_split_refuses_more_than_twenty_years_before_any_call(
+    respx_mock: respx.MockRouter, years: dict[str, str | int], first: int, last: int
+) -> None:
+    """The ceiling of conventions §4, for both ranges: 21 years is one too many."""
+    with pytest.raises(InvalidRequestError) as info:
+        tasks.get_data({"commodity_desc": "CORN", **years}, split_by_year=True)
+    assert not isinstance(info.value, QueryTooLarge | UnknownCode)
+    assert str(info.value) == (
+        f"split_by_year covers at most 20 years per call; the years run from {first} to "
+        f"{last}, 21 years. Give a shorter range, e.g. year__GE={first + 1} with "
+        f"year__LE={last}."
+    )
+    assert status_for(info.value) == 422
+    assert not respx_mock.calls
+
+
+def test_split_accepts_twenty_years_of_a_two_sided_range(
+    replay_fixture: ReplayFixture,
+) -> None:
+    """``get_counts/no_match`` (a count of 0) answers every year: twenty counts, no fetch."""
+    yearly = replay_fixture("get_counts", "no_match")
+    fetched = replay_fixture("api_get", "no_match")
+    filters: dict[str, str | int] = {"commodity_desc": "CORN", "year__GE": 2001, "year__LE": 2020}
+    result = tasks.get_data(filters, split_by_year=True)
+    sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
+    assert sent == [str(year) for year in range(2001, 2021)]
+    assert (result.data, result.meta.total) == ([], 0)
+    assert not fetched.called
+
+
+def test_split_accepts_twenty_years_from_year_ge_on(
+    replay_fixture: ReplayFixture,
+) -> None:
+    """``get_counts/no_match`` answers the first count with 0: one call, nothing fetched."""
+    counted = replay_fixture("get_counts", "no_match")
+    fetched = replay_fixture("api_get", "no_match")
+    start = THIS_YEAR - 19
+    result = tasks.get_data({"commodity_desc": "CORN", "year__GE": start}, split_by_year=True)
+    assert [httpx.URL(url).params.get("year__GE") for url in sent_urls(counted)] == [str(start)]
     assert (result.data, result.meta.total) == ([], 0)
     assert not fetched.called
 
