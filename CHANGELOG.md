@@ -19,6 +19,11 @@ All notable changes to this project are documented here. The format follows
   packaged-list files, `{"param", "endpoint", "fetched", "records"}` with an optional
   `"note"`, converted without a request: values and order unchanged, `fetched` the date
   it was (2026-10-25, read as 00:00 UTC), the derived lists' query under `note`.
+- **BREAKING**: the endpoint wrapper `api_GET` is `api_get`, imported from
+  `xippios.usda.nass.api.api_get`, its fixtures under `tests/fixtures/api_get/`: a
+  wrapper's module and function carry the upstream operation's id snake_cased
+  (conventions 1.22 §2 and §10, D95). The request URL and `meta.endpoint` (`"api_GET"`)
+  are unchanged, and so are the tasks.
 
 ### Removed
 
