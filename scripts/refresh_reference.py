@@ -8,9 +8,11 @@ fetch to the second and the values as records of one field named by the paramete
 one national year of weekly ``api_GET`` rows, the query they come from kept as the file's
 ``note``. Then ``enums.py`` is regenerated from the packaged files by one
 ``xippios.core.reference.render_enums`` call, one ``StrEnum`` per packaged and derived
-list (member names derived from the values, values verbatim), each class naming the day
-its list was fetched, and formatted with ``ruff format`` and ``ruff check --fix``, as it
-is committed (ADR-0008); and ``columns.csv`` is rebuilt from the column table in
+list, values verbatim and member names derived from the values except the 63 the script
+sets itself in ``member_names`` (on 2026-10-28: the 61 ``unit_desc`` values with ``$``,
+named by one rule, and two ``domain_desc`` values, named literally), each class naming
+the day its list was fetched, and formatted with ``ruff format`` and ``ruff check --fix``,
+as it is committed (ADR-0008); and ``columns.csv`` is rebuilt from the column table in
 ``docs/upstream/param_define.md``. Quick Stats' lists are value lists, so there is no
 ``IntEnum`` path. Run from the repository root with what the list endpoints need in the
 environment, the API key, since every Quick Stats endpoint takes it::
@@ -85,11 +87,13 @@ _ENUM_NAMES = {
 
 # Members the script names, not render_enums (ADR-0008), passed to it by member_names().
 # unit_desc: every value with "$" (61 on 2026-10-28) is named by one rule, "$" read as
-# DOLLARS and "/" as PER before the renderer derives the name: "$" is DOLLARS, "$ / X" is
-# DOLLARS_PER_<X> and "$, X" DOLLARS_<X> (Johannes, 2026-10-28; "$, X" by the same rule,
-# gap, row 175). The renderer derives no name from "$" and drops "$" and "/" from the
-# others, so "$ / BU" would share BU with the unit "BU" that unit_desc lists as well, and
-# "$ / ACRE" would read as the unit ACRE. Core taking the rule is queued as row 175.
+# DOLLARS and "/" as PER before the renderer derives the name: "$" is DOLLARS and "$ / X"
+# DOLLARS_PER_<X> (Johannes, 2026-10-28), and "$, X" is DOLLARS_<X> by the same rule.
+# The renderer derives no name from "$" and drops "$" and "/" from the others, so "$ / BU"
+# would share BU with the unit "BU" that unit_desc lists as well, and "$ / ACRE" would read
+# as the unit ACRE. Row 175 proposes the rule for core: "$" as DOLLARS everywhere and "/"
+# as PER only inside a value that contains "$", since reading every "/" as PER would
+# rename 89 unit_desc members without "$".
 # domain_desc: upstream lists two landlord domains spelled both with "&" and with "AND",
 # which derive one name since "&" reads as AND; the "&" spellings keep the derived name,
 # the spelled-out ones take _SPELLED_OUT (Johannes, 2026-10-28).

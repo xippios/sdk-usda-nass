@@ -27,10 +27,10 @@ All notable changes to this project are documented here. The format follows
   `meta.retrieved_at` of a packaged answer is that time, where it read 00:00 UTC of
   2026-10-25; the `enums.py` docstrings name 2026-10-28, and `reference/README.md` lists
   the eleven files with their fetch times.
-- `list_param_values("statisticcat_desc")` is answered from the package, no longer
-  live. The live path's replay test uses a new `get_param_values/commodity_desc`
-  fixture (recorded 2026-10-28); the `statisticcat_desc` fixture, which no test
-  replays any more, is removed.
+- `list_param_values` answers `statisticcat_desc`, `unit_desc` and `domain_desc` from
+  the package, no longer live. The live path's replay test uses a new
+  `get_param_values/commodity_desc` fixture (recorded 2026-10-28); the
+  `statisticcat_desc` fixture, which no test replays any more, is removed.
 - Adopted xippios-core 0.3.0, sdk-template v0.3.0 and conventions 1.22 (conventions §15).
 - **BREAKING**: depends on `xippios-core~=0.3.0`, its `mcp`, `http` and `testing` extras
   likewise, from PyPI; a core minor keeps no compatibility with the one before it while

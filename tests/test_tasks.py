@@ -285,9 +285,9 @@ def test_list_param_values_goes_live_for_an_unpackaged_parameter(
 async def test_list_param_values_over_mcp_is_whole_past_the_default_cap(
     respx_mock: respx.MockRouter,
 ) -> None:
-    """278 values, past the default cap of 200 rows, answered from the package with no
-    upstream call: the tool's own cap, ``tasks.MCP_CAPS`` (ADR-0016), lets every one
-    through, so no note is added."""
+    """``statisticcat_desc``, past the default cap of 200 rows, answered from the package
+    with no upstream call: the tool's own cap, ``tasks.MCP_CAPS`` (ADR-0016), lets every
+    one through, so no note is added."""
     payload = await mcp_call(server, "usda_nass_list_param_values", {"param": "statisticcat_desc"})
     assert not respx_mock.calls
     assert len(payload["data"]) == len(PackagedList.load(PACKAGE, "statisticcat_desc").records)
