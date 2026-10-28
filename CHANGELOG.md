@@ -8,6 +8,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Live smoke tests for `get_crop_condition`, `get_county_production` and
+  `get_acreage_forecasts` (`test_crop_condition_live`, `test_county_production_live`,
+  `test_acreage_forecasts_live`), so every task has one (conventions §10);
+  `test_list_param_values_live` asks for `commodity_desc`, a list fetched live, where it
+  asked for the packaged `sector_desc`, which spent no call.
 - `meta.total` on `get_data`: the count `get_counts` reported for the filters, `0` on
   the empty result it returns without a second call, never `len(data)`; `get_counts`
   carries its count there too, beside `data` (conventions §4, ADR-0012). The task-shaped
