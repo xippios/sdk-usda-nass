@@ -1,7 +1,7 @@
 {
   "param": "agg_level_desc",
   "endpoint": "get_param_values",
-  "fetched": "2026-10-28T15:01:43Z",
+  "fetched": "2026-10-28T21:38:09Z",
   "records": [
     {
       "agg_level_desc": "AGRICULTURAL DISTRICT"

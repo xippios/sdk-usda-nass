@@ -1,7 +1,7 @@
 {
   "param": "unit_desc",
   "endpoint": "api_GET",
-  "fetched": "2026-10-28T15:01:56Z",
+  "fetched": "2026-10-28T21:38:24Z",
   "note": "distinct unit_desc of api_GET with statisticcat_desc=CONDITION, agg_level_desc=NATIONAL, freq_desc=WEEKLY, year=2025",
   "records": [
     {

@@ -1,7 +1,7 @@
 {
   "param": "domain_desc",
   "endpoint": "get_param_values",
-  "fetched": "2026-10-28T15:01:51Z",
+  "fetched": "2026-10-28T21:38:18Z",
   "records": [
     {
       "domain_desc": "AREA"
