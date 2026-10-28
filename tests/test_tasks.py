@@ -900,6 +900,24 @@ def test_livestock_inventory_sends_one_class(replay_fixture: ReplayFixture) -> N
     assert (sent["commodity_desc"], sent["class_desc"]) == ("CATTLE", "INCL CALVES")
 
 
+def test_livestock_inventory_class_without_records_is_not_found(
+    replay_fixture: ReplayFixture,
+) -> None:
+    """A ``class_desc`` with no record raises ``NotFoundError``, as the docstring says.
+
+    Upstream's answer to filters that match nothing, HTTP 400 ``bad request - invalid
+    query`` (``api_get/no_match``, recorded for ``year=1800``), is served for the class
+    query, at no keyed cost; upstream's answer to this class itself is not recorded.
+    """
+    query = httpx.QueryParams({"class_desc": "NO SUCH CLASS"})
+    unmatched = replay_fixture(
+        "api_get", "no_match", url=f"{BASE_URL}/api_GET/?{query}", match_params=["class_desc"]
+    )
+    with pytest.raises(NotFoundError, match="invalid query"):
+        tasks.get_livestock_inventory(LivestockCommodity.CATTLE, 2024, class_desc="NO SUCH CLASS")
+    assert sent_query(unmatched)["class_desc"] == "NO SUCH CLASS"
+
+
 def test_milk_production_state_monthly(replay_fixture: ReplayFixture, fixtures_dir: Path) -> None:
     fetched = replay_fixture("api_get", "milk_production_wi_2024_monthly")
     result = tasks.get_milk_production(
