@@ -118,7 +118,8 @@ async def get_counts_async(filters: Filters) -> Result[int]:
             an unknown column or operator raises ``InvalidRequestError`` naming it. A
             parameter ``list_param_values`` answers from packaged data (``state_alpha``,
             ``sector_desc``, ``agg_level_desc``, ...), given without an operator, takes a
-            value of its list only, upper case as upstream writes it; another raises
+            value of its list only, in any case, since Quick Stats ignores case
+            (``"va"`` counts what ``"VA"`` counts), and is sent as given; another raises
             ``UnknownCode`` before anything is sent, naming the list, its fetch date and
             the closest known values, or pointing at ``list_param_values`` (the tool
             ``usda_nass_list_param_values``) when none is close.

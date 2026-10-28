@@ -162,16 +162,16 @@ def test_unknown_packaged_value_is_refused_before_any_call(
 @pytest.mark.parametrize(
     ("param", "value", "known"),
     [
-        ("state_alpha", "va", "VA"),
-        ("sector_desc", "CROP", "CROPS"),
+        ("state_alpha", "vaa", "VA"),
+        ("sector_desc", "crop", "CROPS"),
         ("freq_desc", "WEEK", "WEEKLY"),
     ],
 )
 def test_unknown_packaged_value_names_the_closest_known_ones(
     respx_mock: respx.MockRouter, param: str, value: str, known: str
 ) -> None:
-    """The comparison is exact, since upstream writes the values upper case; the hint
-    shows the spelling."""
+    """The hint names the closest known values in their canonical spelling, upper case
+    as upstream writes them, whatever the case given."""
     with pytest.raises(UnknownCode) as info:
         tasks.get_data({"commodity_desc": "CORN", param: value})
     assert info.value.closest[0][0] == known

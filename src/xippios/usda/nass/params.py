@@ -95,21 +95,24 @@ def _column_names() -> frozenset[str]:
 
 @functools.cache
 def _packaged(param: str) -> tuple[PackagedList, frozenset[str]]:
-    """A packaged parameter's list and its values, loaded once per process."""
+    """A packaged parameter's list and its values upper-cased, loaded once per process."""
     packaged = PackagedList.load(PACKAGE, param)
-    return packaged, frozenset(record[param] for record in packaged.records)
+    return packaged, frozenset(record[param].upper() for record in packaged.records)
 
 
 def _check_value(param: str, raw: str | int) -> None:
     """Refuse a value of a packaged parameter that its packaged list lacks (conventions §5).
 
-    The refusal names the list, its fetch date and the closest known values, or points at
-    ``list_param_values`` and its MCP tool ``usda_nass_list_param_values`` when none is
-    close.
+    The comparison ignores case, as Quick Stats does (``state_alpha=va`` counts what
+    ``VA`` counts, ``get_counts/corn_va_since_2012_lowercase`` recorded 2026-10-28), so a
+    value upstream serves is never refused; the caller's spelling is sent. The refusal
+    names the list, its fetch date and the closest known values in their canonical
+    spelling, or points at ``list_param_values`` and its MCP tool
+    ``usda_nass_list_param_values`` when none is close.
     """
     value: str | int = raw.value if isinstance(raw, Enum) else raw
     packaged, values = _packaged(param)
-    if value in values:
+    if str(value).upper() in values:
         return
     # A value list has no upstream names: each value stands for itself.
     close = closest(str(value), {record[param]: record[param] for record in packaged.records})
@@ -129,8 +132,9 @@ def _check_value(param: str, raw: str | int) -> None:
         closest=close,
         hint=hint,
         reason=(
-            "Quick Stats counts no records for a value it does not know, the answer a "
-            "query without data gets, so the package refuses it before the call."
+            "Quick Stats ignores case but counts no records for a value it does not "
+            "know, the answer a query without data gets, so the package refuses it "
+            "before the call."
         ),
         source=SOURCE,
     )
@@ -143,8 +147,9 @@ def validate_filters(filters: Filters) -> dict[str, str | int]:
     whole database, and counts no records for an unknown value, the answer a query
     without data gets. A key is ``<column>`` or ``<column>__<OPERATOR>``. The value of a
     bare key that names a packaged parameter (``PACKAGED_PARAMS``) must be in its
-    packaged list, compared exactly, an enum member by its ``value``; a key with an
-    operator is sent as given.
+    packaged list, compared without regard to case as Quick Stats compares it, an enum
+    member by its ``value``; a key with an operator is checked as a key only. Every
+    value is sent as given.
 
     Args:
         filters: The query parameters as the caller gave them.

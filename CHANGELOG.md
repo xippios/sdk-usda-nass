@@ -23,10 +23,12 @@ All notable changes to this project are documented here. The format follows
   the task `list_param_values('state_alpha')` and the MCP tool
   `usda_nass_list_param_values` (conventions §5, ADR-0022), where 0.1.0 sent it and
   answered a count of 0 or an empty result, which cannot be told from a query without
-  data. The comparison is exact, upper case as upstream writes the
-  values, an enum member read by its value; a key with an operator (`state_alpha__LIKE`,
-  `sector_desc__NE`) is sent as given. Unknown columns and operators still raise
-  `InvalidRequestError` first, with the same text.
+  data. The comparison ignores case, as Quick Stats does (`state_alpha=va` counts what
+  `VA` counts, recorded 2026-10-28), so a value upstream serves is never refused, and the
+  value is sent as given; an enum member is read by its value, and the hint names the
+  canonical spelling. A key with an operator (`state_alpha__LIKE`, `sector_desc__NE`) is
+  checked against the columns and operators and its value sent as given. Unknown columns
+  and operators still raise `InvalidRequestError` first, with the same text.
 - Adopted xippios-core 0.3.0, sdk-template v0.3.0 and conventions 1.22 (conventions §15).
 - **BREAKING**: depends on `xippios-core~=0.3.0`, its `mcp`, `http` and `testing` extras
   likewise, from PyPI; a core minor keeps no compatibility with the one before it while
