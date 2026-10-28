@@ -125,6 +125,7 @@ is the most years one `usda_nass_get_data` call with `split_by_year` splits into
 | `api_GET` (AREA PLANTED / HARVESTED) | `tasks.get_acreage(commodity, year, statistic, state=)` | `usda_nass_get_acreage` | alpha |
 | `api_GET` (AREA PLANTED / HARVESTED, forecasts) | `tasks.get_acreage_forecasts(commodity, year, statistic, state=)` | `usda_nass_get_acreage_forecasts` | alpha |
 | `api_GET` (PRICE RECEIVED) | `tasks.get_prices_received(commodity, year, state=, frequency=)` | `usda_nass_get_prices_received` | alpha |
+| `api_GET` (STOCKS, BU, POINT IN TIME) | `tasks.get_grain_stocks(commodity, year, state=)` | `usda_nass_get_grain_stocks` | alpha |
 
 All ten tasks are covered in 0.1.0, the first release. Alpha: the public surface may
 change in a minor version before 1.0 (conventions §12); `CHANGELOG.md` lists every change.

@@ -42,6 +42,7 @@ from xippios.usda.nass.models import (
     CountyEstimateRecord,
     CropProgressRecord,
     Filters,
+    GrainStocksRecord,
     PriceReceivedRecord,
     QuickStatsRecord,
 )
@@ -59,6 +60,7 @@ __all__ = [
     "get_crop_condition",
     "get_crop_progress",
     "get_data",
+    "get_grain_stocks",
     "get_prices_received",
     "list_param_values",
 ]
@@ -731,6 +733,58 @@ async def get_prices_received_async(
     )
 
 
+async def get_grain_stocks_async(
+    commodity: str, year: int, *, state: StateAlpha | None = None
+) -> Result[list[GrainStocksRecord]]:
+    """Quarterly grain stocks of a commodity in a year, on farm, off farm and in total, in bushels.
+
+    The NASS Grain Stocks estimates (``statisticcat_desc`` ``STOCKS``, ``unit_desc``
+    ``BU``, ``domain_desc`` ``TOTAL``, ``freq_desc`` ``POINT IN TIME``, ``source_desc``
+    ``SURVEY``), state or national, every stocks day of the year together: one row per
+    day, position and class, sorted by day (``begin_code``, then
+    ``reference_period_desc``), then ``util_practice_desc``, then ``class_desc``.
+    ``reference_period_desc`` names the day, ``FIRST OF MAR``, ``FIRST OF JUN``,
+    ``FIRST OF SEP`` or ``FIRST OF DEC``, and ``begin_code`` its month (``03`` ... ``12``).
+    ``util_practice_desc`` tells the position as upstream spells it for the commodity:
+    for corn ``GRAIN`` (the total), ``ON FARM, GRAIN`` and ``OFF FARM, GRAIN``; for
+    soybeans and wheat ``ALL UTILIZATION PRACTICES`` (the total), ``ON FARM`` and
+    ``OFF FARM``. ``class_desc`` is ``ALL CLASSES``; wheat's durum comes as rows of its
+    own, ``class_desc`` ``SPRING, DURUM``, where NASS publishes it, as in the national
+    estimates. ``value`` is the quantity in bushels as published and ``value_number`` its
+    parsed form.
+
+    Args:
+        commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``,
+            ``"WHEAT"``; ``list_param_values("commodity_desc")`` lists them.
+        year: Year of the stocks days, e.g. ``2024`` for the stocks on 1 March, 1 June,
+            1 September and 1 December 2024.
+        state: Two-letter state code for the state estimates, e.g. ``"IA"``, ``"ND"``;
+            ``None`` returns the national ``US TOTAL`` estimates.
+    """
+    filters = _level(
+        state,
+        {
+            "commodity_desc": commodity,
+            "statisticcat_desc": "STOCKS",
+            "unit_desc": "BU",
+            "domain_desc": "TOTAL",
+            "freq_desc": "POINT IN TIME",
+            "source_desc": "SURVEY",
+            "year": year,
+        },
+    )
+    return await _slice(
+        filters,
+        GrainStocksRecord,
+        lambda row: (
+            row.begin_code,
+            row.reference_period_desc,
+            row.util_practice_desc,
+            row.class_desc,
+        ),
+    )
+
+
 get_counts = sync(get_counts_async)
 get_data = sync(get_data_async)
 list_param_values = sync(list_param_values_async)
@@ -741,3 +795,4 @@ get_county_production = sync(get_county_production_async)
 get_acreage = sync(get_acreage_async)
 get_acreage_forecasts = sync(get_acreage_forecasts_async)
 get_prices_received = sync(get_prices_received_async)
+get_grain_stocks = sync(get_grain_stocks_async)
