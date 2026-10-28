@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Live smoke tests for `get_crop_condition`, `get_county_production` and
+  `get_acreage_forecasts` (`test_crop_condition_live`, `test_county_production_live`,
+  `test_acreage_forecasts_live`), so every task has one (conventions §10);
+  `test_list_param_values_live` asks for `commodity_desc`, a list fetched live, where it
+  asked for the packaged `sector_desc`, which spent no call.
+
 ### Changed
 
 - Adopted xippios-core 0.3.0, sdk-template v0.3.0 and conventions 1.22 (conventions §15).
