@@ -825,9 +825,9 @@ async def get_milk_production_async(
     The milk production series, state or national (``commodity_desc`` ``MILK``,
     ``class_desc`` ``ALL CLASSES``, ``statisticcat_desc`` ``PRODUCTION``, ``unit_desc``
     ``LB``, ``domain_desc`` ``TOTAL``, ``source_desc`` ``SURVEY``; ``short_desc``
-    ``MILK - PRODUCTION, MEASURED IN LB``). The class leaves out the manufactured dairy
-    products (dry and condensed milk, nationally), which upstream files under other
-    ``class_desc`` values. Sorted by frequency, then period: the year first
+    ``MILK - PRODUCTION, MEASURED IN LB``); ``ALL CLASSES`` leaves out the manufactured
+    dairy products (dry and condensed milk) that upstream files nationally under the same
+    statistic and unit. Sorted by frequency, then period: the year first
     (``freq_desc`` ``ANNUAL``, ``reference_period_desc`` ``YEAR``), then the months, each
     quarter (``JAN THRU MAR``, ...) after its first month, since upstream files months and
     quarters alike as ``MONTHLY``. ``value`` is the quantity in pounds as published.
