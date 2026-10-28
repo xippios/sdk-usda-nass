@@ -8,6 +8,6 @@ stays in the first line of the wrapper's docstring and in the ``endpoint=`` it p
 
 from xippios.usda.nass.api.api_get import api_get
 from xippios.usda.nass.api.get_counts import get_counts
-from xippios.usda.nass.api.get_param_values import get_param_values
+from xippios.usda.nass.api.get_param_values import ParamValues, get_param_values
 
-__all__ = ["api_get", "get_counts", "get_param_values"]
+__all__ = ["ParamValues", "api_get", "get_counts", "get_param_values"]

@@ -26,7 +26,8 @@ src/xippios/usda/nass/
   __init__.py      public surface: __version__ and re-exported task functions
   py.typed         PEP 561 marker; consumers' mypy --strict needs it
   _version.py      __version__ from distribution metadata
-  _client.py       the one configured AsyncClient (base URL, key, rate limit)
+  _client.py       the one configured AsyncClient (base URL, key, rate limit, and a memory
+                   cache for the get_param_values lookups alone, 24 hours)
   models.py        pydantic models mirroring upstream payloads (UpstreamModel)
   api/             endpoint wrappers, one module per upstream operation
   tasks.py         task functions; __all__ is what the adapters register, but BULK_TASKS,
