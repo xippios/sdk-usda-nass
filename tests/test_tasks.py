@@ -1,10 +1,11 @@
-"""Structural checks every task must satisfy. Per-task tests with recorded fixtures go below."""
+"""Replay tests on recorded fixtures, at least one per task (conventions §10).
 
-import inspect
+``/add-endpoint`` and ``/record-fixture`` add them.
+"""
+
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from urllib.parse import parse_qsl, urlsplit
 
 import pytest
 import respx
@@ -16,9 +17,9 @@ from xippios.core import (
     load_json,
 )
 from xippios.core.http import status_for
-from xippios.core.testing import assert_projection, mcp_call, sent_urls
+from xippios.core.testing import assert_projection, mcp_call, sent_query
 
-from xippios.usda.nass import __version__, api, enums, tasks
+from xippios.usda.nass import api, enums, tasks
 from xippios.usda.nass.errors import QueryTooLarge
 from xippios.usda.nass.mcp import server
 from xippios.usda.nass.models import (
@@ -30,33 +31,6 @@ from xippios.usda.nass.models import (
     QuickStatsRecord,
 )
 from xippios.usda.nass.params import DERIVED_LISTS, PACKAGE, PACKAGED_PARAMS, columns
-
-TASKS = [getattr(tasks, name) for name in tasks.__all__]
-
-
-def sent_query(route: respx.Route) -> dict[str, str]:
-    """The query of the last request ``route`` received, read from ``sent_urls(route)``.
-
-    The URL text is scrubbed, its key ``REDACTED``, so no request carrying the key sits in
-    a test's frame, where a failure or ``pytest -l`` would print it.
-    """
-    return dict(parse_qsl(urlsplit(sent_urls(route)[-1]).query, keep_blank_values=True))
-
-
-def test_package_has_a_version() -> None:
-    assert __version__
-
-
-@pytest.mark.parametrize("task", TASKS, ids=tasks.__all__)
-def test_task_is_a_sync_facade_with_an_agent_docstring(task: object) -> None:
-    assert callable(task)
-    assert hasattr(task, "async_fn"), "write the async function and derive the sync one with sync()"
-    doc = inspect.getdoc(task) or ""
-    assert doc, "task functions need a docstring: agents read it"
-    assert doc.splitlines()[0].endswith("."), "the first line is one sentence"
-    if inspect.signature(task).parameters:
-        assert "Args:" in doc, "explain every parameter under Args: with valid-value examples"
-
 
 EXAMPLE_FILTERS: dict[str, str | int] = {
     "commodity_desc": "CORN",
