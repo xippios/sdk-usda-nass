@@ -257,11 +257,14 @@ EXAMPLE_RECORD = {
 async def test_get_param_values_replays_the_documented_example(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    """Layer 1 is unaffected by packaging: the wrapper always calls upstream."""
+    """Layer 1 is unaffected by packaging: the wrapper asks upstream, through the cache."""
     route = replay_fixture("get_param_values", "sector_desc")
-    values = await api.get_param_values("sector_desc")
+    before = datetime.now(UTC)
+    values, retrieved_at = await api.get_param_values("sector_desc")
+    after = datetime.now(UTC)
     assert values == ["ANIMALS & PRODUCTS", "CROPS", "DEMOGRAPHICS", "ECONOMICS", "ENVIRONMENTAL"]
     assert sent_query(route)["param"] == "sector_desc"
+    assert_time_between(retrieved_at, before, after)
 
 
 def test_list_param_values_goes_live_for_an_unpackaged_parameter(

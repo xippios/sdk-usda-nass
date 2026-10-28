@@ -164,7 +164,8 @@ async def list_param_values_async(param: str) -> Result[list[str]]:
     and ``meta.retrieved_at`` the time they were fetched): ``source_desc``,
     ``sector_desc``, ``group_desc``, ``agg_level_desc``, ``freq_desc``, ``state_alpha``,
     ``statisticcat_desc``, ``unit_desc``, ``domain_desc``. Every other parameter is
-    fetched live.
+    fetched live and cached for 24 hours in this process, so a repeated lookup sends
+    nothing; ``meta.retrieved_at`` is the time the cached answer was fetched.
 
     Args:
         param: A Quick Stats column name, e.g. ``"statisticcat_desc"`` or ``"unit_desc"``
@@ -176,8 +177,13 @@ async def list_param_values_async(param: str) -> Result[list[str]]:
         packaged = PackagedList.load(PACKAGE, param)
         meta = packaged.meta(SOURCE, request={"param": param})
         return Result(data=[record[param] for record in packaged.records], meta=meta)
-    values = await api.get_param_values(param)
-    meta = ResultMeta(source=SOURCE, endpoint="get_param_values", request={"param": param})
+    values, retrieved_at = await api.get_param_values(param)
+    meta = ResultMeta(
+        source=SOURCE,
+        endpoint="get_param_values",
+        request={"param": param},
+        retrieved_at=retrieved_at,
+    )
     return Result(data=values, meta=meta)
 
 

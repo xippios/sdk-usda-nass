@@ -184,11 +184,11 @@ def refresh() -> None:
     year = datetime.now(UTC).year - 1
     fetch = sync(api.get_param_values)
     for param in PACKAGED_PARAMS:
-        values = fetch(param)
+        values, retrieved_at = fetch(param)
         packaged = PackagedList(
             param=param,
             endpoint="get_param_values",
-            fetched=datetime.now(UTC),
+            fetched=retrieved_at,
             records=[{param: value} for value in values],
         )
         write(param, packaged)
