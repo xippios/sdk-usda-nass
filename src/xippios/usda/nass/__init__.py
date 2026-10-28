@@ -14,7 +14,11 @@ from xippios.usda.nass.tasks import (
     get_crop_condition,
     get_crop_progress,
     get_data,
+    get_livestock_inventory,
+    get_milk_production,
     get_prices_received,
+    get_production,
+    get_production_forecasts,
     list_param_values,
 )
 
@@ -29,6 +33,10 @@ __all__ = [
     "get_crop_condition",
     "get_crop_progress",
     "get_data",
+    "get_livestock_inventory",
+    "get_milk_production",
     "get_prices_received",
+    "get_production",
+    "get_production_forecasts",
     "list_param_values",
 ]

@@ -29,7 +29,12 @@ __all__ = [
     "FarmStatistic",
     "Filters",
     "GetCountsResponse",
+    "LivestockCommodity",
+    "LivestockInventoryRecord",
+    "MilkProductionRecord",
     "PriceReceivedRecord",
+    "ProductionRecord",
+    "ProductionStatistic",
     "QuickStatsRecord",
 ]
 
@@ -266,6 +271,44 @@ class CensusFarmsRecord(_Published):
     load_time: datetime
 
 
+class ProductionStatistic(StrEnum):
+    """The two ``statisticcat_desc`` values the production slice covers, as upstream names them."""
+
+    PRODUCTION = "PRODUCTION"
+    YIELD = "YIELD"
+
+
+class ProductionRecord(_Published):
+    """One production or yield estimate, forecast or final: a projection of ``QuickStatsRecord``.
+
+    Columns keep their upstream names (ADR-0003), the acreage projection's columns.
+    ``statisticcat_desc`` is ``PRODUCTION`` or ``YIELD``; ``reference_period_desc`` is
+    ``YEAR`` for the final figure or names the forecast (``YEAR - AUG FORECAST``).
+    Utilisations, classes and units are rows of their own: ``util_practice_desc``
+    separates grain from silage, ``class_desc`` a crop's classes (wheat's ``WINTER``,
+    ``SPRING, (EXCL DURUM)``, ``SPRING, DURUM``), ``unit_desc`` names the unit (``BU``,
+    ``TONS``, ``BU / ACRE``, ``TONS / ACRE``, or ``$`` for the value of production);
+    ``source_desc`` tells survey from census figures.
+    """
+
+    commodity_desc: str
+    class_desc: str
+    util_practice_desc: str
+    prodn_practice_desc: str
+    statisticcat_desc: str
+    unit_desc: str
+    short_desc: str
+    source_desc: str
+    agg_level_desc: str
+    state_alpha: str
+    state_name: str
+    year: int
+    freq_desc: str
+    reference_period_desc: str
+    cv_percent: Decimal | None
+    load_time: datetime
+
+
 class PriceReceivedRecord(_Published):
     """One price-received estimate: a projection of ``QuickStatsRecord``.
 
@@ -274,6 +317,72 @@ class PriceReceivedRecord(_Published):
     ``MARKETING YEAR`` and ``begin_code``/``end_code`` carry the month numbers, ``00`` for
     the year. ``unit_desc`` is the price unit (``"$ / BU"``) or, in the national series,
     ``"PCT OF PARITY"``.
+    """
+
+    commodity_desc: str
+    class_desc: str
+    util_practice_desc: str
+    statisticcat_desc: str
+    unit_desc: str
+    short_desc: str
+    source_desc: str
+    agg_level_desc: str
+    state_alpha: str
+    state_name: str
+    year: int
+    freq_desc: str
+    reference_period_desc: str
+    begin_code: str
+    end_code: str
+    load_time: datetime
+
+
+class LivestockCommodity(StrEnum):
+    """The three ``commodity_desc`` values the inventory slice covers, as upstream names them."""
+
+    CATTLE = "CATTLE"
+    HOGS = "HOGS"
+    SHEEP = "SHEEP"
+
+
+class LivestockInventoryRecord(_Published):
+    """One livestock inventory in head on a survey day: a projection of ``QuickStatsRecord``.
+
+    Columns keep their upstream names (ADR-0003). ``class_desc`` names the class counted
+    (``"INCL CALVES"``, ``"COWS, BEEF"``, ``"ALL CLASSES"``, ``"MARKET, LT 50 LBS"``);
+    ``prodn_practice_desc`` is ``"ON FEED"`` for cattle on feed and, in the rows recorded,
+    ``"ALL PRODUCTION PRACTICES"`` otherwise. ``reference_period_desc`` names the day
+    (``"FIRST OF JAN"``) and ``begin_code``/``end_code`` carry its month number. ``value``
+    is the head count as published.
+    """
+
+    commodity_desc: str
+    class_desc: str
+    prodn_practice_desc: str
+    util_practice_desc: str
+    statisticcat_desc: str
+    unit_desc: str
+    short_desc: str
+    source_desc: str
+    agg_level_desc: str
+    state_alpha: str
+    state_name: str
+    year: int
+    freq_desc: str
+    reference_period_desc: str
+    begin_code: str
+    end_code: str
+    load_time: datetime
+
+
+class MilkProductionRecord(_Published):
+    """One milk production estimate in pounds: a projection of ``QuickStatsRecord``.
+
+    Columns keep their upstream names (ADR-0003). ``freq_desc`` is ``MONTHLY`` for a
+    month or a quarter and ``ANNUAL`` for the year; ``reference_period_desc`` names the
+    period (``"JAN"``, ``"JAN THRU MAR"``, ``"YEAR"``) and ``begin_code``/``end_code`` carry
+    its first and last month numbers, ``00`` for the year. ``value`` is the quantity as
+    published, in ``unit_desc`` ``"LB"``.
     """
 
     commodity_desc: str

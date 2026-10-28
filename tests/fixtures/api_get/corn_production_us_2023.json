@@ -1,0 +1,53 @@
+{
+  "recorded_at": "2026-10-28T20:50:48.402095Z",
+  "request": {
+    "body": null,
+    "body_base64": false,
+    "content_type": null,
+    "method": "GET",
+    "url": "https://quickstats.nass.usda.gov/api/api_GET/?commodity_desc=CORN&statisticcat_desc=PRODUCTION&domain_desc=TOTAL&prodn_practice_desc=ALL+PRODUCTION+PRACTICES&freq_desc=ANNUAL&year=2023&agg_level_desc=NATIONAL&reference_period_desc=YEAR&format=JSON&key=REDACTED"
+  },
+  "response": {
+    "body": "{\"data\":[{\"state_ansi\":\"\",\"freq_desc\":\"ANNUAL\",\"agg_level_desc\":\"NATIONAL\",\"unit_desc\":\"$\",\"state_fips_code\":\"99\",\"commodity_desc\":\"CORN\",\"state_alpha\":\"US\",\"short_desc\":\"CORN, GRAIN - PRODUCTION, MEASURED IN $\",\"CV (%)\":\"\",\"state_name\":\"US TOTAL\",\"class_desc\":\"ALL CLASSES\",\"load_time\":\"2025-02-26 15:00:00.000\",\"region_desc\":\"\",\"county_name\":\"\",\"watershed_desc\":\"\",\"domain_desc\":\"TOTAL\",\"congr_district_code\":\"\",\"statisticcat_desc\":\"PRODUCTION\",\"end_code\":\"00\",\"begin_code\":\"00\",\"group_desc\":\"FIELD CROPS\",\"county_ansi\":\"\",\"zip_5\":\"\",\"country_name\":\"UNITED STATES\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"week_ending\":\"\",\"year\":2023,\"asd_desc\":\"\",\"location_desc\":\"US TOTAL\",\"county_code\":\"\",\"watershed_code\":\"00000000\",\"source_desc\":\"SURVEY\",\"domaincat_desc\":\"NOT SPECIFIED\",\"Value\":\"70,085,591,000\",\"util_practice_desc\":\"GRAIN\",\"reference_period_desc\":\"YEAR\",\"sector_desc\":\"CROPS\",\"country_code\":\"9000\",\"asd_code\":\"\"},{\"end_code\":\"00\",\"statisticcat_desc\":\"PRODUCTION\",\"begin_code\":\"00\",\"state_name\":\"US TOTAL\",\"class_desc\":\"ALL CLASSES\",\"region_desc\":\"\",\"load_time\":\"2024-09-30 12:00:00.000\",\"county_name\":\"\",\"congr_district_code\":\"\",\"domain_desc\":\"TOTAL\",\"watershed_desc\":\"\",\"state_fips_code\":\"99\",\"commodity_desc\":\"CORN\",\"state_alpha\":\"US\",\"short_desc\":\"CORN, GRAIN - PRODUCTION, MEASURED IN BU\",\"CV (%)\":\"\",\"state_ansi\":\"\",\"freq_desc\":\"ANNUAL\",\"unit_desc\":\"BU\",\"agg_level_desc\":\"NATIONAL\",\"country_code\":\"9000\",\"sector_desc\":\"CROPS\",\"asd_code\":\"\",\"source_desc\":\"SURVEY\",\"Value\":\"15,340,520,000\",\"domaincat_desc\":\"NOT SPECIFIED\",\"reference_period_desc\":\"YEAR\",\"util_practice_desc\":\"GRAIN\",\"week_ending\":\"\",\"location_desc\":\"US TOTAL\",\"year\":2023,\"asd_desc\":\"\",\"watershed_code\":\"00000000\",\"county_code\":\"\",\"county_ansi\":\"\",\"group_desc\":\"FIELD CROPS\",\"country_name\":\"UNITED STATES\",\"zip_5\":\"\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\"},{\"week_ending\":\"\",\"watershed_code\":\"00000000\",\"county_code\":\"\",\"location_desc\":\"US TOTAL\",\"asd_desc\":\"\",\"year\":2023,\"country_name\":\"UNITED STATES\",\"zip_5\":\"\",\"county_ansi\":\"\",\"group_desc\":\"FIELD CROPS\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"asd_code\":\"\",\"country_code\":\"9000\",\"sector_desc\":\"CROPS\",\"domaincat_desc\":\"NOT SPECIFIED\",\"Value\":\"129,854,000\",\"source_desc\":\"SURVEY\",\"util_practice_desc\":\"SILAGE\",\"reference_period_desc\":\"YEAR\",\"state_fips_code\":\"99\",\"short_desc\":\"CORN, SILAGE - PRODUCTION, MEASURED IN TONS\",\"CV (%)\":\"\",\"state_alpha\":\"US\",\"commodity_desc\":\"CORN\",\"state_ansi\":\"\",\"unit_desc\":\"TONS\",\"agg_level_desc\":\"NATIONAL\",\"freq_desc\":\"ANNUAL\",\"begin_code\":\"00\",\"end_code\":\"00\",\"statisticcat_desc\":\"PRODUCTION\",\"region_desc\":\"\",\"load_time\":\"2024-09-30 12:00:00.000\",\"class_desc\":\"ALL CLASSES\",\"state_name\":\"US TOTAL\",\"domain_desc\":\"TOTAL\",\"congr_district_code\":\"\",\"watershed_desc\":\"\",\"county_name\":\"\"}]}",
+    "body_base64": false,
+    "headers": [
+      [
+        "date",
+        "Wed, 28 Oct 2026 20:50:46 GMT"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "server",
+        "Kestrel"
+      ],
+      [
+        "strict-transport-security",
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      [
+        "x-author",
+        "NICE HYPE (RJ)"
+      ],
+      [
+        "x-proxyversion",
+        "0.8.5"
+      ],
+      [
+        "x-cache",
+        "Miss"
+      ],
+      [
+        "x-handler-apgw-05-12",
+        "APPGW-Public"
+      ],
+      [
+        "x-content-type-options",
+        "nosniff"
+      ]
+    ],
+    "status": 200
+  }
+}
