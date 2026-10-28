@@ -8,19 +8,23 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
+import httpx
 import pytest
 import respx
 from xippios.core import (
     InvalidRequestError,
+    MemoryCache,
     NotFoundError,
     PackagedList,
     UpstreamModel,
     load_json,
 )
+from xippios.core.client import cache_key
 from xippios.core.http import status_for
 from xippios.core.testing import assert_projection, assert_time_between, mcp_call, sent_query
 
 from xippios.usda.nass import api, enums, tasks
+from xippios.usda.nass._client import BASE_URL, config
 from xippios.usda.nass.errors import QueryTooLarge
 from xippios.usda.nass.mcp import server
 from xippios.usda.nass.models import (
@@ -282,6 +286,66 @@ def test_list_param_values_goes_live_for_an_unpackaged_parameter(
     assert_time_between(result.meta.retrieved_at, before, after)
     assert {"CORN", "SOYBEANS"} <= set(result.data)
     assert len(result.data) > 200
+
+
+def stored_at(param: str) -> datetime:
+    """When the client's cache stored the ``get_param_values`` answer for ``param``."""
+    assert config.cache is not None
+    url = httpx.URL(f"{BASE_URL}/get_param_values/", params={"param": param})
+    entry = config.cache.get(cache_key("GET", url))
+    assert entry is not None
+    return datetime.fromtimestamp(entry.stored_at, UTC)
+
+
+def test_a_live_list_is_cached_and_carries_its_stored_time(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """A second lookup sends nothing and carries the time the cache stored the first
+    answer, not a clock reading of its own (ADR-0015, decision 5; conventions §4).
+
+    The plugin empties every ``MemoryCache`` around each test (ADR-0013), so the hit is
+    proved inside this one. The first call, a miss, carries the time its answer arrived,
+    which core reads just after storing it; both times lie in the first call's bracket.
+    """
+    assert isinstance(config.cache, MemoryCache)
+    assert config.cache.ttl == 24 * 60 * 60
+    route = replay_fixture("get_param_values", "commodity_desc")
+    before = datetime.now(UTC)
+    first = tasks.list_param_values("commodity_desc")
+    after = datetime.now(UTC)
+    second = tasks.list_param_values("commodity_desc")
+    assert route.call_count == 1
+    assert second.data == first.data
+    assert len(second.data) > 200
+    stored = stored_at("commodity_desc")
+    assert second.meta.retrieved_at == stored
+    assert_time_between(stored, before, after)
+    assert_time_between(first.meta.retrieved_at, before, after)
+    unstamped = {"retrieved_at"}
+    assert second.meta.model_dump(exclude=unstamped) == first.meta.model_dump(exclude=unstamped)
+    assert second.meta.published_at is None
+
+
+def test_counts_are_never_cached(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    route = replay_fixture("get_counts", "corn_va_since_2012")
+    first = tasks.get_counts(EXAMPLE_FILTERS)
+    second = tasks.get_counts(EXAMPLE_FILTERS)
+    assert route.call_count == 2
+    assert (first.data, second.data) == (22345, 22345)
+    assert isinstance(config.cache, MemoryCache)
+    assert len(config.cache) == 0
+
+
+def test_data_is_never_cached(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    counted = replay_fixture("get_counts", "corn_va_since_2012")
+    fetched = replay_fixture("api_get", "corn_va_2012_area_planted")
+    first = tasks.get_data(SMALL_FILTERS)
+    second = tasks.get_data(SMALL_FILTERS)
+    assert fetched.call_count == 2
+    assert counted.call_count == 2
+    assert len(second.data) == len(first.data) == 2
+    assert isinstance(config.cache, MemoryCache)
+    assert len(config.cache) == 0
 
 
 @pytest.mark.anyio
