@@ -1,8 +1,9 @@
 """Endpoint wrappers, layer 1: one async function per upstream operation (conventions §2).
 
-A wrapper's module and function carry the upstream operation's id snake_cased
-(conventions §2); the verbatim id stays in the first line of the wrapper's docstring and
-in the ``endpoint=`` it passes. ``/add-endpoint`` adds them.
+A wrapper's module and function carry the upstream operation name in snake case
+(conventions §2), here from the path: ``/api/api_GET/`` is ``api_get``. The verbatim name
+stays in the first line of the wrapper's docstring and in the ``endpoint=`` it passes.
+``/add-endpoint`` adds them.
 """
 
 from xippios.usda.nass.api.api_get import api_get
