@@ -10,6 +10,7 @@ from collections.abc import Callable, Iterator
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -19,6 +20,7 @@ from xippios.core import (
     MemoryCache,
     NotFoundError,
     PackagedList,
+    Result,
     UnknownCode,
     UpstreamModel,
     load_json,
@@ -52,6 +54,9 @@ from xippios.usda.nass.models import (
     CountyEstimateRecord,
     CropProgressRecord,
     FarmStatistic,
+    LivestockCommodity,
+    LivestockInventoryRecord,
+    MilkProductionRecord,
     PriceReceivedRecord,
     QuickStatsRecord,
 )
@@ -777,6 +782,223 @@ def test_prices_received_national_monthly(
     ]
 
 
+# --- the livestock slices, decision 9 (a) (Johannes, 2026-10-26 and 2026-10-28) ---
+
+INVENTORY_FILTERS: dict[str, str | int] = {  # get_livestock_inventory's fixed filters
+    "statisticcat_desc": "INVENTORY",
+    "unit_desc": "HEAD",
+    "domain_desc": "TOTAL",
+    "freq_desc": "POINT IN TIME",
+    "source_desc": "SURVEY",
+}
+MILK_FILTERS: dict[str, str | int] = {  # get_milk_production's fixed filters
+    "commodity_desc": "MILK",
+    "class_desc": "ALL CLASSES",
+    "statisticcat_desc": "PRODUCTION",
+    "unit_desc": "LB",
+    "domain_desc": "TOTAL",
+    "source_desc": "SURVEY",
+}
+HOG_CLASSES = [  # Iowa's hog classes of api_get/hogs_inventory_ia_2024, in class order
+    "ALL CLASSES", "BREEDING", "MARKET", "MARKET, 120 TO 179 LBS", "MARKET, 50 TO 119 LBS",
+    "MARKET, GE 180 LBS", "MARKET, LT 50 LBS",
+]  # fmt: skip
+MILK_PERIODS = [  # the months and quarters upstream files as MONTHLY, in slice order
+    "JAN", "JAN THRU MAR", "FEB", "MAR", "APR", "APR THRU JUN", "MAY", "JUN",
+    "JUL", "JUL THRU SEP", "AUG", "SEP", "OCT", "OCT THRU DEC", "NOV", "DEC",
+]  # fmt: skip
+
+
+def assert_sent_as_recorded(route: respx.Route, fixtures_dir: Path, case: str) -> None:
+    """The task sent the very query ``api_get/<case>`` was recorded with (key redacted)."""
+    fixture = load_fixture(fixtures_dir / "api_get" / f"{case}.json")
+    assert sent_query(route) == recorded_query(fixture)
+
+
+def test_livestock_inventory_national_series(
+    replay_fixture: ReplayFixture, fixtures_dir: Path
+) -> None:
+    fetched = replay_fixture("api_get", "cattle_inventory_us_2024")
+    result = tasks.get_livestock_inventory(LivestockCommodity.CATTLE, 2024)
+    assert result.meta.request == {
+        "commodity_desc": "CATTLE",
+        **INVENTORY_FILTERS,
+        "year": 2024,
+        "agg_level_desc": "NATIONAL",
+    }
+    assert_sent_as_recorded(fetched, fixtures_dir, "cattle_inventory_us_2024")
+    assert result.meta.endpoint == "api_GET"
+    assert result.meta.total is None
+    assert result.meta.published_at is None
+    assert len(result.data) == 14
+    assert all(isinstance(row, LivestockInventoryRecord) for row in result.data)
+    assert {(row.state_alpha, row.state_name) for row in result.data} == {("US", "US TOTAL")}
+    assert {
+        (row.statisticcat_desc, row.unit_desc, row.freq_desc, row.source_desc)
+        for row in result.data
+    } == {("INVENTORY", "HEAD", "POINT IN TIME", "SURVEY")}
+    # The national cattle series of 2024 has one survey day, as recorded on 2026-10-28.
+    assert {row.reference_period_desc for row in result.data} == {"FIRST OF JAN"}
+    assert {(row.begin_code, row.end_code) for row in result.data} == {("01", "01")}
+    classes = [row.class_desc for row in result.data]
+    assert classes == sorted(classes)
+    herd = next(row for row in result.data if row.class_desc == "INCL CALVES")
+    assert (herd.short_desc, herd.value, herd.value_number) == (
+        "CATTLE, INCL CALVES - INVENTORY", "87,157,400", Decimal("87157400"),
+    )  # fmt: skip
+    on_feed = result.data[0]
+    assert (on_feed.class_desc, on_feed.prodn_practice_desc, on_feed.short_desc) == (
+        "ALL CLASSES", "ON FEED", "CATTLE, ON FEED - INVENTORY",
+    )  # fmt: skip
+    assert {row.prodn_practice_desc for row in result.data[1:]} == {"ALL PRODUCTION PRACTICES"}
+    assert all(row.load_time.tzinfo is None for row in result.data)
+
+
+def test_livestock_inventory_state_series_sorted_by_day_then_class(
+    replay_fixture: ReplayFixture, fixtures_dir: Path
+) -> None:
+    fetched = replay_fixture("api_get", "hogs_inventory_ia_2024")
+    result = tasks.get_livestock_inventory(LivestockCommodity.HOGS, 2024, state=enums.StateAlpha.IA)
+    assert result.meta.request == {
+        "commodity_desc": "HOGS",
+        **INVENTORY_FILTERS,
+        "year": 2024,
+        "agg_level_desc": "STATE",
+        "state_alpha": "IA",
+    }
+    assert_sent_as_recorded(fetched, fixtures_dir, "hogs_inventory_ia_2024")
+    assert (result.meta.endpoint, result.meta.total, result.meta.published_at) == (
+        "api_GET", None, None,
+    )  # fmt: skip
+    assert len(result.data) == 28
+    days = ["FIRST OF MAR", "FIRST OF JUN", "FIRST OF SEP", "FIRST OF DEC"]
+    assert [row.reference_period_desc for row in result.data] == [
+        day for day in days for _ in HOG_CLASSES
+    ]
+    assert [row.begin_code for row in result.data[:: len(HOG_CLASSES)]] == ["03", "06", "09", "12"]
+    assert [row.class_desc for row in result.data] == HOG_CLASSES * len(days)
+    # Upstream sends the rows class by class; the slice orders them by day, then class.
+    upstream = recorded_chunk(fixtures_dir, "hogs_inventory_ia_2024")
+    assert [record.class_desc for record in upstream[: len(days)]] == ["ALL CLASSES"] * len(days)
+    march, december = result.data[0], result.data[3 * len(HOG_CLASSES)]
+    assert (march.short_desc, march.value, march.value_number) == (
+        "HOGS - INVENTORY", "25,200,000", Decimal("25200000"),
+    )  # fmt: skip
+    assert (december.reference_period_desc, december.class_desc, december.value_number) == (
+        "FIRST OF DEC", "ALL CLASSES", Decimal("24300000"),
+    )  # fmt: skip
+    assert {row.state_alpha for row in result.data} == {"IA"}
+
+
+def test_livestock_inventory_sends_one_class(replay_fixture: ReplayFixture) -> None:
+    """``class_desc`` goes out beside the fixed filters; the national cattle answer is
+    replayed for it, so only what was sent is checked."""
+    fetched = replay_fixture("api_get", "cattle_inventory_us_2024")
+    result = tasks.get_livestock_inventory(
+        LivestockCommodity.CATTLE, 2024, class_desc="INCL CALVES"
+    )
+    assert result.meta.request["class_desc"] == "INCL CALVES"
+    sent = sent_query(fetched)
+    assert (sent["commodity_desc"], sent["class_desc"]) == ("CATTLE", "INCL CALVES")
+
+
+def test_livestock_inventory_class_without_records_is_not_found(
+    replay_fixture: ReplayFixture,
+) -> None:
+    """A ``class_desc`` with no record raises ``NotFoundError``, as the docstring says.
+
+    Upstream's answer to filters that match nothing, HTTP 400 ``bad request - invalid
+    query`` (``api_get/no_match``, recorded for ``year=1800``), is served for the class
+    query, at no keyed cost; upstream's answer to this class itself is not recorded.
+    """
+    query = httpx.QueryParams({"class_desc": "NO SUCH CLASS"})
+    unmatched = replay_fixture(
+        "api_get", "no_match", url=f"{BASE_URL}/api_GET/?{query}", match_params=["class_desc"]
+    )
+    with pytest.raises(NotFoundError, match="invalid query"):
+        tasks.get_livestock_inventory(LivestockCommodity.CATTLE, 2024, class_desc="NO SUCH CLASS")
+    assert sent_query(unmatched)["class_desc"] == "NO SUCH CLASS"
+
+
+def test_milk_production_state_monthly(replay_fixture: ReplayFixture, fixtures_dir: Path) -> None:
+    fetched = replay_fixture("api_get", "milk_production_wi_2024_monthly")
+    result = tasks.get_milk_production(
+        2024, state=enums.StateAlpha.WI, frequency=enums.FreqDesc.MONTHLY
+    )
+    assert result.meta.request == {
+        **MILK_FILTERS,
+        "year": 2024,
+        "agg_level_desc": "STATE",
+        "state_alpha": "WI",
+        "freq_desc": "MONTHLY",
+    }
+    assert_sent_as_recorded(fetched, fixtures_dir, "milk_production_wi_2024_monthly")
+    assert (result.meta.endpoint, result.meta.total, result.meta.published_at) == (
+        "api_GET", None, None,
+    )  # fmt: skip
+    assert all(isinstance(row, MilkProductionRecord) for row in result.data)
+    assert [row.reference_period_desc for row in result.data] == MILK_PERIODS
+    codes = [(row.begin_code, row.end_code) for row in result.data]
+    assert codes == sorted(codes)
+    assert {row.freq_desc for row in result.data} == {"MONTHLY"}
+    assert {row.short_desc for row in result.data} == {"MILK - PRODUCTION, MEASURED IN LB"}
+    assert {(row.state_alpha, row.unit_desc) for row in result.data} == {("WI", "LB")}
+    january, first_quarter = result.data[0], result.data[1]
+    assert (january.value, january.value_number) == ("2,711,000,000", Decimal("2711000000"))
+    assert (first_quarter.begin_code, first_quarter.end_code, first_quarter.value_number) == (
+        "01", "03", Decimal("8058000000"),
+    )  # fmt: skip
+
+
+def test_milk_production_national_year_then_months(
+    replay_fixture: ReplayFixture, fixtures_dir: Path
+) -> None:
+    fetched = replay_fixture("api_get", "milk_production_us_2024")
+    result = tasks.get_milk_production(2024)
+    assert result.meta.request == {**MILK_FILTERS, "year": 2024, "agg_level_desc": "NATIONAL"}
+    assert_sent_as_recorded(fetched, fixtures_dir, "milk_production_us_2024")
+    assert (result.meta.endpoint, result.meta.total, result.meta.published_at) == (
+        "api_GET", None, None,
+    )  # fmt: skip
+    assert len(result.data) == 17
+    year, months = result.data[0], result.data[1:]
+    assert (year.freq_desc, year.reference_period_desc, year.begin_code, year.end_code) == (
+        "ANNUAL", "YEAR", "00", "00",
+    )  # fmt: skip
+    assert year.value_number == Decimal("225889000000")
+    assert [row.reference_period_desc for row in months] == MILK_PERIODS
+    assert {row.freq_desc for row in months} == {"MONTHLY"}
+    # The class keeps the milk series alone: the manufactured dairy products upstream files
+    # nationally under other classes of the same statistic and unit are left out.
+    assert {(row.class_desc, row.short_desc) for row in result.data} == {
+        ("ALL CLASSES", "MILK - PRODUCTION, MEASURED IN LB")
+    }
+    assert {row.state_alpha for row in result.data} == {"US"}
+
+
+@pytest.mark.anyio
+async def test_upstream_files_dairy_products_beside_milk_production_in_lb(
+    replay_fixture: ReplayFixture, fixtures_dir: Path
+) -> None:
+    """The premise of the milk slice's ``class_desc``, recorded at layer 1 on 2026-10-28:
+    nationally, its other fixed filters count 147 records for 2024, the milk series and
+    ten manufactured dairy products (dry and condensed milk), of which ``ALL CLASSES``
+    keeps the 17 of the milk series."""
+    national = {**MILK_FILTERS, "year": 2024, "agg_level_desc": "NATIONAL"}
+    every_class = {key: value for key, value in national.items() if key != "class_desc"}
+    # The more specific fixture first: respx tries routes in order (conventions §10).
+    milk = replay_fixture("get_counts", "milk_production_us_2024", match_params=["class_desc"])
+    every = replay_fixture("get_counts", "milk_production_us_2024_every_class")
+    assert (await api.get_counts(national)).count == 17
+    assert (await api.get_counts(every_class)).count == 147
+    for route, case in (
+        (milk, "milk_production_us_2024"),
+        (every, "milk_production_us_2024_every_class"),
+    ):
+        fixture = load_fixture(fixtures_dir / "get_counts" / f"{case}.json")
+        assert sent_query(route) == recorded_query(fixture)
+
+
 @pytest.mark.parametrize(
     "model",
     [
@@ -785,6 +1007,8 @@ def test_prices_received_national_monthly(
         AcreageRecord,
         PriceReceivedRecord,
         CensusFarmsRecord,
+        LivestockInventoryRecord,
+        MilkProductionRecord,
     ],
 )
 def test_projections_are_faithful(model: type[UpstreamModel]) -> None:
@@ -796,14 +1020,27 @@ def test_projections_are_faithful(model: type[UpstreamModel]) -> None:
     assert projected.model_dump(mode="json")["value_number"] == 1234.5
 
 
+SLICE_CALLS: dict[str, Callable[[], Result[Any]]] = {
+    "corn_progress_planted_ia_2024": lambda: tasks.get_crop_progress(
+        "CORN", 2024, state=enums.StateAlpha.IA, stage=enums.ProgressStage.PCT_PLANTED
+    ),
+    "hogs_inventory_ia_2024": lambda: tasks.get_livestock_inventory(
+        LivestockCommodity.HOGS, 2024, state=enums.StateAlpha.IA
+    ),
+    "milk_production_wi_2024_monthly": lambda: tasks.get_milk_production(
+        2024, state=enums.StateAlpha.WI, frequency=enums.FreqDesc.MONTHLY
+    ),
+}
+"""A slice's call per ``api_get`` fixture it replays."""
+
+
+@pytest.mark.parametrize("case", SLICE_CALLS)
 def test_slices_skip_the_count_and_leave_published_at_empty(
-    replay_fixture: Callable[[str, str], respx.Route],
+    replay_fixture: Callable[[str, str], respx.Route], case: str
 ) -> None:
     counted = replay_fixture("get_counts", "corn_progress_planted_ia_2024")
-    replay_fixture("api_get", "corn_progress_planted_ia_2024")
-    result = tasks.get_crop_progress(
-        "CORN", 2024, state=enums.StateAlpha.IA, stage=enums.ProgressStage.PCT_PLANTED
-    )
+    replay_fixture("api_get", case)
+    result = SLICE_CALLS[case]()
     assert not counted.called
     assert result.meta.total is None
     assert result.meta.published_at is None
@@ -1061,6 +1298,64 @@ def test_census_farms_over_http(replay_fixture: ReplayFixture) -> None:
     assert body["meta"]["request"]["agg_level_desc"] == "STATE"
     unknown = client.get("/usda-nass/get_census_farms", params={"year": 2022, "statistic": "FARMS"})
     assert unknown.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_livestock_tools_end_to_end_over_mcp(replay_fixture: ReplayFixture) -> None:
+    replay_fixture("api_get", "hogs_inventory_ia_2024", match_params=["commodity_desc"])
+    replay_fixture("api_get", "milk_production_wi_2024_monthly", match_params=["commodity_desc"])
+    inventory = await mcp_call(
+        server,
+        "usda_nass_get_livestock_inventory",
+        {"commodity": "HOGS", "year": 2024, "state": "IA"},
+    )
+    assert len(inventory["data"]) == 28
+    first = inventory["data"][0]
+    assert (first["class_desc"], first["reference_period_desc"]) == ("ALL CLASSES", "FIRST OF MAR")
+    assert (first["value"], first["value_number"]) == ("25,200,000", 25200000)
+    assert inventory["meta"]["request"]["commodity_desc"] == "HOGS"
+    assert inventory["meta"]["total"] is None
+    assert inventory["meta"]["published_at"] is None
+    milk = await mcp_call(
+        server,
+        "usda_nass_get_milk_production",
+        {"year": 2024, "state": "WI", "frequency": "MONTHLY"},
+    )
+    assert [row["reference_period_desc"] for row in milk["data"]] == MILK_PERIODS
+    assert milk["data"][0]["value_number"] == 2711000000
+    refused = await mcp_call_text(
+        server, "usda_nass_get_livestock_inventory", {"commodity": "GOATS", "year": 2024}
+    )
+    assert refused.startswith("error: InvalidRequestError: commodity")
+
+
+def test_livestock_routes_end_to_end_over_http(replay_fixture: ReplayFixture) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from xippios.usda.nass.http import router
+
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+    replay_fixture("api_get", "cattle_inventory_us_2024", match_params=["commodity_desc"])
+    replay_fixture("api_get", "milk_production_us_2024", match_params=["commodity_desc"])
+    inventory = client.get(
+        "/usda-nass/get_livestock_inventory", params={"commodity": "CATTLE", "year": 2024}
+    )
+    assert inventory.status_code == 200, inventory.text
+    rows = inventory.json()["data"]
+    assert len(rows) == 14
+    herd = next(row for row in rows if row["class_desc"] == "INCL CALVES")
+    assert herd["value_number"] == 87157400
+    milk = client.get("/usda-nass/get_milk_production", params={"year": 2024})
+    assert milk.status_code == 200, milk.text
+    assert milk.json()["meta"]["request"]["class_desc"] == "ALL CLASSES"
+    assert [row["freq_desc"] for row in milk.json()["data"]][:2] == ["ANNUAL", "MONTHLY"]
+    refused = client.get(
+        "/usda-nass/get_livestock_inventory", params={"commodity": "GOATS", "year": 2024}
+    )
+    assert refused.status_code == 422
 
 
 # --- get_data(split_by_year=True), decision 8 (Johannes, 2026-10-26 and 2026-10-28) ---

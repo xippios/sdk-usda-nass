@@ -24,6 +24,32 @@ All notable changes to this project are documented here. The format follows
   by state, county and unit and come as `CensusFarmsRecord`, a projection under
   upstream column names with `cv_percent` parsed. Like the other slices it skips the
   count (`meta.total` `None`) and leaves `published_at` empty.
+- `get_livestock_inventory(commodity, year, state=, class_desc=)` and
+  `get_milk_production(year, state=, frequency=)`, two task-shaped slices of `api_GET`,
+  with the MCP tools `usda_nass_get_livestock_inventory` and
+  `usda_nass_get_milk_production` and their HTTP routes. `get_livestock_inventory`
+  returns the survey head counts of cattle, hogs or sheep (`LivestockCommodity`, a
+  `StrEnum` of the three upstream `commodity_desc` values, in `models.py`) on the survey
+  days of a year, state or national, one row per survey day, class and `short_desc`
+  (`statisticcat_desc` `INVENTORY`, `unit_desc` `HEAD`, `domain_desc` `TOTAL`,
+  `freq_desc` `POINT IN TIME`, `source_desc` `SURVEY`; cattle on feed carry
+  `ALL CLASSES` with `prodn_practice_desc` `ON FEED`), sorted by the day (`begin_code`),
+  then `reference_period_desc`, `class_desc` and `short_desc`;
+  `class_desc` keeps one class, `None` returns every class. `get_milk_production` returns
+  the milk production series in pounds, the year and the months and quarters, state or
+  national (`commodity_desc` `MILK`, `class_desc` `ALL CLASSES`, `statisticcat_desc`
+  `PRODUCTION`, `unit_desc` `LB`, `domain_desc` `TOTAL`, `source_desc` `SURVEY`), sorted
+  by frequency, then period; `frequency` keeps `MONTHLY` or `ANNUAL`, `None` returns
+  both. `class_desc` `ALL CLASSES` leaves out the ten manufactured dairy products (dry and
+  condensed milk) that upstream files nationally under the same statistic and unit
+  (recorded 2026-10-28: 147 national records for 2024 without it, 17 with it). Both
+  return projections under upstream column names, `LivestockInventoryRecord` and
+  `MilkProductionRecord`, skip the count and leave `published_at` empty, as the other
+  slices do. Fixtures recorded 2026-10-28: national cattle and Iowa hogs 2024, national
+  and Wisconsin monthly milk 2024, and the two national milk counts. Live smoke tests
+  `test_livestock_inventory_live` and `test_milk_production_live`; the older live
+  assertions on a record's field or on `len(result.data)` bind the value to a local
+  first, so a failure prints the figure or the count, not the records.
 - Live smoke tests for `get_crop_condition`, `get_county_production` and
   `get_acreage_forecasts` (`test_crop_condition_live`, `test_county_production_live`,
   `test_acreage_forecasts_live`), so every task has one (conventions §10);

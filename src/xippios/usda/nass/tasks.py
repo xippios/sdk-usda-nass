@@ -44,6 +44,9 @@ from xippios.usda.nass.models import (
     CropProgressRecord,
     FarmStatistic,
     Filters,
+    LivestockCommodity,
+    LivestockInventoryRecord,
+    MilkProductionRecord,
     PriceReceivedRecord,
     QuickStatsRecord,
 )
@@ -62,6 +65,8 @@ __all__ = [
     "get_crop_condition",
     "get_crop_progress",
     "get_data",
+    "get_livestock_inventory",
+    "get_milk_production",
     "get_prices_received",
     "list_param_values",
 ]
@@ -805,6 +810,120 @@ async def get_census_farms_async(
     )
 
 
+def _inventory_filters(
+    commodity: LivestockCommodity, year: int, state: StateAlpha | None, class_desc: str | None
+) -> dict[str, str | int]:
+    filters = _level(
+        state,
+        {
+            "commodity_desc": commodity.value,
+            "statisticcat_desc": "INVENTORY",
+            "unit_desc": "HEAD",
+            "domain_desc": "TOTAL",
+            "freq_desc": "POINT IN TIME",
+            "source_desc": "SURVEY",
+            "year": year,
+        },
+    )
+    if class_desc is not None:
+        filters["class_desc"] = class_desc
+    return filters
+
+
+async def get_livestock_inventory_async(
+    commodity: LivestockCommodity,
+    year: int,
+    *,
+    state: StateAlpha | None = None,
+    class_desc: str | None = None,
+) -> Result[list[LivestockInventoryRecord]]:
+    """Head counts of cattle, hogs or sheep on hand on the survey days of a year, by class.
+
+    Survey inventories (``statisticcat_desc`` ``INVENTORY``, ``unit_desc`` ``HEAD``,
+    ``domain_desc`` ``TOTAL``, ``freq_desc`` ``POINT IN TIME``, ``source_desc``
+    ``SURVEY``), state or national, one row per survey day, class and ``short_desc``
+    (cattle on feed carry the class ``ALL CLASSES`` with ``prodn_practice_desc``
+    ``ON FEED``), sorted by the day (``begin_code``, its month), then
+    ``reference_period_desc``, ``class_desc`` and ``short_desc``.
+    ``reference_period_desc`` names the day: ``FIRST OF JAN`` in the national cattle
+    series of 2024; the four quarterly days ``FIRST OF MAR``, ``FIRST OF JUN``,
+    ``FIRST OF SEP`` and ``FIRST OF DEC`` in Iowa's hogs series of 2024. The whole herd is
+    the class ``INCL CALVES`` for cattle, ``ALL CLASSES`` for hogs and ``INCL LAMBS`` for
+    sheep. ``value`` is the head count as published.
+
+    Args:
+        commodity: Upstream ``commodity_desc``: ``LivestockCommodity.CATTLE``,
+            ``LivestockCommodity.HOGS`` or ``LivestockCommodity.SHEEP``.
+        year: Year of the survey days, e.g. ``2024``.
+        state: Two-letter state code for the state series, e.g. ``StateAlpha.IA``,
+            ``StateAlpha.TX``; ``None`` returns the national ``US TOTAL`` series.
+        class_desc: One upstream ``class_desc`` to keep, e.g. ``"INCL CALVES"``,
+            ``"COWS, BEEF"`` or ``"COWS, MILK"`` for cattle, ``"ALL CLASSES"``,
+            ``"BREEDING"`` or ``"MARKET"`` for hogs, ``"INCL LAMBS"`` for sheep; ``None``
+            returns every class. A class with no record for the commodity, year and
+            place raises ``NotFoundError``.
+    """
+    return await _slice(
+        _inventory_filters(commodity, year, state, class_desc),
+        LivestockInventoryRecord,
+        lambda row: (row.begin_code, row.reference_period_desc, row.class_desc, row.short_desc),
+    )
+
+
+def _milk_filters(
+    year: int, state: StateAlpha | None, frequency: FreqDesc | None
+) -> dict[str, str | int]:
+    filters = _level(
+        state,
+        {
+            "commodity_desc": "MILK",
+            "class_desc": "ALL CLASSES",
+            "statisticcat_desc": "PRODUCTION",
+            "unit_desc": "LB",
+            "domain_desc": "TOTAL",
+            "source_desc": "SURVEY",
+            "year": year,
+        },
+    )
+    if frequency is not None:
+        filters["freq_desc"] = frequency.value
+    return filters
+
+
+async def get_milk_production_async(
+    year: int,
+    *,
+    state: StateAlpha | None = None,
+    frequency: FreqDesc | None = None,
+) -> Result[list[MilkProductionRecord]]:
+    """Milk produced in a year, in pounds, by month and quarter and for the year.
+
+    The milk production series, state or national (``commodity_desc`` ``MILK``,
+    ``class_desc`` ``ALL CLASSES``, ``statisticcat_desc`` ``PRODUCTION``, ``unit_desc``
+    ``LB``, ``domain_desc`` ``TOTAL``, ``source_desc`` ``SURVEY``; ``short_desc``
+    ``MILK - PRODUCTION, MEASURED IN LB``); ``ALL CLASSES`` leaves out the manufactured
+    dairy products (dry and condensed milk) that upstream files nationally under the same
+    statistic and unit. Sorted by frequency, then period: the year first
+    (``freq_desc`` ``ANNUAL``, ``reference_period_desc`` ``YEAR``), then the months, each
+    quarter (``JAN THRU MAR``, ...) after its first month, since upstream files months and
+    quarters alike as ``MONTHLY``. ``value`` is the quantity in pounds as published.
+
+    Args:
+        year: Calendar year, e.g. ``2024``.
+        state: Two-letter state code for the state series, e.g. ``StateAlpha.WI``,
+            ``StateAlpha.CA``; ``None`` returns the national ``US TOTAL`` series.
+        frequency: ``FreqDesc.MONTHLY`` (the months and quarters) or ``FreqDesc.ANNUAL``
+            (the year) to keep one; ``None`` returns both. ``FreqDesc.WEEKLY``,
+            ``FreqDesc.SEASON`` and ``FreqDesc.POINT_IN_TIME`` raise ``NotFoundError``,
+            since upstream files no milk production under them.
+    """
+    return await _slice(
+        _milk_filters(year, state, frequency),
+        MilkProductionRecord,
+        lambda row: (row.freq_desc, row.begin_code, row.end_code),
+    )
+
+
 get_counts = sync(get_counts_async)
 get_data = sync(get_data_async)
 list_param_values = sync(list_param_values_async)
@@ -816,3 +935,5 @@ get_acreage = sync(get_acreage_async)
 get_acreage_forecasts = sync(get_acreage_forecasts_async)
 get_census_farms = sync(get_census_farms_async)
 get_prices_received = sync(get_prices_received_async)
+get_livestock_inventory = sync(get_livestock_inventory_async)
+get_milk_production = sync(get_milk_production_async)
