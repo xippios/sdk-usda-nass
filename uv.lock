@@ -1010,21 +1010,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pydantic-settings"
-version = "2.16.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pydantic" },
-    { name = "python-dotenv" },
-    { name = "typing-extensions" },
-    { name = "typing-inspection" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/05/ca/7817b4bf0c4b15c6a6ab8cdf4cb96c268335a8ca2f525de93b6ebe4c7d28/pydantic_settings-2.16.1.tar.gz", hash = "sha256:aff602a1886338c2df3d1e958e2193a8dc33cec75b91f202e83fd98484b4b0da", size = 303436, upload-time = "2026-10-20T11:37:19.024Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3c/74/fdf926afe145d8629c4b2ff57f4ea1d64ed7abc4d84d97463b2517a2547e/pydantic_settings-2.16.1-py3-none-any.whl", hash = "sha256:30f5313340da4e8f1b440d1910b92a5bc3ccbb6b4ba70ec2b8395bc921f418f5", size = 80771, upload-time = "2026-10-20T11:37:17.298Z" },
-]
-
-[[package]]
 name = "pygments"
 version = "2.21.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1073,15 +1058,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f3/ee/cf608372c88ce2c136ee13c69ab6f667dbc0d0c1176af188b4ddc8853e66/python_discovery-1.6.4.tar.gz", hash = "sha256:bc70d31f0ec5de11eda13d4d64c16e24b3506a65984684f2b6c98cb83b2ea9df", size = 89883, upload-time = "2026-10-19T01:45:14.855Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/60/91/1aa70d3dfcab0dbcf88a2cbc3bce7f7c69562287a90216e617eaa4937e25/python_discovery-1.6.4-py3-none-any.whl", hash = "sha256:530179cc51a1816d512b15635b3dc931295ae12efb183783ad31190a5d425d2b", size = 39385, upload-time = "2026-10-19T01:45:13.668Z" },
-]
-
-[[package]]
-name = "python-dotenv"
-version = "1.2.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/74/26/2fbeedb218a787a5eea551c7532cac4e009f83d689dd2faa0d0353473f86/python_dotenv-1.2.4.tar.gz", hash = "sha256:f0d53e69935a851c0dcc78f3ab7aaccd8cabef0b92382b576b824212902873c0", size = 60824, upload-time = "2026-10-01T05:36:10Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/60/d1/38f3a3405989a89ac18390803e70c6ad7c7760da4f9b83cbeca0c44a0c72/python_dotenv-1.2.4-py3-none-any.whl", hash = "sha256:42269a8a5b3fd54ffa6f3d84b18abed50064717576b4ecf03dc4a55d8aa04fdc", size = 23266, upload-time = "2026-10-01T05:36:08.633Z" },
 ]
 
 [[package]]
@@ -1428,16 +1404,15 @@ wheels = [
 
 [[package]]
 name = "xippios-core"
-version = "0.2.0"
+version = "0.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
-    { name = "pydantic-settings" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8d/ed/21c7db5f9e6db83360cde3832e7e64c76ce5df38ae49e4706b0da0e2f3c9/xippios_core-0.2.0.tar.gz", hash = "sha256:352b48345d0f9e5e25744dc213005b25737f5f46c9145989cd57d31951265750", size = 193964, upload-time = "2026-10-25T13:50:49.226Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/74/d0/ec4dc01cfc5c0beb97fea05defee907baae96fc894a7227ea6d8cb9c4c8c/xippios_core-0.3.0.tar.gz", hash = "sha256:e7a315a943daf8bdc89fdab7e43f5bafa120cf85bc623e63c71b7c1d23ab771c", size = 282204, upload-time = "2026-10-27T17:08:20.136Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bf/f9/9e7b53acc1a9367b6094d854c2901e98c5e7b617a204fe6ca7fa9c1a2361/xippios_core-0.2.0-py3-none-any.whl", hash = "sha256:8aae984185fd24428d13a8bcd045d37f4039d4566632a4264a108218104c4e80", size = 99881, upload-time = "2026-10-25T13:50:47.844Z" },
+    { url = "https://files.pythonhosted.org/packages/58/52/a69bc864e92bfb6eb8c856ce9157ee1d4a16ba0970b80bce7798a0b4ef6e/xippios_core-0.3.0-py3-none-any.whl", hash = "sha256:f46248b58e905f29b6307608ebba7b9f1b2ca82287a99bbf3d7b5e8897a0a603", size = 120748, upload-time = "2026-10-27T17:08:18.326Z" },
 ]
 
 [package.optional-dependencies]
@@ -1450,6 +1425,7 @@ mcp = [
 testing = [
     { name = "anyio" },
     { name = "httpcore" },
+    { name = "packaging" },
     { name = "pytest" },
     { name = "respx" },
 ]
@@ -1486,10 +1462,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "xippios-core", specifier = "~=0.2.0" },
-    { name = "xippios-core", extras = ["http"], marker = "extra == 'http'", specifier = "~=0.2.0" },
-    { name = "xippios-core", extras = ["mcp"], marker = "extra == 'mcp'", specifier = "~=0.2.0" },
-    { name = "xippios-core", extras = ["testing"], marker = "extra == 'testing'", specifier = "~=0.2.0" },
+    { name = "xippios-core", specifier = "~=0.3.0" },
+    { name = "xippios-core", extras = ["http"], marker = "extra == 'http'", specifier = "~=0.3.0" },
+    { name = "xippios-core", extras = ["mcp"], marker = "extra == 'mcp'", specifier = "~=0.3.0" },
+    { name = "xippios-core", extras = ["testing"], marker = "extra == 'testing'", specifier = "~=0.3.0" },
 ]
 provides-extras = ["mcp", "http", "testing"]
 
@@ -1501,5 +1477,5 @@ dev = [
     { name = "pre-commit", specifier = ">=4" },
     { name = "pytest", specifier = ">=8" },
     { name = "respx", specifier = ">=0.22" },
-    { name = "ruff", specifier = ">=0.14" },
+    { name = "ruff", specifier = "==0.17.1" },
 ]
