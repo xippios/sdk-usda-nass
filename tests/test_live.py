@@ -163,8 +163,9 @@ async def test_census_farms_live() -> None:
     result = await tasks.get_census_farms_async(
         2022, FarmStatistic.AREA_OPERATED, state=StateAlpha.DE, by_county=True
     )
-    assert result.meta.endpoint == "api_GET"
-    assert result.meta.total is None
+    meta = result.meta
+    assert meta.endpoint == "api_GET"
+    assert meta.total is None
     count = len(result.data)
     assert count >= 3  # a figure at least for each of Delaware's three counties
     assert all(isinstance(row, CensusFarmsRecord) for row in result.data)

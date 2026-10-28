@@ -1011,6 +1011,7 @@ def test_census_farms_county_area_units(replay_fixture: ReplayFixture) -> None:
 
 
 def test_census_farms_every_county_sends_no_state(replay_fixture: ReplayFixture) -> None:
+    # No every-county fixture: Delaware's answers a request without a state; only the query counts.
     fetched = replay_fixture("api_get", "census_farms_operations_de_2022_county")
     result = tasks.get_census_farms(2022, FarmStatistic.OPERATIONS, by_county=True)
     sent = sent_query(fetched)
