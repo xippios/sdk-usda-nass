@@ -113,7 +113,8 @@ def test_enums_match_the_packaged_lists(param: str) -> None:
 
 
 def test_enum_members_keep_upstream_values_and_the_hand_names() -> None:
-    """Derived names, and the twelve the refresh script names by hand (``member_names``)."""
+    """Derived names, and the ones the refresh script sets (``member_names``): every dollar
+    unit by the DOLLARS / PER rule, and the two spelled-out landlord domains."""
     assert {"statisticcat_desc", "unit_desc", "domain_desc"} <= set(PACKAGED_PARAMS)
     assert enums.StateAlpha.VA.value == "VA"
     assert enums.SectorDesc.ANIMALS_AND_PRODUCTS.value == "ANIMALS & PRODUCTS"
@@ -126,7 +127,14 @@ def test_enum_members_keep_upstream_values_and_the_hand_names() -> None:
     assert enums.UnitDesc.DOLLARS_PER_BU.value == "$ / BU"
     assert enums.UnitDesc.LB_CHERRY_BASIS.value == "LB, CHERRY BASIS"
     assert enums.UnitDesc.DOLLARS_PER_LB_CHERRY_BASIS.value == "$ / LB, CHERRY BASIS"
-    assert sum(member.name.startswith("DOLLARS") for member in enums.UnitDesc) == 10
+    assert enums.UnitDesc.ACRE_FEET.value == "ACRE FEET"
+    assert enums.UnitDesc.DOLLARS_PER_ACRE.value == "$ / ACRE"
+    assert enums.UnitDesc.DOLLARS_PER_TON_DRY_BASIS.value == "$ / TON, DRY BASIS"
+    assert enums.UnitDesc.DOLLARS_PER_1_000_EGGS.value == "$ / 1,000 EGGS"
+    assert enums.UnitDesc.DOLLARS_CHERRY_BASIS.value == "$, CHERRY BASIS"
+    for member in enums.UnitDesc:
+        assert member.name.startswith("DOLLARS") == ("$" in member.value), member
+        assert member.name.startswith("DOLLARS_PER_") == member.value.startswith("$ / "), member
     landlords = "LANDLORDS_NON_OPERATING_VALUE_OF_LAND_AND_BUILDINGS"
     assert enums.DomainDesc[landlords].value == (
         "LANDLORDS, NON-OPERATING, VALUE OF LAND & BUILDINGS"
