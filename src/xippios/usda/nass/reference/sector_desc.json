@@ -1,7 +1,7 @@
 {
   "param": "sector_desc",
   "endpoint": "get_param_values",
-  "fetched": "2026-10-28T15:01:39Z",
+  "fetched": "2026-10-28T21:38:01Z",
   "records": [
     {
       "sector_desc": "ANIMALS & PRODUCTS"
