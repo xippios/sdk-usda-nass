@@ -21,8 +21,7 @@ All notable changes to this project are documented here. The format follows
 - A list `list_param_values` fetches live (`commodity_desc`, `short_desc`, ...) is cached
   in memory for 24 hours in the process, so a repeated lookup sends nothing; its
   `meta.retrieved_at` is the time the cached answer was fetched (ADR-0015, decision 5).
-  Only `get_param_values` is cached: `get_counts`, `get_data` and the task-shaped
-  functions always ask upstream.
+  `get_counts`, `get_data` and the tasks built on `api_GET` always ask upstream.
 
 ### Changed
 

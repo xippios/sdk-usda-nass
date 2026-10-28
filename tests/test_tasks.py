@@ -297,7 +297,7 @@ def stored_at(param: str) -> datetime:
     return datetime.fromtimestamp(entry.stored_at, UTC)
 
 
-def test_a_live_list_is_cached_and_carries_its_stored_time(
+def test_a_list_fetched_live_is_cached_and_carries_its_stored_time(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
     """A second lookup sends nothing and carries the time the cache stored the first

@@ -81,7 +81,8 @@ config = ClientConfig(
     rate_limit=RATE_LIMIT,
     # Core's default bounds hold: 256 entries outnumber the 39 Quick Stats columns,
     # and ``cache_max_bytes`` (8 MiB) is far above the lists measured (``domain_desc``,
-    # 22,194 bytes of compact JSON, the largest); a larger answer is returned and not kept.
+    # 22,194 bytes of compact JSON, the largest; ``commodity_desc``, a list fetched live,
+    # 6,792 bytes as recorded on 2026-10-28); a larger answer is returned and not kept.
     cache=MemoryCache(ttl=_LIST_TTL),
     cache_filter=_list_lookup,
     classify=classify,
