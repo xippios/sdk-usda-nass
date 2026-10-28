@@ -132,8 +132,11 @@ is the most years one `usda_nass_get_data` call with `split_by_year` splits into
 | `api_GET` (CENSUS, FARM OPERATIONS, OPERATIONS / AREA OPERATED) | `tasks.get_census_farms(year, statistic, state=, by_county=)` | `usda_nass_get_census_farms` | alpha |
 | `api_GET` (STOCKS, BU, POINT IN TIME) | `tasks.get_grain_stocks(commodity, year, state=)` | `usda_nass_get_grain_stocks` | alpha |
 
-The first ten tasks shipped in 0.1.0, the first release. Alpha: the public surface may
-change in a minor version before 1.0 (conventions §12); `CHANGELOG.md` lists every change.
+0.2.0 covers every task in the table: ten shipped in 0.1.0, the first release, and 0.2.0
+adds `get_production_forecasts`, `get_production`, `get_livestock_inventory`,
+`get_milk_production`, `get_census_farms` and `get_grain_stocks`. Alpha: the public
+surface may change in a minor version before 1.0 (conventions §12); `CHANGELOG.md` lists
+every change.
 
 ## Upstream terms and attribution
 
