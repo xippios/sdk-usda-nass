@@ -3,7 +3,9 @@
 ``/add-endpoint`` and ``/record-fixture`` add them.
 """
 
-from collections.abc import Callable
+import argparse
+import sys
+from collections.abc import Callable, Iterator
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -20,6 +22,7 @@ from xippios.core import (
     load_json,
 )
 from xippios.core.http import status_for
+from xippios.core.mcp import build_parser, main
 from xippios.core.redaction import scrub_url
 from xippios.core.testing import (
     REDACTED,
@@ -35,8 +38,8 @@ from xippios.core.testing import (
 
 from xippios.usda.nass import api, enums, tasks
 from xippios.usda.nass._client import BASE_URL
-from xippios.usda.nass.errors import SPLIT_CEILING, QueryTooLarge
-from xippios.usda.nass.mcp import server
+from xippios.usda.nass.errors import MCP_SPLIT_YEARS, SPLIT_CEILING, QueryTooLarge
+from xippios.usda.nass.mcp import run, server
 from xippios.usda.nass.models import (
     AcreageRecord,
     ApiGetResponse,
@@ -1345,3 +1348,145 @@ def test_split_by_year_over_http(replay_fixture: ReplayFixture) -> None:
     assert refused.status_code == 422
     assert refused.json()["title"] == "InvalidRequestError"
     assert "year__GE with year__LE" in refused.json()["detail"]
+
+
+# --- the split ceiling on the MCP server, --split-years (Johannes, 2026-10-28) ---
+
+SPLIT_REFUSAL = (
+    "the split ceiling, --split-years on the MCP server, must be a whole number of years "
+    "from 1 to 20, got {!r}."
+)
+
+
+@pytest.fixture
+def restore_split_ceiling() -> Iterator[None]:
+    """The split ceiling is process-wide: a test that sets it leaves the Python API's,
+    ``SPLIT_CEILING``, for the tests after it."""
+    yield
+    tasks.set_split_ceiling(SPLIT_CEILING)
+
+
+def test_the_split_ceilings_and_the_option() -> None:
+    """20 years for the Python API and the HTTP router, the ceiling in force while no MCP
+    server applied its options; ``--split-years`` on core's parser, 5 by default."""
+    assert (SPLIT_CEILING, MCP_SPLIT_YEARS) == (20, 5)
+    assert tasks.split_ceiling() == 20
+    parser = build_parser(server.name, add_options=tasks.mcp_add_options)
+    assert parser.parse_args([]).split_years == 5
+    assert parser.parse_args(["--split-years", "3"]).split_years == 3
+    assert parser.parse_args(["--split-years", "25"]).split_years == 25, (
+        "the range is checked when the option is applied, then exit status 2"
+    )
+    assert (
+        "--split-years YEARS most years one usda_nass_get_data call with split_by_year "
+        "splits into, 1 to 20 (default 5); up to two keyed calls a year, so 5 years take at "
+        "most 11 calls"
+    ) in " ".join(parser.format_help().split())
+
+
+@pytest.mark.usefixtures("restore_split_ceiling")
+@pytest.mark.parametrize("years", [1, 5, 20])
+def test_set_split_ceiling_takes_1_to_20(years: int) -> None:
+    tasks.set_split_ceiling(years)
+    assert tasks.split_ceiling() == years
+
+
+@pytest.mark.usefixtures("restore_split_ceiling")
+@pytest.mark.parametrize("years", [0, 21, -5, True, "5", 5.0, None])
+def test_set_split_ceiling_refuses_anything_else(years: object) -> None:
+    """Never above 20, never below 1, never a bool, a text or a float; the ceiling in
+    force stays."""
+    tasks.set_split_ceiling(10)
+    with pytest.raises(InvalidRequestError) as info:
+        tasks.set_split_ceiling(years)  # type: ignore[arg-type]
+    assert str(info.value) == SPLIT_REFUSAL.format(years)
+    assert tasks.split_ceiling() == 10
+
+
+@pytest.mark.usefixtures("restore_split_ceiling")
+def test_the_hooks_apply_the_option_through_cores_parser() -> None:
+    """``--split-years 3`` applies 3, no option applies the default 5, and 25 is refused
+    with the ceiling unchanged; ``mcp_apply_options`` returns the server itself."""
+    parser = build_parser(server.name, add_options=tasks.mcp_add_options)
+    for argv, expected in ((["--split-years", "3"], 3), ([], 5)):
+        assert tasks.mcp_apply_options(parser.parse_args(argv), server) is server
+        assert tasks.split_ceiling() == expected
+    with pytest.raises(InvalidRequestError) as info:
+        tasks.mcp_apply_options(parser.parse_args(["--split-years", "25"]), server)
+    assert str(info.value) == SPLIT_REFUSAL.format(25)
+    assert tasks.split_ceiling() == 5
+
+
+@pytest.mark.usefixtures("restore_split_ceiling")
+def test_the_entry_point_applies_split_years_or_exits_with_status_2(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """``mcp.run`` hands the hooks to core's ``main``: without the option the MCP server
+    starts with 5, ``--split-years 3`` sets 3 before the server runs, on stdio; 25 or 0
+    ends the process with exit status 2 and the refusal on stderr, before anything is
+    served, the ceiling unchanged. The server's ``run`` is replaced, so nothing is served.
+    The direct call to ``main`` lets mypy check the hooks against its signature."""
+    served: list[dict[str, object]] = []
+    monkeypatch.setattr(server, "run", lambda **kwargs: served.append(kwargs))
+    monkeypatch.setattr(sys, "argv", ["xippios-usda-nass-mcp"])
+    run()
+    assert tasks.split_ceiling() == 5
+    monkeypatch.setattr(sys, "argv", ["xippios-usda-nass-mcp", "--split-years", "3"])
+    run()
+    assert tasks.split_ceiling() == 3
+    assert served == [{"transport": "stdio"}, {"transport": "stdio"}]
+    for value in ("25", "0"):
+        monkeypatch.setattr(sys, "argv", ["xippios-usda-nass-mcp", "--split-years", value])
+        with pytest.raises(SystemExit) as exit_info:
+            run()
+        assert exit_info.value.code == 2
+        assert capsys.readouterr().err.endswith(f"error: {SPLIT_REFUSAL.format(int(value))}\n")
+    with pytest.raises(SystemExit) as direct:
+        main(
+            server,
+            ["--split-years", "21"],
+            add_options=tasks.mcp_add_options,
+            apply_options=tasks.mcp_apply_options,
+        )
+    assert direct.value.code == 2
+    assert capsys.readouterr().err.endswith(f"error: {SPLIT_REFUSAL.format(21)}\n")
+    assert len(served) == 2, "nothing served after a refusal"
+    assert tasks.split_ceiling() == 3
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures("restore_split_ceiling")
+async def test_the_mcp_server_refuses_a_split_beyond_its_ceiling_before_any_call(
+    replay_fixture: ReplayFixture, respx_mock: respx.MockRouter
+) -> None:
+    """With the MCP server's default, 5, a two-sided range of six years is refused before
+    any call (respx is active with no route mounted), naming the ceiling set for this
+    process; the ceiling is process-wide, so a Python call meets it too. Five years pass:
+    ``get_counts/no_match`` (a count of 0) answers each year, nothing is fetched."""
+    assert tasks.mcp_apply_options(argparse.Namespace(split_years=5), server) is server
+    six: dict[str, str | int] = {"commodity_desc": "CORN", "year__GE": 2015, "year__LE": 2020}
+    refusal = (
+        "split_by_year covers at most 5 years per call, the ceiling set for this process "
+        "(the MCP server starts with 5 by default; --split-years raises it, up to 20); the "
+        "years run from 2015 to 2020, 6 years. Give a shorter range, e.g. year__GE=2016 "
+        "with year__LE=2020."
+    )
+    text = await mcp_call_text(
+        server, "usda_nass_get_data", {"filters": six, "split_by_year": True}
+    )
+    assert text == f"error: InvalidRequestError: {refusal}"
+    with pytest.raises(InvalidRequestError) as python:
+        await tasks.get_data_async(six, split_by_year=True)
+    assert str(python.value) == refusal
+    assert not respx_mock.calls, "refused before any call"
+    yearly = replay_fixture("get_counts", "no_match")
+    fetched = replay_fixture("api_get", "no_match")
+    payload = await mcp_call(
+        server,
+        "usda_nass_get_data",
+        {"filters": {**six, "year__GE": 2016}, "split_by_year": True},
+    )
+    assert (payload["data"], payload["meta"]["total"]) == ([], 0)
+    sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
+    assert sent == [str(year) for year in range(2016, 2021)]
+    assert not fetched.called
