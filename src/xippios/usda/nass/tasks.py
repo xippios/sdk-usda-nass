@@ -43,6 +43,8 @@ from xippios.usda.nass.models import (
     CropProgressRecord,
     Filters,
     PriceReceivedRecord,
+    ProductionRecord,
+    ProductionStatistic,
     QuickStatsRecord,
 )
 from xippios.usda.nass.params import PACKAGE, PACKAGED_PARAMS, validate_filters
@@ -60,6 +62,8 @@ __all__ = [
     "get_crop_progress",
     "get_data",
     "get_prices_received",
+    "get_production",
+    "get_production_forecasts",
     "list_param_values",
 ]
 
@@ -689,6 +693,104 @@ async def get_acreage_forecasts_async(
     )
 
 
+def _production_filters(
+    commodity: str, year: int, statistic: ProductionStatistic, state: StateAlpha | None
+) -> dict[str, str | int]:
+    return _level(
+        state,
+        {
+            "commodity_desc": commodity,
+            "statisticcat_desc": statistic.value,
+            "domain_desc": "TOTAL",
+            "prodn_practice_desc": "ALL PRODUCTION PRACTICES",
+            "freq_desc": "ANNUAL",
+            "year": year,
+        },
+    )
+
+
+async def get_production_forecasts_async(
+    commodity: str,
+    year: int,
+    statistic: ProductionStatistic,
+    *,
+    state: StateAlpha | None = None,
+) -> Result[list[ProductionRecord]]:
+    """The in-season production or yield forecasts for a crop and year, oldest first.
+
+    The Crop Production reports' forecasts, each row naming its
+    ``reference_period_desc`` (``YEAR - AUG FORECAST``, ``YEAR - SEP FORECAST``, ...),
+    selected with ``reference_period_desc__LIKE`` ``FORECAST``; the final figure,
+    ``YEAR``, is ``get_production``'s. Annual totals (``domain_desc`` ``TOTAL``,
+    ``prodn_practice_desc`` ``ALL PRODUCTION PRACTICES``, ``freq_desc`` ``ANNUAL``), so
+    breakdowns by irrigation and the like are left out and the series is comparable with
+    the final figure. Utilisations, classes and units come as rows, the columns tell them
+    apart: ``util_practice_desc`` grain from silage, ``class_desc`` a crop's classes
+    (wheat's ``ALL CLASSES``, ``WINTER``, ``SPRING, (EXCL DURUM)``, ``SPRING, DURUM``),
+    ``unit_desc`` the unit (``BU``, ``BU / ACRE``). ``value`` is the figure as published,
+    ``value_number`` its parsed form. Sorted by ``load_time``, then utilisation, class
+    and unit. Cost: one keyed call, without a count first; ``meta.total`` stays ``None``.
+
+    Args:
+        commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``,
+            ``"WHEAT"``, ``"COTTON"``; ``list_param_values("commodity_desc")`` lists them.
+        year: Crop year, e.g. ``2023``.
+        statistic: ``ProductionStatistic.PRODUCTION`` or ``ProductionStatistic.YIELD``.
+        state: Two-letter state code for the state series, e.g. ``StateAlpha.IA``;
+            ``None`` returns the national series.
+    """
+    filters = _production_filters(commodity, year, statistic, state)
+    filters["reference_period_desc__LIKE"] = "FORECAST"
+    return await _slice(
+        filters,
+        ProductionRecord,
+        lambda row: (row.load_time, row.util_practice_desc, row.class_desc, row.unit_desc),
+    )
+
+
+async def get_production_async(
+    commodity: str,
+    year: int,
+    statistic: ProductionStatistic,
+    *,
+    state: StateAlpha | None = None,
+) -> Result[list[ProductionRecord]]:
+    """The final production or yield of a crop for a year, state or national.
+
+    Annual final figures (``reference_period_desc`` ``YEAR``, ``domain_desc`` ``TOTAL``,
+    ``prodn_practice_desc`` ``ALL PRODUCTION PRACTICES``, ``freq_desc`` ``ANNUAL``), so
+    breakdowns by irrigation and the like and the in-season forecasts are left out;
+    ``get_production_forecasts`` serves the latter. Utilisations, classes and units come
+    as rows, the columns tell them apart: ``util_practice_desc`` grain from silage,
+    ``class_desc`` a crop's classes (wheat's ``ALL CLASSES``, ``WINTER``, ...),
+    ``unit_desc`` the unit (``BU``, ``TONS``, ``BU / ACRE``), and the value of production
+    comes as rows with ``unit_desc`` ``$``. ``value`` is the figure as published,
+    ``value_number`` its parsed form. Sorted by state, utilisation, class, unit and
+    source. Cost: one keyed call, without a count first; ``meta.total`` stays ``None``.
+
+    Args:
+        commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``,
+            ``"WHEAT"``, ``"COTTON"``; ``list_param_values("commodity_desc")`` lists them.
+        year: Crop year, e.g. ``2023``.
+        statistic: ``ProductionStatistic.PRODUCTION`` or ``ProductionStatistic.YIELD``.
+        state: Two-letter state code for the state figure, e.g. ``StateAlpha.IA``;
+            ``None`` returns the national ``US TOTAL`` figure.
+    """
+    filters = _production_filters(commodity, year, statistic, state)
+    filters["reference_period_desc"] = "YEAR"
+    return await _slice(
+        filters,
+        ProductionRecord,
+        lambda row: (
+            row.state_alpha,
+            row.util_practice_desc,
+            row.class_desc,
+            row.unit_desc,
+            row.source_desc,
+        ),
+    )
+
+
 async def get_prices_received_async(
     commodity: str,
     year: int,
@@ -741,3 +843,5 @@ get_county_production = sync(get_county_production_async)
 get_acreage = sync(get_acreage_async)
 get_acreage_forecasts = sync(get_acreage_forecasts_async)
 get_prices_received = sync(get_prices_received_async)
+get_production_forecasts = sync(get_production_forecasts_async)
+get_production = sync(get_production_async)

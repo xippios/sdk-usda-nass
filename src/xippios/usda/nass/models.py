@@ -28,6 +28,8 @@ __all__ = [
     "Filters",
     "GetCountsResponse",
     "PriceReceivedRecord",
+    "ProductionRecord",
+    "ProductionStatistic",
     "QuickStatsRecord",
 ]
 
@@ -198,6 +200,44 @@ class AcreageRecord(_Published):
     final figure or names the forecast (``YEAR - AUG FORECAST``); ``util_practice_desc``
     separates grain from silage on the harvested side; ``source_desc`` tells survey from
     census figures.
+    """
+
+    commodity_desc: str
+    class_desc: str
+    util_practice_desc: str
+    prodn_practice_desc: str
+    statisticcat_desc: str
+    unit_desc: str
+    short_desc: str
+    source_desc: str
+    agg_level_desc: str
+    state_alpha: str
+    state_name: str
+    year: int
+    freq_desc: str
+    reference_period_desc: str
+    cv_percent: Decimal | None
+    load_time: datetime
+
+
+class ProductionStatistic(StrEnum):
+    """The two ``statisticcat_desc`` values the production slice covers, as upstream names them."""
+
+    PRODUCTION = "PRODUCTION"
+    YIELD = "YIELD"
+
+
+class ProductionRecord(_Published):
+    """One production or yield estimate, forecast or final: a projection of ``QuickStatsRecord``.
+
+    Columns keep their upstream names (ADR-0003), the acreage projection's columns.
+    ``statisticcat_desc`` is ``PRODUCTION`` or ``YIELD``; ``reference_period_desc`` is
+    ``YEAR`` for the final figure or names the forecast (``YEAR - AUG FORECAST``).
+    Utilisations, classes and units are rows of their own: ``util_practice_desc``
+    separates grain from silage, ``class_desc`` a crop's classes (wheat's ``WINTER``,
+    ``SPRING, (EXCL DURUM)``, ``SPRING, DURUM``), ``unit_desc`` names the unit (``BU``,
+    ``TONS``, ``BU / ACRE``, ``TONS / ACRE``, or ``$`` for the value of production);
+    ``source_desc`` tells survey from census figures.
     """
 
     commodity_desc: str
