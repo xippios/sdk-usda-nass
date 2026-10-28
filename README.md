@@ -127,7 +127,7 @@ is the most years one `usda_nass_get_data` call with `split_by_year` splits into
 | `api_GET` (PRICE RECEIVED) | `tasks.get_prices_received(commodity, year, state=, frequency=)` | `usda_nass_get_prices_received` | alpha |
 | `api_GET` (STOCKS, BU, POINT IN TIME) | `tasks.get_grain_stocks(commodity, year, state=)` | `usda_nass_get_grain_stocks` | alpha |
 
-All ten tasks are covered in 0.1.0, the first release. Alpha: the public surface may
+The first ten tasks shipped in 0.1.0, the first release. Alpha: the public surface may
 change in a minor version before 1.0 (conventions §12); `CHANGELOG.md` lists every change.
 
 ## Upstream terms and attribution
