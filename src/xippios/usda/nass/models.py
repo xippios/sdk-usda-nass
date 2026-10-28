@@ -23,8 +23,10 @@ __all__ = [
     "AcreageRecord",
     "ApiGetResponse",
     "AreaStatistic",
+    "CensusFarmsRecord",
     "CountyEstimateRecord",
     "CropProgressRecord",
+    "FarmStatistic",
     "Filters",
     "GetCountsResponse",
     "PriceReceivedRecord",
@@ -190,6 +192,17 @@ class AreaStatistic(StrEnum):
     AREA_HARVESTED = "AREA HARVESTED"
 
 
+class FarmStatistic(StrEnum):
+    """The two Census ``statisticcat_desc`` values of ``FARM OPERATIONS`` the farms slice covers.
+
+    ``OPERATIONS`` is the number of farms, ``AREA OPERATED`` the land in farms, as upstream
+    names them.
+    """
+
+    OPERATIONS = "OPERATIONS"
+    AREA_OPERATED = "AREA OPERATED"
+
+
 class AcreageRecord(_Published):
     """One acreage estimate in acres: a projection of ``QuickStatsRecord``.
 
@@ -213,6 +226,41 @@ class AcreageRecord(_Published):
     state_name: str
     year: int
     freq_desc: str
+    reference_period_desc: str
+    cv_percent: Decimal | None
+    load_time: datetime
+
+
+class CensusFarmsRecord(_Published):
+    """One Census of Agriculture farms figure: a projection of ``QuickStatsRecord``.
+
+    Columns keep their upstream names (ADR-0003), those of ``CountyEstimateRecord``.
+    ``statisticcat_desc`` is ``OPERATIONS`` or ``AREA OPERATED``; ``unit_desc`` tells the
+    figures of one place apart: ``OPERATIONS`` (the number of farms) and
+    ``PCT OF FARM OPERATIONS``, or ``ACRES`` (land in farms), ``ACRES / OPERATION``,
+    ``ACRES / OPERATION, MEDIAN``, ``PCT OF AG LAND`` and ``PCT OF TOTAL LAND``.
+    ``source_desc`` is ``CENSUS``; the ``asd_*`` and ``county_*`` columns are empty above
+    the county level. ``cv_percent`` is the coefficient of variation, parsed; a code
+    upstream prints in its place (``"(L)"``, ``"(H)"``) parses to ``None``.
+    """
+
+    commodity_desc: str
+    class_desc: str
+    util_practice_desc: str
+    prodn_practice_desc: str
+    statisticcat_desc: str
+    unit_desc: str
+    short_desc: str
+    source_desc: str
+    agg_level_desc: str
+    state_alpha: str
+    state_name: str
+    asd_code: str
+    asd_desc: str
+    county_ansi: str
+    county_code: str
+    county_name: str
+    year: int
     reference_period_desc: str
     cv_percent: Decimal | None
     load_time: datetime

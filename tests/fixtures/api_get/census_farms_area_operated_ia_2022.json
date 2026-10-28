@@ -1,0 +1,53 @@
+{
+  "recorded_at": "2026-10-28T21:26:28.491698Z",
+  "request": {
+    "body": null,
+    "body_base64": false,
+    "content_type": null,
+    "method": "GET",
+    "url": "https://quickstats.nass.usda.gov/api/api_GET/?source_desc=CENSUS&group_desc=FARMS+%26+LAND+%26+ASSETS&commodity_desc=FARM+OPERATIONS&class_desc=ALL+CLASSES&prodn_practice_desc=ALL+PRODUCTION+PRACTICES&domain_desc=TOTAL&statisticcat_desc=AREA+OPERATED&year=2022&agg_level_desc=STATE&state_alpha=IA&format=JSON&key=REDACTED"
+  },
+  "response": {
+    "body": "{\"data\":[{\"county_name\":\"\",\"begin_code\":\"00\",\"asd_desc\":\"\",\"sector_desc\":\"ECONOMICS\",\"Value\":\"29,978,165\",\"zip_5\":\"\",\"county_ansi\":\"\",\"location_desc\":\"IOWA\",\"state_ansi\":\"19\",\"region_desc\":\"\",\"group_desc\":\"FARMS & LAND & ASSETS\",\"state_name\":\"IOWA\",\"country_code\":\"9000\",\"source_desc\":\"CENSUS\",\"asd_code\":\"\",\"state_alpha\":\"IA\",\"short_desc\":\"FARM OPERATIONS - ACRES OPERATED\",\"domaincat_desc\":\"NOT SPECIFIED\",\"year\":2022,\"load_time\":\"2025-08-19 12:00:00.000\",\"state_fips_code\":\"19\",\"watershed_desc\":\"\",\"domain_desc\":\"TOTAL\",\"congr_district_code\":\"\",\"reference_period_desc\":\"YEAR\",\"country_name\":\"UNITED STATES\",\"end_code\":\"00\",\"county_code\":\"\",\"CV (%)\":\"2.6\",\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"watershed_code\":\"00000000\",\"week_ending\":\"\",\"unit_desc\":\"ACRES\",\"freq_desc\":\"ANNUAL\",\"statisticcat_desc\":\"AREA OPERATED\",\"class_desc\":\"ALL CLASSES\",\"agg_level_desc\":\"STATE\",\"commodity_desc\":\"FARM OPERATIONS\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\"},{\"state_name\":\"IOWA\",\"source_desc\":\"CENSUS\",\"country_code\":\"9000\",\"group_desc\":\"FARMS & LAND & ASSETS\",\"state_alpha\":\"IA\",\"domaincat_desc\":\"NOT SPECIFIED\",\"short_desc\":\"FARM OPERATIONS - AREA OPERATED, MEASURED IN ACRES / OPERATION\",\"year\":2022,\"load_time\":\"2025-08-19 12:00:00.000\",\"state_fips_code\":\"19\",\"asd_code\":\"\",\"sector_desc\":\"ECONOMICS\",\"Value\":\"345\",\"zip_5\":\"\",\"county_name\":\"\",\"begin_code\":\"00\",\"asd_desc\":\"\",\"location_desc\":\"IOWA\",\"region_desc\":\"\",\"state_ansi\":\"19\",\"county_ansi\":\"\",\"unit_desc\":\"ACRES / OPERATION\",\"freq_desc\":\"ANNUAL\",\"class_desc\":\"ALL CLASSES\",\"statisticcat_desc\":\"AREA OPERATED\",\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"week_ending\":\"\",\"watershed_code\":\"00000000\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"commodity_desc\":\"FARM OPERATIONS\",\"agg_level_desc\":\"STATE\",\"congr_district_code\":\"\",\"reference_period_desc\":\"YEAR\",\"country_name\":\"UNITED STATES\",\"watershed_desc\":\"\",\"domain_desc\":\"TOTAL\",\"CV (%)\":\"4.4\",\"end_code\":\"00\",\"county_code\":\"\"},{\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"week_ending\":\"\",\"watershed_code\":\"00000000\",\"freq_desc\":\"ANNUAL\",\"unit_desc\":\"ACRES / OPERATION, MEDIAN\",\"statisticcat_desc\":\"AREA OPERATED\",\"class_desc\":\"ALL CLASSES\",\"commodity_desc\":\"FARM OPERATIONS\",\"agg_level_desc\":\"STATE\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"watershed_desc\":\"\",\"domain_desc\":\"TOTAL\",\"congr_district_code\":\"\",\"country_name\":\"UNITED STATES\",\"reference_period_desc\":\"YEAR\",\"county_code\":\"\",\"end_code\":\"00\",\"CV (%)\":\"9.0\",\"group_desc\":\"FARMS & LAND & ASSETS\",\"country_code\":\"9000\",\"source_desc\":\"CENSUS\",\"state_name\":\"IOWA\",\"asd_code\":\"\",\"short_desc\":\"FARM OPERATIONS - AREA OPERATED, MEASURED IN ACRES / OPERATION, MEDIAN\",\"year\":2022,\"load_time\":\"2024-07-02 12:00:00.000\",\"domaincat_desc\":\"NOT SPECIFIED\",\"state_alpha\":\"IA\",\"state_fips_code\":\"19\",\"asd_desc\":\"\",\"county_name\":\"\",\"begin_code\":\"00\",\"Value\":\"130\",\"sector_desc\":\"ECONOMICS\",\"zip_5\":\"\",\"county_ansi\":\"\",\"location_desc\":\"IOWA\",\"region_desc\":\"\",\"state_ansi\":\"19\"},{\"unit_desc\":\"PCT OF AG LAND\",\"freq_desc\":\"ANNUAL\",\"class_desc\":\"ALL CLASSES\",\"statisticcat_desc\":\"AREA OPERATED\",\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"week_ending\":\"\",\"watershed_code\":\"00000000\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"agg_level_desc\":\"STATE\",\"commodity_desc\":\"FARM OPERATIONS\",\"congr_district_code\":\"\",\"reference_period_desc\":\"YEAR\",\"country_name\":\"UNITED STATES\",\"watershed_desc\":\"\",\"domain_desc\":\"TOTAL\",\"CV (%)\":\"(L)\",\"county_code\":\"\",\"end_code\":\"00\",\"state_name\":\"IOWA\",\"source_desc\":\"CENSUS\",\"country_code\":\"9000\",\"group_desc\":\"FARMS & LAND & ASSETS\",\"state_alpha\":\"IA\",\"domaincat_desc\":\"NOT SPECIFIED\",\"short_desc\":\"FARM OPERATIONS - AREA OPERATED, MEASURED IN PCT OF AG LAND\",\"load_time\":\"2024-07-02 12:00:00.000\",\"year\":2022,\"state_fips_code\":\"19\",\"asd_code\":\"\",\"sector_desc\":\"ECONOMICS\",\"Value\":\"100\",\"zip_5\":\"\",\"county_name\":\"\",\"begin_code\":\"00\",\"asd_desc\":\"\",\"location_desc\":\"IOWA\",\"state_ansi\":\"19\",\"region_desc\":\"\",\"county_ansi\":\"\"},{\"location_desc\":\"IOWA\",\"state_ansi\":\"19\",\"region_desc\":\"\",\"county_ansi\":\"\",\"sector_desc\":\"ECONOMICS\",\"Value\":\"83.9\",\"zip_5\":\"\",\"begin_code\":\"00\",\"county_name\":\"\",\"asd_desc\":\"\",\"state_alpha\":\"IA\",\"year\":2022,\"domaincat_desc\":\"NOT SPECIFIED\",\"short_desc\":\"FARM OPERATIONS - AREA OPERATED, MEASURED IN PCT OF TOTAL LAND\",\"load_time\":\"2024-07-02 12:00:00.000\",\"state_fips_code\":\"19\",\"asd_code\":\"\",\"state_name\":\"IOWA\",\"source_desc\":\"CENSUS\",\"country_code\":\"9000\",\"group_desc\":\"FARMS & LAND & ASSETS\",\"CV (%)\":\"2.6\",\"county_code\":\"\",\"end_code\":\"00\",\"congr_district_code\":\"\",\"reference_period_desc\":\"YEAR\",\"country_name\":\"UNITED STATES\",\"watershed_desc\":\"\",\"domain_desc\":\"TOTAL\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"agg_level_desc\":\"STATE\",\"commodity_desc\":\"FARM OPERATIONS\",\"unit_desc\":\"PCT OF TOTAL LAND\",\"freq_desc\":\"ANNUAL\",\"statisticcat_desc\":\"AREA OPERATED\",\"class_desc\":\"ALL CLASSES\",\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"watershed_code\":\"00000000\",\"week_ending\":\"\"}]}",
+    "body_base64": false,
+    "headers": [
+      [
+        "date",
+        "Wed, 28 Oct 2026 21:26:26 GMT"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "server",
+        "Kestrel"
+      ],
+      [
+        "strict-transport-security",
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      [
+        "x-author",
+        "NICE HYPE (RJ)"
+      ],
+      [
+        "x-proxyversion",
+        "0.8.5"
+      ],
+      [
+        "x-cache",
+        "Miss"
+      ],
+      [
+        "x-handler-apgw-05-12",
+        "APPGW-Public"
+      ],
+      [
+        "x-content-type-options",
+        "nosniff"
+      ]
+    ],
+    "status": 200
+  }
+}

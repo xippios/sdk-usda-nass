@@ -154,3 +154,32 @@ async def test_prices_received_live() -> None:
     result = await tasks.get_prices_received_async("CORN", 2023, state=StateAlpha.IA)
     assert len(result.data) >= 12
     assert any(row.reference_period_desc == "JAN" for row in result.data)
+
+
+async def test_census_farms_live() -> None:
+    from xippios.usda.nass.enums import StateAlpha
+    from xippios.usda.nass.models import CensusFarmsRecord, FarmStatistic
+
+    result = await tasks.get_census_farms_async(
+        2022, FarmStatistic.AREA_OPERATED, state=StateAlpha.DE, by_county=True
+    )
+    meta = result.meta
+    assert meta.endpoint == "api_GET"
+    assert meta.total is None
+    count = len(result.data)
+    assert count >= 3  # a figure at least for each of Delaware's three counties
+    assert all(isinstance(row, CensusFarmsRecord) for row in result.data)
+    sources = {row.source_desc for row in result.data}
+    assert sources == {"CENSUS"}
+    levels = {row.agg_level_desc for row in result.data}
+    assert levels == {"COUNTY"}
+    statistics = {row.statisticcat_desc for row in result.data}
+    assert statistics == {"AREA OPERATED"}
+    totals = {(row.class_desc, row.prodn_practice_desc) for row in result.data}
+    assert totals == {("ALL CLASSES", "ALL PRODUCTION PRACTICES")}
+    counties = {row.county_name for row in result.data}
+    assert counties == {"KENT", "NEW CASTLE", "SUSSEX"}
+    has_acres = "ACRES" in {row.unit_desc for row in result.data}
+    assert has_acres
+    order = [(row.state_alpha, row.county_name, row.unit_desc) for row in result.data]
+    assert all(earlier <= later for earlier, later in pairwise(order))
