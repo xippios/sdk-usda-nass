@@ -109,6 +109,10 @@ change in a minor version before 1.0 (conventions §12); `CHANGELOG.md` lists ev
 Data comes from USDA NASS Quick Stats (https://quickstats.nass.usda.gov) under its own terms of use;
 this package adds no rights to it. Documentation snapshot: `docs/upstream/`.
 
+The NASS API Terms of Service ask every service that uses the API to display this notice:
+
+> This product uses the NASS API but is not endorsed or certified by NASS.
+
 ## Licence
 
 Apache-2.0. See [LICENSE](LICENSE).
