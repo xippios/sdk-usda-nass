@@ -13,6 +13,32 @@ All notable changes to this project are documented here. The format follows
   `test_acreage_forecasts_live`), so every task has one (conventions §10);
   `test_list_param_values_live` asks for `commodity_desc`, a list fetched live, where it
   asked for the packaged `sector_desc`, which spent no call.
+- `get_data(filters, split_by_year=True)`, and `split_by_year` on the MCP tool
+  `usda_nass_get_data` and the HTTP route: the years are fetched one at a time where one
+  call cannot serve them. The filters bound the years as `year`, `year__GE` with
+  `year__LE`, or `year__GE` alone up to the current UTC year, checked before any call;
+  another year filter, or none, raises `InvalidRequestError` naming the three forms, and
+  a `year__GE` or `year__LE` past the current UTC year raises it naming that year. One
+  call splits into at most 20 years in Python and over HTTP (`errors.SPLIT_CEILING`,
+  conventions §4) and 5 by default on the MCP server (`errors.MCP_SPLIT_YEARS`), whose
+  `xippios-usda-nass-mcp --split-years` sets 1 to 20 through core's option hooks,
+  process-wide (`tasks.split_ceiling`, `tasks.set_split_ceiling`): a longer split raises
+  `InvalidRequestError` naming the ceiling, for a two-sided range before any call, for
+  `year__GE` alone after its count, while an open range within the limit is fetched
+  whole however far back it starts. Quick Stats keeps one bound on `year` per query
+  (recorded 2026-10-28: `year__GE` with `year__LE` counts as `year__GE` alone, in either
+  order, and beside `year__LT` the lower bound is dropped), which the `get_counts` and
+  `get_data` docstrings state (ADR-0003), so `year__GE` with `year__LE` is always split,
+  without a count of the range. `year` is counted and fetched once, as without the flag;
+  `year__GE` alone is counted first and fetched once when the count is within the limit,
+  else split. A split counts every year with `year=<y>` in place of the year filters
+  before anything is fetched; a year over the limit on its own raises `QueryTooLarge`
+  naming it, which now carries `year`; a year counting 0 is skipped, since it has no
+  records, or none published yet, which Quick Stats does not tell apart (`meta.vintage`
+  stays `None`: Quick Stats names no release); the records come in year order, each
+  year's in upstream's order. `meta.total` is the yearly counts summed and
+  `meta.request` carries `split_by_year` beside the filters (conventions §4). Cost: up
+  to two keyed calls per year, plus the first count for `year__GE` alone.
 - `meta.total` on `get_data`: the count `get_counts` reported for the filters, `0` on
   the empty result it returns without a second call, never `len(data)`; `get_counts`
   carries its count there too, beside `data` (conventions §4, ADR-0012). The task-shaped
@@ -55,6 +81,11 @@ All notable changes to this project are documented here. The format follows
   the package, no longer live. The live path's replay test uses a new
   `get_param_values/commodity_desc` fixture (recorded 2026-10-28); the
   `statisticcat_desc` fixture, which no test replays any more, is removed.
+- `QueryTooLarge`'s hint for a whole query names the way through the limit: narrower
+  filters, or `get_data` with `split_by_year=True` (the MCP tool `usda_nass_get_data`)
+  on a bounded year range of at most 20 years in Python and over HTTP, 5 by default on
+  the MCP server (`--split-years`) (conventions §8), where it said to split the query
+  into several. A year over the limit on its own names narrower filters only.
 - Adopted xippios-core 0.3.0, sdk-template v0.3.0 and conventions 1.22 (conventions §15).
 - **BREAKING**: depends on `xippios-core~=0.3.0`, its `mcp`, `http` and `testing` extras
   likewise, from PyPI; a core minor keeps no compatibility with the one before it while

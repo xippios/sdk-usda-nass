@@ -30,4 +30,8 @@ def run() -> None:
     """Run the server: stdio by default, ``--http`` for streamable HTTP."""
     # Command-line options of the source's own reach core's parser through its hooks
     # (ADR-0014): main(server, add_options=<adds them>, apply_options=<returns the server>).
-    main(server)
+    main(
+        server,
+        add_options=getattr(tasks, "mcp_add_options", None),
+        apply_options=getattr(tasks, "mcp_apply_options", None),
+    )
