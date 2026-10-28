@@ -358,12 +358,15 @@ async def get_data_async(
 ) -> Result[list[QuickStatsRecord]]:
     """Fetch published Quick Stats estimates for a set of filters, up to 50,000 records a call.
 
-    Calls ``get_counts`` first: a count of zero returns an empty result without a second
-    call, and a count above 50,000 raises ``QueryTooLarge`` with the count and a hint
-    (narrower filters, or ``split_by_year``) before anything is fetched, unless
-    ``split_by_year`` is set, which counts a two-sided year range year by year instead.
-    ``meta.total`` is the count ``get_counts`` reported, ``0`` for the empty result, and
-    the yearly counts summed for a split. Each record carries every Quick Stats column;
+    Without ``split_by_year``, calls ``get_counts`` first: a count of zero returns an empty
+    result without a second call, and a count above 50,000 raises ``QueryTooLarge`` with
+    the count and a hint (narrower filters, or ``split_by_year``) before anything is
+    fetched. With ``split_by_year``, a two-sided year range is fetched year by year, each
+    year counted first and no count of the range sent; ``year__GE`` alone is counted
+    first and split by year only when that count is above 50,000; ``year`` is counted
+    first, and above 50,000 still raises ``QueryTooLarge``. ``meta.total`` is the count
+    ``get_counts`` reported, ``0`` for the empty result, and the yearly counts summed for
+    a split. Each record carries every Quick Stats column;
     ``value`` is the published figure as a string (``"510,000"``, or a suppression code
     such as ``"(D)"``) and ``value_number`` the parsed number.
 
