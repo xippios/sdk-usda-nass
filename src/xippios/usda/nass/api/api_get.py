@@ -10,10 +10,10 @@ from xippios.core import parse
 from xippios.usda.nass._client import SOURCE, client
 from xippios.usda.nass.models import ApiGetResponse, Filters
 
-__all__ = ["api_GET"]
+__all__ = ["api_get"]
 
 
-async def api_GET(filters: Filters) -> ApiGetResponse:
+async def api_get(filters: Filters) -> ApiGetResponse:
     """Call ``api_GET`` with Quick Stats filter parameters, as upstream names them.
 
     Args:

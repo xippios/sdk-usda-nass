@@ -128,7 +128,7 @@ SMALL_FILTERS: dict[str, str | int] = {
 
 def test_get_data_parses_every_column(replay_fixture: Callable[[str, str], respx.Route]) -> None:
     replay_fixture("get_counts", "corn_va_since_2012")
-    fetched = replay_fixture("api_GET", "corn_va_2012_area_planted")
+    fetched = replay_fixture("api_get", "corn_va_2012_area_planted")
     result = tasks.get_data(SMALL_FILTERS)
     assert fetched.called
     assert result.meta.endpoint == "api_GET"
@@ -150,7 +150,7 @@ def test_get_data_refuses_before_fetching_when_over_the_limit(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
     replay_fixture("get_counts", "unknown_column")
-    fetched = replay_fixture("api_GET", "exceeds_limit")
+    fetched = replay_fixture("api_get", "exceeds_limit")
     with pytest.raises(QueryTooLarge) as info:
         tasks.get_data({"commodity_desc": "CORN"})
     assert info.value.count == 57873464
@@ -163,7 +163,7 @@ def test_get_data_returns_empty_without_fetching_when_nothing_matches(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
     replay_fixture("get_counts", "no_match")
-    fetched = replay_fixture("api_GET", "no_match")
+    fetched = replay_fixture("api_get", "no_match")
     result = tasks.get_data({"commodity_desc": "CORN", "year": 1800, "state_alpha": "VA"})
     assert result.data == []
     assert not fetched.called
@@ -173,9 +173,9 @@ def test_get_data_returns_empty_without_fetching_when_nothing_matches(
 async def test_api_get_maps_upstream_errors(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    replay_fixture("api_GET", "exceeds_limit")
+    replay_fixture("api_get", "exceeds_limit")
     with pytest.raises(QueryTooLarge) as info:
-        await api.api_GET({"commodity_desc": "CORN"})
+        await api.api_get({"commodity_desc": "CORN"})
     assert info.value.count is None
 
 
@@ -183,9 +183,9 @@ async def test_api_get_maps_upstream_errors(
 async def test_api_get_maps_no_match_to_not_found(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    replay_fixture("api_GET", "no_match")
+    replay_fixture("api_get", "no_match")
     with pytest.raises(NotFoundError, match="invalid query"):
-        await api.api_GET({"commodity_desc": "CORN", "year": 1800})
+        await api.api_get({"commodity_desc": "CORN", "year": 1800})
 
 
 def test_value_number_handles_suppression_codes() -> None:
@@ -300,7 +300,7 @@ def test_columns_cover_every_record_field() -> None:
 
 
 def test_crop_progress_state_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    fetched = replay_fixture("api_GET", "corn_progress_planted_ia_2024")
+    fetched = replay_fixture("api_get", "corn_progress_planted_ia_2024")
     result = tasks.get_crop_progress(
         "CORN", 2024, state=enums.StateAlpha.IA, stage=enums.ProgressStage.PCT_PLANTED
     )
@@ -329,7 +329,7 @@ def test_crop_progress_state_series(replay_fixture: Callable[[str, str], respx.R
 
 
 def test_crop_progress_national_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("api_GET", "corn_progress_planted_us_2024")
+    replay_fixture("api_get", "corn_progress_planted_us_2024")
     result = tasks.get_crop_progress("CORN", 2024, stage=enums.ProgressStage.PCT_PLANTED)
     assert result.meta.request["agg_level_desc"] == "NATIONAL"
     assert "state_alpha" not in result.meta.request
@@ -338,7 +338,7 @@ def test_crop_progress_national_series(replay_fixture: Callable[[str, str], resp
 
 
 def test_crop_condition_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("api_GET", "corn_condition_good_ia_2024")
+    replay_fixture("api_get", "corn_condition_good_ia_2024")
     result = tasks.get_crop_condition(
         "CORN", 2024, state=enums.StateAlpha.IA, category=enums.ConditionCategory.PCT_GOOD
     )
@@ -369,7 +369,7 @@ def test_derived_enums_match_their_lists_and_provenance() -> None:
 
 
 def test_county_yield_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    fetched = replay_fixture("api_GET", "corn_yield_de_2023_county")
+    fetched = replay_fixture("api_get", "corn_yield_de_2023_county")
     result = tasks.get_county_yield("CORN", 2023, state=enums.StateAlpha.DE)
     assert result.meta.request == {
         "commodity_desc": "CORN",
@@ -405,7 +405,7 @@ def test_county_yield_series(replay_fixture: Callable[[str, str], respx.Route]) 
 
 
 def test_county_production_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("api_GET", "corn_production_de_2023_county")
+    replay_fixture("api_get", "corn_production_de_2023_county")
     result = tasks.get_county_production("CORN", 2023, state=enums.StateAlpha.DE)
     assert result.meta.request["statisticcat_desc"] == "PRODUCTION"
     assert {row.unit_desc for row in result.data} == {"BU"}
@@ -421,14 +421,14 @@ def test_county_production_series(replay_fixture: Callable[[str, str], respx.Rou
 def test_county_series_without_state_covers_the_country(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    replay_fixture("api_GET", "corn_yield_de_2023_county")
+    replay_fixture("api_get", "corn_yield_de_2023_county")
     result = tasks.get_county_yield("CORN", 2023)
     assert "state_alpha" not in result.meta.request
     assert result.meta.request["agg_level_desc"] == "COUNTY"
 
 
 def test_acreage_planted_state(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    fetched = replay_fixture("api_GET", "corn_area_planted_ia_2023")
+    fetched = replay_fixture("api_get", "corn_area_planted_ia_2023")
     result = tasks.get_acreage("CORN", 2023, AreaStatistic.AREA_PLANTED, state=enums.StateAlpha.IA)
     assert result.meta.request == {
         "commodity_desc": "CORN",
@@ -454,7 +454,7 @@ def test_acreage_planted_state(replay_fixture: Callable[[str, str], respx.Route]
 def test_acreage_harvested_splits_grain_and_silage(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    replay_fixture("api_GET", "corn_area_harvested_ia_2023")
+    replay_fixture("api_get", "corn_area_harvested_ia_2023")
     result = tasks.get_acreage(
         "CORN", 2023, AreaStatistic.AREA_HARVESTED, state=enums.StateAlpha.IA
     )
@@ -466,7 +466,7 @@ def test_acreage_harvested_splits_grain_and_silage(
 
 
 def test_acreage_national(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("api_GET", "corn_area_planted_us_2023")
+    replay_fixture("api_get", "corn_area_planted_us_2023")
     result = tasks.get_acreage("CORN", 2023, AreaStatistic.AREA_PLANTED)
     assert result.meta.request["agg_level_desc"] == "NATIONAL"
     assert "state_alpha" not in result.meta.request
@@ -475,7 +475,7 @@ def test_acreage_national(replay_fixture: Callable[[str, str], respx.Route]) -> 
 
 
 def test_prices_received_state_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    fetched = replay_fixture("api_GET", "corn_price_received_ia_2023")
+    fetched = replay_fixture("api_get", "corn_price_received_ia_2023")
     result = tasks.get_prices_received("CORN", 2023, state=enums.StateAlpha.IA)
     assert result.meta.request == {
         "commodity_desc": "CORN",
@@ -504,7 +504,7 @@ def test_prices_received_state_series(replay_fixture: Callable[[str, str], respx
 def test_prices_received_national_monthly(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    replay_fixture("api_GET", "corn_price_received_us_2023_monthly")
+    replay_fixture("api_get", "corn_price_received_us_2023_monthly")
     result = tasks.get_prices_received("CORN", 2023, frequency=enums.FreqDesc.MONTHLY)
     assert result.meta.request["agg_level_desc"] == "NATIONAL"
     assert result.meta.request["freq_desc"] == "MONTHLY"
@@ -534,7 +534,7 @@ def test_slices_skip_the_count_and_leave_published_at_empty(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
     counted = replay_fixture("get_counts", "corn_progress_planted_ia_2024")
-    replay_fixture("api_GET", "corn_progress_planted_ia_2024")
+    replay_fixture("api_get", "corn_progress_planted_ia_2024")
     result = tasks.get_crop_progress(
         "CORN", 2024, state=enums.StateAlpha.IA, stage=enums.ProgressStage.PCT_PLANTED
     )
@@ -548,7 +548,7 @@ def test_get_data_keeps_the_count_and_leaves_published_at_empty(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
     counted = replay_fixture("get_counts", "corn_va_since_2012")
-    replay_fixture("api_GET", "corn_va_2012_area_planted")
+    replay_fixture("api_get", "corn_va_2012_area_planted")
     result = tasks.get_data(SMALL_FILTERS)
     assert counted.called
     assert result.meta.published_at is None
@@ -557,7 +557,7 @@ def test_get_data_keeps_the_count_and_leaves_published_at_empty(
 def test_acreage_forecasts_state_and_national(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    replay_fixture("api_GET", "corn_area_harvested_forecasts_ia_2023")
+    replay_fixture("api_get", "corn_area_harvested_forecasts_ia_2023")
     result = tasks.get_acreage_forecasts(
         "CORN", 2023, AreaStatistic.AREA_HARVESTED, state=enums.StateAlpha.IA
     )
@@ -576,7 +576,7 @@ def test_acreage_forecasts_state_and_national(
 
 
 def test_acreage_forecasts_national(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("api_GET", "corn_area_planted_forecasts_us_2023")
+    replay_fixture("api_get", "corn_area_planted_forecasts_us_2023")
     result = tasks.get_acreage_forecasts("CORN", 2023, AreaStatistic.AREA_PLANTED)
     assert result.meta.request["agg_level_desc"] == "NATIONAL"
     assert [row.reference_period_desc for row in result.data][:2] == [
@@ -587,7 +587,7 @@ def test_acreage_forecasts_national(replay_fixture: Callable[[str, str], respx.R
 
 @pytest.mark.anyio
 async def test_mcp_tool_call_end_to_end(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("api_GET", "corn_progress_planted_ia_2024")
+    replay_fixture("api_get", "corn_progress_planted_ia_2024")
     payload = await mcp_call(
         server,
         "usda_nass_get_crop_progress",
@@ -610,7 +610,7 @@ def test_http_route_end_to_end(replay_fixture: Callable[[str, str], respx.Route]
     app = FastAPI()
     app.include_router(router)
     client = TestClient(app)
-    replay_fixture("api_GET", "corn_area_planted_ia_2023")
+    replay_fixture("api_get", "corn_area_planted_ia_2023")
     response = client.get(
         "/usda-nass/get_acreage",
         params={"commodity": "CORN", "year": 2023, "statistic": "AREA PLANTED", "state": "IA"},
