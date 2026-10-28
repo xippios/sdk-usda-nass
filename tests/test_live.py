@@ -279,3 +279,35 @@ async def test_milk_production_live() -> None:
     assert all(row.value_number is not None and row.value_number > 0 for row in result.data)
     order = [(row.freq_desc, row.begin_code, row.end_code) for row in result.data]
     assert all(earlier <= later for earlier, later in pairwise(order))
+
+
+async def test_grain_stocks_live() -> None:
+    from xippios.usda.nass.models import GrainStocksRecord
+
+    result = await tasks.get_grain_stocks_async("CORN", 2024)
+    assert result.meta.endpoint == "api_GET"
+    assert result.meta.total is None
+    count = len(result.data)  # bound first, so a failure prints a number, not the rows
+    assert count == 12  # four stocks days, three positions
+    assert all(isinstance(row, GrainStocksRecord) for row in result.data)
+    days = {row.reference_period_desc for row in result.data}
+    assert days == {"FIRST OF MAR", "FIRST OF JUN", "FIRST OF SEP", "FIRST OF DEC"}
+    positions = {row.util_practice_desc for row in result.data}
+    assert positions == {"GRAIN", "ON FARM, GRAIN", "OFF FARM, GRAIN"}
+    statistics = {row.statisticcat_desc for row in result.data}
+    assert statistics == {"STOCKS"}
+    units = {row.unit_desc for row in result.data}
+    assert units == {"BU"}
+    frequencies = {row.freq_desc for row in result.data}
+    assert frequencies == {"POINT IN TIME"}
+    sources = {row.source_desc for row in result.data}
+    assert sources == {"SURVEY"}
+    states = {row.state_alpha for row in result.data}
+    assert states == {"US"}
+    parsed = all(row.value_number is not None for row in result.data)
+    assert parsed
+    order = [
+        (row.begin_code, row.reference_period_desc, row.util_practice_desc, row.class_desc)
+        for row in result.data
+    ]
+    assert all(earlier <= later for earlier, later in pairwise(order))

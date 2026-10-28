@@ -29,6 +29,7 @@ __all__ = [
     "FarmStatistic",
     "Filters",
     "GetCountsResponse",
+    "GrainStocksRecord",
     "LivestockCommodity",
     "LivestockInventoryRecord",
     "MilkProductionRecord",
@@ -388,6 +389,41 @@ class MilkProductionRecord(_Published):
     commodity_desc: str
     class_desc: str
     util_practice_desc: str
+    statisticcat_desc: str
+    unit_desc: str
+    short_desc: str
+    source_desc: str
+    agg_level_desc: str
+    state_alpha: str
+    state_name: str
+    year: int
+    freq_desc: str
+    reference_period_desc: str
+    begin_code: str
+    end_code: str
+    load_time: datetime
+
+
+class GrainStocksRecord(_Published):
+    """One grain stocks estimate in bushels, as of a day: a projection of ``QuickStatsRecord``.
+
+    Columns keep their upstream names (ADR-0003). ``reference_period_desc`` names the day
+    (``FIRST OF MAR``, ``FIRST OF JUN``, ``FIRST OF SEP``, ``FIRST OF DEC``) and
+    ``begin_code``/``end_code`` carry its month (``03`` ... ``12``); ``freq_desc`` is
+    ``POINT IN TIME``. ``util_practice_desc`` tells the position as upstream spells it for
+    the commodity: for corn ``GRAIN``, the total, ``ON FARM, GRAIN`` and ``OFF FARM, GRAIN``;
+    for soybeans and wheat ``ALL UTILIZATION PRACTICES``, the total, ``ON FARM`` and
+    ``OFF FARM`` (recorded 2026-10-28). ``class_desc`` tells a class apart:
+    ``ALL CLASSES``, or wheat's ``SPRING, DURUM``. ``value`` is the quantity in ``BU`` as
+    published and ``value_number`` its parsed form. The stocks rows leave ``CV (%)`` empty,
+    since ``param_define.md`` gives coefficients of variation for the 2012 Census of
+    Agriculture only, so the projection leaves it out.
+    """
+
+    commodity_desc: str
+    class_desc: str
+    util_practice_desc: str
+    prodn_practice_desc: str
     statisticcat_desc: str
     unit_desc: str
     short_desc: str
