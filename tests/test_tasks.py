@@ -1004,6 +1004,45 @@ async def test_upstream_counts_year_ge_with_year_le_as_year_ge_alone(
 
 
 @pytest.mark.anyio
+async def test_upstream_counts_year_le_sent_before_year_ge_as_year_ge_alone(
+    replay_fixture: ReplayFixture,
+) -> None:
+    """Characterisation at layer 1, recorded 2026-10-28: with ``year__LE=2024`` sent
+    before ``year__GE=2023``, Quick Stats still counts Iowa as ``year__GE=2023`` alone,
+    31,461, so the order of the two bounds in the query does not change the count."""
+    ranged = replay_fixture("get_counts", "ia_2023_2024_le_first", match_params=["year__LE"])
+    replay_fixture("get_counts", "ia_since_2023", match_params=["year__GE"])
+    filters: dict[str, str | int] = {"state_alpha": "IA", "year__LE": 2024, "year__GE": 2023}
+    counted = (await api.get_counts(filters)).count
+    since = (await api.get_counts({"state_alpha": "IA", "year__GE": 2023})).count
+    assert sent_urls(ranged) == [
+        f"{BASE_URL}/get_counts/?state_alpha=IA&year__LE=2024&year__GE=2023&key={REDACTED}"
+    ]
+    assert counted == since == 31461
+    assert counted > sum(IA_COUNTS.values())
+
+
+@pytest.mark.anyio
+async def test_upstream_counts_year_ge_with_year_lt_as_more_than_year_ge_alone(
+    replay_fixture: ReplayFixture,
+) -> None:
+    """Characterisation at layer 1, recorded 2026-10-28: Quick Stats counts Iowa for
+    ``year__GE=2023&year__LT=2025`` as 1,425,389, neither 2023 and 2024 together (21,434)
+    nor ``year__GE=2023`` alone (31,461): beside ``year__LT`` the lower bound does not
+    narrow the count."""
+    ranged = replay_fixture("get_counts", "ia_2023_lt_2025", match_params=["year__LT"])
+    replay_fixture("get_counts", "ia_since_2023", match_params=["year__GE"])
+    filters: dict[str, str | int] = {"state_alpha": "IA", "year__GE": 2023, "year__LT": 2025}
+    counted = (await api.get_counts(filters)).count
+    since = (await api.get_counts({"state_alpha": "IA", "year__GE": 2023})).count
+    assert sent_urls(ranged) == [
+        f"{BASE_URL}/get_counts/?state_alpha=IA&year__GE=2023&year__LT=2025&key={REDACTED}"
+    ]
+    assert counted == 1425389
+    assert counted > since > sum(IA_COUNTS.values())
+
+
+@pytest.mark.anyio
 async def test_split_by_year_over_mcp(replay_fixture: ReplayFixture) -> None:
     mount_ia_split(replay_fixture)
     payload = await mcp_call(

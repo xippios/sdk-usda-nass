@@ -1,0 +1,53 @@
+{
+  "recorded_at": "2026-10-28T16:17:50.037902Z",
+  "request": {
+    "body": null,
+    "body_base64": false,
+    "content_type": null,
+    "method": "GET",
+    "url": "https://quickstats.nass.usda.gov/api/get_counts/?state_alpha=IA&year__LE=2024&year__GE=2023&key=REDACTED"
+  },
+  "response": {
+    "body": "{\"count\":31461}",
+    "body_base64": false,
+    "headers": [
+      [
+        "date",
+        "Wed, 28 Oct 2026 16:17:49 GMT"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "server",
+        "Kestrel"
+      ],
+      [
+        "strict-transport-security",
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      [
+        "x-author",
+        "NICE HYPE (RJ)"
+      ],
+      [
+        "x-proxyversion",
+        "0.8.5"
+      ],
+      [
+        "x-cache",
+        "Hit"
+      ],
+      [
+        "x-handler-apgw-05-12",
+        "APPGW-Public"
+      ],
+      [
+        "x-content-type-options",
+        "nosniff"
+      ]
+    ],
+    "status": 200
+  }
+}
