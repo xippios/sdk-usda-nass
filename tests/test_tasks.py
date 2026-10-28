@@ -50,8 +50,10 @@ from xippios.usda.nass.models import (
     AcreageRecord,
     ApiGetResponse,
     AreaStatistic,
+    CensusFarmsRecord,
     CountyEstimateRecord,
     CropProgressRecord,
+    FarmStatistic,
     LivestockCommodity,
     LivestockInventoryRecord,
     MilkProductionRecord,
@@ -1004,6 +1006,7 @@ async def test_upstream_files_dairy_products_beside_milk_production_in_lb(
         CountyEstimateRecord,
         AcreageRecord,
         PriceReceivedRecord,
+        CensusFarmsRecord,
         LivestockInventoryRecord,
         MilkProductionRecord,
     ],
@@ -1130,6 +1133,171 @@ def test_http_route_end_to_end(replay_fixture: Callable[[str, str], respx.Route]
     assert unknown.status_code == 422
     assert unknown.json()["title"] == "UnknownCode"
     assert "packaged state_alpha list" in unknown.json()["detail"]
+
+
+# --- get_census_farms, decision 9 (d) (Johannes, 2026-10-28) ---
+
+CENSUS_FILTERS: dict[str, str | int] = {  # get_census_farms' fixed filters, counted 2026-10-28
+    "source_desc": "CENSUS",
+    "group_desc": "FARMS & LAND & ASSETS",
+    "commodity_desc": "FARM OPERATIONS",
+    "class_desc": "ALL CLASSES",
+    "prodn_practice_desc": "ALL PRODUCTION PRACTICES",
+    "domain_desc": "TOTAL",
+}
+
+
+def test_census_farms_national(replay_fixture: ReplayFixture) -> None:
+    counted = replay_fixture("get_counts", "corn_progress_planted_ia_2024")
+    fetched = replay_fixture("api_get", "census_farms_operations_us_2022")
+    result = tasks.get_census_farms(2022, FarmStatistic.OPERATIONS)
+    expected = {
+        **CENSUS_FILTERS,
+        "statisticcat_desc": "OPERATIONS",
+        "year": "2022",
+        "agg_level_desc": "NATIONAL",
+    }
+    assert sent_query(fetched) == {**expected, "format": "JSON", "key": REDACTED}
+    assert result.meta.request == {**expected, "year": 2022}
+    assert not counted.called  # a slice skips the count (decision 5)
+    assert result.meta.endpoint == "api_GET"
+    assert result.meta.total is None
+    assert result.meta.published_at is None
+    assert all(isinstance(row, CensusFarmsRecord) for row in result.data)
+    assert [row.unit_desc for row in result.data] == ["OPERATIONS", "PCT OF FARM OPERATIONS"]
+    farms, share = result.data
+    assert (farms.value, farms.value_number) == ("1,900,487", Decimal("1900487"))
+    assert farms.short_desc == "FARM OPERATIONS - NUMBER OF OPERATIONS"
+    assert farms.cv_percent == Decimal("1.9")
+    assert share.value_number == Decimal("100")
+    assert share.cv_percent is None  # upstream prints "(L)" in CV (%)
+    assert {(row.state_alpha, row.state_name, row.county_name) for row in result.data} == {
+        ("US", "US TOTAL", ""),
+    }
+    assert {(row.source_desc, row.statisticcat_desc, row.year) for row in result.data} == {
+        ("CENSUS", "OPERATIONS", 2022),
+    }
+
+
+def test_census_farms_state(replay_fixture: ReplayFixture) -> None:
+    fetched = replay_fixture("api_get", "census_farms_area_operated_ia_2022")
+    result = tasks.get_census_farms(2022, FarmStatistic.AREA_OPERATED, state=enums.StateAlpha.IA)
+    sent = sent_query(fetched)
+    assert {key: sent[key] for key in CENSUS_FILTERS} == CENSUS_FILTERS
+    assert (sent["statisticcat_desc"], sent["agg_level_desc"], sent["state_alpha"]) == (
+        "AREA OPERATED", "STATE", "IA",
+    )  # fmt: skip
+    assert result.meta.request["state_alpha"] == "IA"
+    assert result.meta.total is None
+    assert result.meta.published_at is None
+    units = [row.unit_desc for row in result.data]
+    assert units == sorted(units)
+    assert set(units) == {
+        "ACRES", "ACRES / OPERATION", "ACRES / OPERATION, MEDIAN", "PCT OF AG LAND",
+        "PCT OF TOTAL LAND",
+    }  # fmt: skip
+    acres = result.data[0]
+    assert (acres.unit_desc, acres.value_number) == ("ACRES", Decimal("29978165"))
+    assert acres.short_desc == "FARM OPERATIONS - ACRES OPERATED"
+    assert acres.cv_percent == Decimal("2.6")
+    assert {(row.agg_level_desc, row.state_alpha, row.county_code) for row in result.data} == {
+        ("STATE", "IA", ""),
+    }
+
+
+def test_census_farms_counties_of_a_state(replay_fixture: ReplayFixture) -> None:
+    fetched = replay_fixture("api_get", "census_farms_operations_de_2022_county")
+    result = tasks.get_census_farms(
+        2022, FarmStatistic.OPERATIONS, state=enums.StateAlpha.DE, by_county=True
+    )
+    sent = sent_query(fetched)
+    assert {key: sent[key] for key in CENSUS_FILTERS} == CENSUS_FILTERS
+    assert (sent["agg_level_desc"], sent["state_alpha"], sent["year"]) == ("COUNTY", "DE", "2022")
+    assert result.meta.request["agg_level_desc"] == "COUNTY"
+    assert result.meta.total is None
+    assert [(row.county_name, row.county_code, row.value_number) for row in result.data] == [
+        ("KENT", "001", Decimal("770")),
+        ("NEW CASTLE", "003", Decimal("335")),
+        ("SUSSEX", "005", Decimal("1053")),
+    ]  # sorted by county; upstream answered New Castle first
+    assert {row.unit_desc for row in result.data} == {"OPERATIONS"}
+    kent = result.data[0]
+    assert (kent.asd_code, kent.asd_desc, kent.county_ansi) == ("50", "CENTRAL", "001")
+    assert kent.cv_percent == Decimal("9.0")
+
+
+def test_census_farms_county_area_units(replay_fixture: ReplayFixture) -> None:
+    replay_fixture("api_get", "census_farms_area_operated_de_2022_county")
+    result = tasks.get_census_farms(
+        2022, FarmStatistic.AREA_OPERATED, state=enums.StateAlpha.DE, by_county=True
+    )
+    assert len(result.data) == 12
+    order = [(row.state_alpha, row.county_name, row.unit_desc) for row in result.data]
+    assert order == sorted(order)
+    assert [row.county_name for row in result.data[:4]] == ["KENT"] * 4
+    assert {row.unit_desc for row in result.data} == {
+        "ACRES", "ACRES / OPERATION", "ACRES / OPERATION, MEDIAN", "PCT OF TOTAL LAND",
+    }  # fmt: skip
+    sussex_acres = next(
+        row for row in result.data if row.county_name == "SUSSEX" and row.unit_desc == "ACRES"
+    )
+    assert sussex_acres.value_number == Decimal("262079")
+    assert all(
+        row.cv_percent is None for row in result.data if row.unit_desc == "PCT OF TOTAL LAND"
+    )  # upstream prints "(H)" in CV (%)
+
+
+def test_census_farms_every_county_sends_no_state(replay_fixture: ReplayFixture) -> None:
+    # No every-county fixture: Delaware's answers a request without a state; only the query counts.
+    fetched = replay_fixture("api_get", "census_farms_operations_de_2022_county")
+    result = tasks.get_census_farms(2022, FarmStatistic.OPERATIONS, by_county=True)
+    sent = sent_query(fetched)
+    assert sent["agg_level_desc"] == "COUNTY"
+    assert "state_alpha" not in sent
+    assert {key: sent[key] for key in CENSUS_FILTERS} == CENSUS_FILTERS
+    assert "state_alpha" not in result.meta.request
+    assert result.meta.request["agg_level_desc"] == "COUNTY"
+
+
+@pytest.mark.anyio
+async def test_census_farms_over_mcp(replay_fixture: ReplayFixture) -> None:
+    replay_fixture("api_get", "census_farms_operations_de_2022_county")
+    payload = await mcp_call(
+        server,
+        "usda_nass_get_census_farms",
+        {"year": 2022, "statistic": "OPERATIONS", "state": "DE", "by_county": True},
+    )
+    assert [row["county_name"] for row in payload["data"]] == ["KENT", "NEW CASTLE", "SUSSEX"]
+    kent = payload["data"][0]
+    assert (kent["value"], kent["value_number"], kent["cv_percent"]) == ("770", 770, 9.0)
+    assert payload["meta"]["endpoint"] == "api_GET"
+    assert payload["meta"]["total"] is None
+    assert payload["meta"]["published_at"] is None
+    request = payload["meta"]["request"]
+    assert (request["agg_level_desc"], request["state_alpha"]) == ("COUNTY", "DE")
+
+
+def test_census_farms_over_http(replay_fixture: ReplayFixture) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from xippios.usda.nass.http import router
+
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+    replay_fixture("api_get", "census_farms_area_operated_ia_2022")
+    response = client.get(
+        "/usda-nass/get_census_farms",
+        params={"year": 2022, "statistic": "AREA OPERATED", "state": "IA"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert len(body["data"]) == 5
+    assert (body["data"][0]["unit_desc"], body["data"][0]["value_number"]) == ("ACRES", 29978165)
+    assert body["meta"]["request"]["agg_level_desc"] == "STATE"
+    unknown = client.get("/usda-nass/get_census_farms", params={"year": 2022, "statistic": "FARMS"})
+    assert unknown.status_code == 422
 
 
 @pytest.mark.anyio

@@ -1,0 +1,53 @@
+{
+  "recorded_at": "2026-10-28T21:26:26.084050Z",
+  "request": {
+    "body": null,
+    "body_base64": false,
+    "content_type": null,
+    "method": "GET",
+    "url": "https://quickstats.nass.usda.gov/api/api_GET/?source_desc=CENSUS&group_desc=FARMS+%26+LAND+%26+ASSETS&commodity_desc=FARM+OPERATIONS&class_desc=ALL+CLASSES&prodn_practice_desc=ALL+PRODUCTION+PRACTICES&domain_desc=TOTAL&statisticcat_desc=OPERATIONS&year=2022&agg_level_desc=NATIONAL&format=JSON&key=REDACTED"
+  },
+  "response": {
+    "body": "{\"data\":[{\"zip_5\":\"\",\"statisticcat_desc\":\"OPERATIONS\",\"congr_district_code\":\"\",\"state_fips_code\":\"99\",\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"short_desc\":\"FARM OPERATIONS - NUMBER OF OPERATIONS\",\"region_desc\":\"\",\"county_code\":\"\",\"county_ansi\":\"\",\"asd_desc\":\"\",\"Value\":\"1,900,487\",\"county_name\":\"\",\"agg_level_desc\":\"NATIONAL\",\"source_desc\":\"CENSUS\",\"state_ansi\":\"\",\"CV (%)\":\"1.9\",\"class_desc\":\"ALL CLASSES\",\"sector_desc\":\"ECONOMICS\",\"country_name\":\"UNITED STATES\",\"domaincat_desc\":\"NOT SPECIFIED\",\"load_time\":\"2025-08-19 12:00:00.000\",\"begin_code\":\"00\",\"group_desc\":\"FARMS & LAND & ASSETS\",\"location_desc\":\"US TOTAL\",\"watershed_code\":\"00000000\",\"freq_desc\":\"ANNUAL\",\"unit_desc\":\"OPERATIONS\",\"domain_desc\":\"TOTAL\",\"reference_period_desc\":\"YEAR\",\"state_alpha\":\"US\",\"end_code\":\"00\",\"watershed_desc\":\"\",\"week_ending\":\"\",\"commodity_desc\":\"FARM OPERATIONS\",\"asd_code\":\"\",\"country_code\":\"9000\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"year\":2022,\"state_name\":\"US TOTAL\"},{\"year\":2022,\"state_name\":\"US TOTAL\",\"week_ending\":\"\",\"watershed_desc\":\"\",\"commodity_desc\":\"FARM OPERATIONS\",\"country_code\":\"9000\",\"asd_code\":\"\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"state_alpha\":\"US\",\"end_code\":\"00\",\"load_time\":\"2025-08-19 12:00:00.000\",\"domaincat_desc\":\"NOT SPECIFIED\",\"begin_code\":\"00\",\"watershed_code\":\"00000000\",\"freq_desc\":\"ANNUAL\",\"location_desc\":\"US TOTAL\",\"group_desc\":\"FARMS & LAND & ASSETS\",\"domain_desc\":\"TOTAL\",\"reference_period_desc\":\"YEAR\",\"unit_desc\":\"PCT OF FARM OPERATIONS\",\"country_name\":\"UNITED STATES\",\"county_name\":\"\",\"Value\":\"100\",\"source_desc\":\"CENSUS\",\"agg_level_desc\":\"NATIONAL\",\"state_ansi\":\"\",\"class_desc\":\"ALL CLASSES\",\"CV (%)\":\"(L)\",\"sector_desc\":\"ECONOMICS\",\"county_code\":\"\",\"region_desc\":\"\",\"county_ansi\":\"\",\"asd_desc\":\"\",\"statisticcat_desc\":\"OPERATIONS\",\"zip_5\":\"\",\"congr_district_code\":\"\",\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"state_fips_code\":\"99\",\"short_desc\":\"FARM OPERATIONS - OPERATIONS, MEASURED IN PCT OF FARM OPERATIONS\"}]}",
+    "body_base64": false,
+    "headers": [
+      [
+        "date",
+        "Wed, 28 Oct 2026 21:26:24 GMT"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "server",
+        "Kestrel"
+      ],
+      [
+        "strict-transport-security",
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      [
+        "x-author",
+        "NICE HYPE (RJ)"
+      ],
+      [
+        "x-proxyversion",
+        "0.8.5"
+      ],
+      [
+        "x-cache",
+        "Miss"
+      ],
+      [
+        "x-handler-apgw-05-12",
+        "APPGW-Public"
+      ],
+      [
+        "x-content-type-options",
+        "nosniff"
+      ]
+    ],
+    "status": 200
+  }
+}

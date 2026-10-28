@@ -39,8 +39,10 @@ from xippios.usda.nass.errors import MCP_SPLIT_YEARS, RECORD_LIMIT, SPLIT_CEILIN
 from xippios.usda.nass.models import (
     AcreageRecord,
     AreaStatistic,
+    CensusFarmsRecord,
     CountyEstimateRecord,
     CropProgressRecord,
+    FarmStatistic,
     Filters,
     LivestockCommodity,
     LivestockInventoryRecord,
@@ -56,6 +58,7 @@ if TYPE_CHECKING:
 __all__ = [
     "get_acreage",
     "get_acreage_forecasts",
+    "get_census_farms",
     "get_counts",
     "get_county_production",
     "get_county_yield",
@@ -736,6 +739,77 @@ async def get_prices_received_async(
     )
 
 
+def _census_farms_filters(
+    year: int, statistic: FarmStatistic, state: StateAlpha | None, by_county: bool
+) -> dict[str, str | int]:
+    filters: dict[str, str | int] = {
+        "source_desc": "CENSUS",
+        "group_desc": "FARMS & LAND & ASSETS",
+        "commodity_desc": "FARM OPERATIONS",
+        "class_desc": "ALL CLASSES",
+        "prodn_practice_desc": "ALL PRODUCTION PRACTICES",
+        "domain_desc": "TOTAL",
+        "statisticcat_desc": statistic.value,
+        "year": year,
+    }
+    if not by_county:
+        return _level(state, filters)
+    filters["agg_level_desc"] = "COUNTY"
+    if state is not None:
+        filters["state_alpha"] = state.value
+    return filters
+
+
+async def get_census_farms_async(
+    year: int,
+    statistic: FarmStatistic,
+    *,
+    state: StateAlpha | None = None,
+    by_county: bool = False,
+) -> Result[list[CensusFarmsRecord]]:
+    """Census of Agriculture farm counts or land in farms for a year, national, by state or county.
+
+    The farm totals of the five-yearly Census (``source_desc`` ``CENSUS``, ``group_desc``
+    ``FARMS & LAND & ASSETS``, ``commodity_desc`` ``FARM OPERATIONS``, ``class_desc``
+    ``ALL CLASSES``, ``prodn_practice_desc`` ``ALL PRODUCTION PRACTICES``,
+    ``domain_desc`` ``TOTAL``), so the breakdowns by farm size, sales class, typology,
+    organization and the like are left out; ``get_data`` reaches them. ``unit_desc``
+    tells the rows of one place apart: for ``OPERATIONS`` the number of farms
+    (``"OPERATIONS"``) and, above the county level, ``"PCT OF FARM OPERATIONS"``; for
+    ``AREA OPERATED`` the land in farms (``"ACRES"``), ``"ACRES / OPERATION"``,
+    ``"ACRES / OPERATION, MEDIAN"``, ``"PCT OF TOTAL LAND"`` and, above the county
+    level, ``"PCT OF AG LAND"``, as the 2022 Census publishes them; another year may
+    carry fewer. ``value`` is the figure as published and ``value_number`` its parsed
+    form; ``cv_percent`` is the coefficient of variation, ``None`` where upstream prints
+    a code such as ``"(L)"`` or ``"(H)"`` in its place. Sorted by state, county and
+    unit. Every county of the country is a large answer (2022: 3,078 rows for
+    ``OPERATIONS``, 12,312 for ``AREA OPERATED``, counted 2026-10-28), well under the
+    50,000-record limit: the MCP tool returns its first rows within the result cap
+    (64 KB, about 100 rows, a projected row being about 600 bytes) with a note, so give
+    ``state`` there. A state's counties are cut too past about 100 rows, so for
+    ``AREA OPERATED``, four rows a county, a state of more than about 25 counties is cut.
+
+    Args:
+        year: A Census year, e.g. ``2022`` or ``2017``; the Census of Agriculture is
+            taken every five years, and a year without rows under these filters raises
+            ``NotFoundError``.
+        statistic: ``FarmStatistic.OPERATIONS`` (the number of farms) or
+            ``FarmStatistic.AREA_OPERATED`` (land in farms).
+        state: Two-letter state code, e.g. ``StateAlpha.IA``: that state's figures, or
+            with ``by_county`` its counties'. ``None`` returns the national
+            ``US TOTAL`` figures, or with ``by_county`` every county of the country.
+            The 2022 Census counts no state rows for ``StateAlpha.PR``, and a code
+            without rows raises ``NotFoundError``.
+        by_county: ``True`` returns county figures (``agg_level_desc`` ``COUNTY``), of
+            ``state`` when given; ``False``, the default, the state or national ones.
+    """
+    return await _slice(
+        _census_farms_filters(year, statistic, state, by_county),
+        CensusFarmsRecord,
+        lambda row: (row.state_alpha, row.county_name, row.unit_desc),
+    )
+
+
 def _inventory_filters(
     commodity: LivestockCommodity, year: int, state: StateAlpha | None, class_desc: str | None
 ) -> dict[str, str | int]:
@@ -859,6 +933,7 @@ get_county_yield = sync(get_county_yield_async)
 get_county_production = sync(get_county_production_async)
 get_acreage = sync(get_acreage_async)
 get_acreage_forecasts = sync(get_acreage_forecasts_async)
+get_census_farms = sync(get_census_farms_async)
 get_prices_received = sync(get_prices_received_async)
 get_livestock_inventory = sync(get_livestock_inventory_async)
 get_milk_production = sync(get_milk_production_async)
