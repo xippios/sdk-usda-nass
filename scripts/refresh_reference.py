@@ -18,7 +18,7 @@ environment, the API key, since every Quick Stats endpoint takes it::
     uv run python scripts/refresh_reference.py
 
 ``--render-only`` regenerates ``enums.py`` from the packaged ``reference/*.json`` alone,
-the six parameter lists and the two derived ones, without a request and without a key:
+the nine parameter lists and the two derived ones, without a request and without a key:
 after a core release changes the renderer (conventions §15, item 6), it changes
 ``enums.py`` and nothing else.
 """
@@ -75,7 +75,13 @@ def columns_from_snapshot() -> list[dict[str, str]]:
     return rows
 
 
-_ENUM_NAMES = {"progress_stages": "ProgressStage", "condition_categories": "ConditionCategory"}
+_ENUM_NAMES = {
+    "statisticcat_desc": "StatisticcatDesc",
+    "unit_desc": "UnitDesc",
+    "domain_desc": "DomainDesc",
+    "progress_stages": "ProgressStage",
+    "condition_categories": "ConditionCategory",
+}
 
 
 def write(name: str, packaged: PackagedList) -> None:

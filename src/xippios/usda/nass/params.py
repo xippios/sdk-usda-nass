@@ -1,7 +1,7 @@
 """Packaged Quick Stats parameter lists and column definitions (conventions §3).
 
-Six small, stable parameter lists ship inside the package so the common lookups need no
-network call, and the column table from ``docs/upstream/param_define.md`` ships as
+Nine parameter lists ship inside the package so the common lookups need no network
+call, and the column table from ``docs/upstream/param_define.md`` ships as
 ``columns.csv``. Files are produced by ``scripts/refresh_reference.py``
 (``/refresh-reference-data``), never by hand, and a list is read with
 ``PackagedList.load(PACKAGE, name)``; ``reference/README.md`` carries the provenance.
@@ -37,6 +37,9 @@ PACKAGED_PARAMS: tuple[str, ...] = (
     "agg_level_desc",
     "freq_desc",
     "state_alpha",
+    "statisticcat_desc",
+    "unit_desc",
+    "domain_desc",
 )
 """Parameters whose value lists ship inside the package."""
 
