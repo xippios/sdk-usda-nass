@@ -3,7 +3,9 @@
 ``/add-endpoint`` adds them.
 """
 
+from datetime import date
 from decimal import Decimal
+from itertools import pairwise
 
 import httpx
 import pytest
@@ -53,8 +55,14 @@ async def test_get_data_live() -> None:
 
 
 async def test_list_param_values_live() -> None:
-    result = await tasks.list_param_values_async("sector_desc")
-    assert "CROPS" in result.data
+    """A parameter the package does not ship, so the call reaches upstream."""
+    from xippios.usda.nass.params import PACKAGED_PARAMS
+
+    assert "commodity_desc" not in PACKAGED_PARAMS
+    result = await tasks.list_param_values_async("commodity_desc")
+    assert result.meta.endpoint == "get_param_values"
+    assert len(result.data) > 100
+    assert "CORN" in result.data
 
 
 async def test_crop_progress_live() -> None:
@@ -68,12 +76,47 @@ async def test_crop_progress_live() -> None:
     assert result.data[-1].value_number >= 90
 
 
+async def test_crop_condition_live() -> None:
+    from xippios.usda.nass.enums import ConditionCategory, StateAlpha
+    from xippios.usda.nass.models import CropProgressRecord
+
+    result = await tasks.get_crop_condition_async(
+        "CORN", 2024, state=StateAlpha.IA, category=ConditionCategory.PCT_GOOD
+    )
+    assert result.meta.endpoint == "api_GET"
+    assert len(result.data) >= 15  # a season of weekly ratings
+    assert all(isinstance(row, CropProgressRecord) for row in result.data)
+    assert {row.unit_desc for row in result.data} == {"PCT GOOD"}
+    assert all(row.value_number is not None and 0 <= row.value_number <= 100 for row in result.data)
+    assert all(row.week_ending is not None for row in result.data)
+    weeks = [row.week_ending or date.min for row in result.data]
+    assert all(earlier <= later for earlier, later in pairwise(weeks))
+
+
 async def test_county_yield_live() -> None:
     from xippios.usda.nass.enums import StateAlpha
 
     result = await tasks.get_county_yield_async("CORN", 2023, state=StateAlpha.DE)
     assert result.data
     assert {row.county_name for row in result.data} >= {"KENT", "SUSSEX"}
+
+
+async def test_county_production_live() -> None:
+    from xippios.usda.nass.enums import StateAlpha
+    from xippios.usda.nass.models import CountyEstimateRecord
+
+    result = await tasks.get_county_production_async("CORN", 2023, state=StateAlpha.DE)
+    assert result.meta.endpoint == "api_GET"
+    assert result.data
+    assert all(isinstance(row, CountyEstimateRecord) for row in result.data)
+    assert {row.statisticcat_desc for row in result.data} == {"PRODUCTION"}
+    assert {row.agg_level_desc for row in result.data} == {"COUNTY"}
+    assert {row.county_name for row in result.data} >= {"KENT", "SUSSEX"}
+    order = [
+        (row.state_alpha, row.county_name, row.util_practice_desc, row.prodn_practice_desc)
+        for row in result.data
+    ]
+    assert all(earlier <= later for earlier, later in pairwise(order))
 
 
 async def test_acreage_live() -> None:
@@ -85,6 +128,20 @@ async def test_acreage_live() -> None:
     )
     assert len(result.data) == 1
     assert result.data[0].value_number == Decimal("13100000")
+
+
+async def test_acreage_forecasts_live() -> None:
+    from xippios.usda.nass.models import AcreageRecord, AreaStatistic
+
+    result = await tasks.get_acreage_forecasts_async("CORN", 2023, AreaStatistic.AREA_PLANTED)
+    assert result.meta.endpoint == "api_GET"
+    assert len(result.data) >= 2  # the March and June reports at least
+    assert all(isinstance(row, AcreageRecord) for row in result.data)
+    assert {row.state_alpha for row in result.data} == {"US"}
+    assert {row.unit_desc for row in result.data} == {"ACRES"}
+    assert "YEAR" not in {row.reference_period_desc for row in result.data}
+    order = [(row.load_time, row.util_practice_desc) for row in result.data]
+    assert all(earlier <= later for earlier, later in pairwise(order))
 
 
 async def test_prices_received_live() -> None:
