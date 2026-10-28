@@ -81,6 +81,11 @@ All notable changes to this project are documented here. The format follows
   `meta.retrieved_at` of a packaged answer is that time, where it read 00:00 UTC of
   2026-10-25; the `enums.py` docstrings name 2026-10-28, and `reference/README.md` lists
   the eleven files with their fetch times.
+- The packaged lists are refreshed once more before the release, all eleven fetched
+  2026-10-28T21:37:56Z to 21:38:24Z: no value was added, removed or moved in any of
+  them, so only each file's `fetched` and its row in `reference/README.md` change, and
+  `meta.retrieved_at` of a packaged answer is the new time; `enums.py` and `columns.csv`
+  are unchanged.
 - `list_param_values` answers `statisticcat_desc`, `unit_desc` and `domain_desc` from
   the package, no longer live. The live path's replay test uses a new
   `get_param_values/commodity_desc` fixture (recorded 2026-10-28); the
