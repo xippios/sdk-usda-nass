@@ -25,7 +25,7 @@ from xippios.core import (
 from xippios.usda.nass import api
 from xippios.usda.nass._client import SOURCE
 from xippios.usda.nass.enums import ConditionCategory, FreqDesc, ProgressStage, StateAlpha
-from xippios.usda.nass.errors import RECORD_LIMIT, QueryTooLarge
+from xippios.usda.nass.errors import RECORD_LIMIT, SPLIT_CEILING, QueryTooLarge
 from xippios.usda.nass.models import (
     AcreageRecord,
     AreaStatistic,
@@ -130,7 +130,11 @@ async def get_counts_async(filters: Filters) -> Result[int]:
             ``year`` (``2012``), ``freq_desc`` (``"ANNUAL"``). Operators are suffixes:
             ``__LE``, ``__LT``, ``__GT``, ``__GE``, ``__LIKE``, ``__NOT_LIKE``, ``__NE``,
             so ``{"commodity_desc": "CORN", "year__GE": 2012, "state_alpha": "VA"}``
-            counts corn records for Virginia from 2012 on.
+            counts corn records for Virginia from 2012 on. Quick Stats keeps one bound on
+            ``year`` per query (recorded 2026-10-28): it counts ``year__GE`` with
+            ``year__LE`` as ``year__GE`` alone, in either order, and drops ``year__GE``
+            beside ``year__LT``, so a two-sided year range is served only by
+            ``get_data`` with ``split_by_year``.
     """
     checked = validate_filters(filters)
     response = await api.get_counts(checked)
@@ -163,7 +167,8 @@ def _years(filters: Mapping[str, str | int]) -> range:
 
     Raises:
         InvalidRequestError: The year filters are none of the three bounded forms, a
-            bound is not a whole year, or the range holds no year.
+            bound is not a whole year, the range holds no year, or it holds more than
+            ``SPLIT_CEILING`` years.
     """
     keys = sorted(key for key in filters if _is_year(key))
     if keys == ["year"]:
@@ -184,7 +189,15 @@ def _years(filters: Mapping[str, str | int]) -> range:
             f"split_by_year: the years run from {first} to {last}, a range without a year.",
             source=SOURCE,
         )
-    return range(first, last + 1)
+    years = range(first, last + 1)
+    if len(years) > SPLIT_CEILING:
+        raise InvalidRequestError(
+            f"split_by_year covers at most {SPLIT_CEILING} years per call; the years run "
+            f"from {first} to {last}, {len(years)} years. Give a shorter range, e.g. "
+            f"year__GE={last - SPLIT_CEILING + 1} with year__LE={last}.",
+            source=SOURCE,
+        )
+    return years
 
 
 async def _split_by_year(
@@ -219,12 +232,13 @@ async def get_data_async(
     """Fetch published Quick Stats estimates for a set of filters, up to 50,000 records a call.
 
     Calls ``get_counts`` first: a count of zero returns an empty result without a second
-    call, and a count above 50,000 raises ``QueryTooLarge`` with the count and a hint to
-    narrow, before anything is fetched, unless ``split_by_year`` is set. ``meta.total``
-    is the count ``get_counts`` reported, ``0`` for the empty result, and the yearly
-    counts summed for a split. Each record carries every Quick Stats column; ``value``
-    is the published figure as a string (``"510,000"``, or a suppression code such as
-    ``"(D)"``) and ``value_number`` the parsed number.
+    call, and a count above 50,000 raises ``QueryTooLarge`` with the count and a hint
+    (narrower filters, or ``split_by_year``) before anything is fetched, unless
+    ``split_by_year`` is set, which counts a two-sided year range year by year instead.
+    ``meta.total`` is the count ``get_counts`` reported, ``0`` for the empty result, and
+    the yearly counts summed for a split. Each record carries every Quick Stats column;
+    ``value`` is the published figure as a string (``"510,000"``, or a suppression code
+    such as ``"(D)"``) and ``value_number`` the parsed number.
 
     Args:
         filters: Quick Stats columns, optionally suffixed with an operator, mapped to
@@ -235,28 +249,39 @@ async def get_data_async(
             is close. A query that stays well under the limit names the commodity, the
             statistic, the level and the time, e.g.
             ``{"commodity_desc": "CORN", "statisticcat_desc": "AREA PLANTED",
-            "agg_level_desc": "STATE", "state_alpha": "VA", "year": 2012}``.
-        split_by_year: ``True`` fetches a query over the 50,000-record limit one year at
-            a time; a count within the limit is still fetched in one call. The filters
-            must bound the years in one of three forms, checked before any call:
-            ``year`` (``2022``), ``year__GE`` with ``year__LE`` (``2020`` and ``2023``),
-            or ``year__GE`` alone, up to the current UTC year; another year filter
-            (``year__LE`` alone, ``year__GT``, ``year__NE``, ...), a mix or none raises
-            ``InvalidRequestError`` naming the three forms. Each year is counted with
-            ``year=<y>`` in place of the year filters, then each year holding records
-            is fetched; the records come in year order, each year's in upstream's
-            order. A year over 50,000 on its own raises ``QueryTooLarge`` naming it,
-            before anything is fetched. Cost: two keyed calls per year after the first
-            count, paced at 30 a minute, so ten years take up to 21 calls. Quick Stats
-            counted ``year__GE`` with ``year__LE`` as ``year__GE`` alone (2026-10-28),
-            so for that form the first count, and the one fetch when it is within the
-            limit, cover the years from ``year__GE`` on, while a split stops at
-            ``year__LE``. ``meta.request`` carries ``split_by_year`` beside the filters.
+            "agg_level_desc": "STATE", "state_alpha": "VA", "year": 2012}``. Quick Stats
+            keeps one bound on ``year`` per query (recorded 2026-10-28): it reads
+            ``year__GE`` with ``year__LE`` as ``year__GE`` alone, in either order, and
+            drops ``year__GE`` beside ``year__LT``, so a two-sided year range is served
+            only by ``split_by_year``.
+        split_by_year: ``True`` fetches the years one at a time where one call cannot
+            serve them, at most 20 years a call. The filters bound the years in one of
+            three forms, checked before any call: ``year`` (``2022``), ``year__GE`` with
+            ``year__LE`` (``2020`` and ``2023``), or ``year__GE`` alone, up to the
+            current UTC year; another year filter (``year__LE`` alone, ``year__GT``,
+            ``year__NE``, ...), a mix or none raises ``InvalidRequestError`` naming the
+            three forms, and a range of more than 20 years raises it naming the ceiling.
+            ``year`` is counted and fetched once, as without the flag; over the limit it
+            raises ``QueryTooLarge`` naming the year. ``year__GE`` with ``year__LE`` is
+            always split, without a count of the range, which Quick Stats would count
+            as ``year__GE`` alone. ``year__GE`` alone is counted first and fetched once
+            when the count is within the limit, else split. A split counts each year
+            with ``year=<y>`` in place of the year filters, every year before the first
+            fetch, so a year over 50,000 on its own raises ``QueryTooLarge`` naming it
+            before anything is fetched; it then fetches each year holding records, the
+            records in year order, each year's in upstream's order. Cost: up to two
+            keyed calls per year, plus the first count for ``year__GE`` alone, paced at
+            30 a minute, so 20 years take up to 41 calls, about 80 seconds.
+            ``meta.request`` carries ``split_by_year`` beside the filters.
             ``False``, the default, never splits.
     """
     checked = validate_filters(filters)
     years = _years(checked) if split_by_year else None
     request: dict[str, Any] = {**checked, "split_by_year": True} if split_by_year else checked
+    if years is not None and "year__LE" in checked:
+        # Two-sided: Quick Stats keeps one bound on year per query and would count the
+        # range as year__GE alone (recorded 2026-10-28), so it is split without that count.
+        return await _split_by_year(checked, years, request)
     count = (await api.get_counts(checked)).count
     if count == 0:
         return Result(data=[], meta=_meta("api_GET", request, total=0))

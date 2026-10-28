@@ -752,6 +752,7 @@ def test_http_route_end_to_end(replay_fixture: Callable[[str, str], respx.Route]
 # --- get_data(split_by_year=True), decision 8 (Johannes, 2026-10-26 and 2026-10-28) ---
 
 IA_FILTERS: dict[str, str | int] = {"state_alpha": "IA", "year__GE": 2023, "year__LE": 2024}
+IA_SINCE_FILTERS: dict[str, str | int] = {"state_alpha": "IA", "year__GE": 2023}
 IA_COUNTS = {2023: 8635, 2024: 12799}  # get_counts/ia_2023_2024_<year>, recorded 2026-10-28
 IA_CHUNKS = {2023: "corn_price_received_ia_2023", 2024: "corn_progress_planted_ia_2024"}
 CORN_COUNTY_FILTERS: dict[str, str | int] = {
@@ -779,16 +780,15 @@ def recorded_chunk(fixtures_dir: Path, case: str) -> list[QuickStatsRecord]:
 
 
 def mount_ia_split(replay_fixture: ReplayFixture) -> dict[str, respx.Route]:
-    """Mount the Iowa split: the yearly counts and chunks, then a first count over the limit.
+    """Mount the Iowa split of ``IA_FILTERS``: the yearly counts and chunks, no range count.
 
-    The yearly counts are Quick Stats' own for the queries the split sends
-    (``state_alpha=IA&year=<y>``). Its first count for ``IA_FILTERS`` is 31,461, within the
-    limit (``test_split_by_year_fetches_once_when_the_count_fits``), so the count recorded
-    for ``CORN_COUNTY_FILTERS``, 85,535, stands in for it to drive the split, mounted last
-    to answer the one count without ``year``. The chunks replay a real Iowa answer of each
-    year (``api_get/corn_price_received_ia_2023``, ``api_get/corn_progress_planted_ia_2024``),
-    a slice of that year's records: a whole year's answer runs to megabytes, and the
-    recorder cuts no JSON object (``max_bytes=``, ADR-0019 decision 5).
+    ``year__GE`` with ``year__LE`` is split without a count of the range, which Quick Stats
+    would count as ``year__GE`` alone (the characterisation tests below). The yearly counts
+    are Quick Stats' own for the queries the split sends (``state_alpha=IA&year=<y>``). The
+    chunks replay a real Iowa answer of each year (``api_get/corn_price_received_ia_2023``,
+    ``api_get/corn_progress_planted_ia_2024``), a slice of that year's records: a whole
+    year's answer runs to megabytes, and the recorder cuts no JSON object (``max_bytes=``,
+    ADR-0019 decision 5).
     """
     routes = {
         f"count_{year}": replay_fixture("get_counts", f"ia_2023_2024_{year}", match_params=["year"])
@@ -798,13 +798,13 @@ def mount_ia_split(replay_fixture: ReplayFixture) -> dict[str, respx.Route]:
         f"fetch_{year}": replay_fixture("api_get", case, match_params=["year"])
         for year, case in IA_CHUNKS.items()
     }
-    routes["first"] = replay_fixture("get_counts", "corn_county_2020_2021")
     return routes
 
 
-def test_get_data_splits_an_over_limit_query_by_year(
+def test_get_data_splits_a_two_sided_year_range_by_year(
     replay_fixture: ReplayFixture, respx_mock: respx.MockRouter, fixtures_dir: Path
 ) -> None:
+    """Every year counted first, then fetched in year order; no count of the range."""
     routes = mount_ia_split(replay_fixture)
     result = tasks.get_data(IA_FILTERS, split_by_year=True)
     chunks = {year: recorded_chunk(fixtures_dir, case) for year, case in IA_CHUNKS.items()}
@@ -820,7 +820,6 @@ def test_get_data_splits_an_over_limit_query_by_year(
     assert result.meta.endpoint == "api_GET"
     assert result.meta.request == {**IA_FILTERS, "split_by_year": True}
     assert sent_in_order(respx_mock) == [
-        ("/api/get_counts/", None),
         ("/api/get_counts/", "2023"),
         ("/api/get_counts/", "2024"),
         ("/api/api_GET/", "2023"),
@@ -831,8 +830,6 @@ def test_get_data_splits_an_over_limit_query_by_year(
             sent = sent_query(route)
             assert (sent["state_alpha"], sent["year"]) == ("IA", str(year))
             assert not {"year__GE", "year__LE"} & set(sent)
-    first = sent_query(routes["first"])
-    assert (first["year__GE"], first["year__LE"]) == ("2023", "2024")
 
 
 def test_get_data_without_split_refuses_the_two_year_query(
@@ -849,7 +846,7 @@ def test_get_data_without_split_refuses_the_two_year_query(
 
 
 def test_split_refuses_a_year_over_the_limit_before_fetching(
-    replay_fixture: ReplayFixture,
+    replay_fixture: ReplayFixture, respx_mock: respx.MockRouter
 ) -> None:
     """2020 counts 7,727 (recorded 2026-10-28); the whole database's count,
     ``get_counts/unknown_column``, stands in for a 2021 over the limit on its own."""
@@ -860,7 +857,6 @@ def test_split_refuses_a_year_over_the_limit_before_fetching(
         url=f"{BASE_URL}/get_counts/?year=2021",
         match_params=["year"],
     )
-    first = replay_fixture("get_counts", "corn_county_2020_2021")
     fetched = replay_fixture("api_get", "exceeds_limit")
     with pytest.raises(QueryTooLarge) as info:
         tasks.get_data(CORN_COUNTY_FILTERS, split_by_year=True)
@@ -869,8 +865,10 @@ def test_split_refuses_a_year_over_the_limit_before_fetching(
         "year 2021 alone would return 57,873,464 records; Quick Stats serves at most 50,000"
     )
     assert "split_by_year cannot fetch it" in str(info.value)
-    assert (first.call_count, count_2020.call_count, count_2021.call_count) == (1, 1, 1)
-    assert not fetched.called  # 2020 fits, yet nothing is fetched before every year is counted
+    assert (count_2020.call_count, count_2021.call_count) == (1, 1)
+    # No count of the range, and nothing fetched before every year is counted, though 2020 fits.
+    assert sent_in_order(respx_mock) == [("/api/get_counts/", "2020"), ("/api/get_counts/", "2021")]
+    assert not fetched.called
 
 
 def test_split_of_one_year_over_the_limit_refuses_after_the_first_count(
@@ -956,7 +954,7 @@ def test_split_bounds_year_ge_alone_at_the_current_utc_year(
 @pytest.mark.parametrize(
     ("filters", "count_case", "fetch_case", "total"),
     [
-        (IA_FILTERS, "ia_2023_2024", "corn_price_received_ia_2023", 31461),
+        (IA_SINCE_FILTERS, "ia_since_2023", "corn_price_received_ia_2023", 31461),
         (SMALL_FILTERS, "corn_va_since_2012", "corn_va_2012_area_planted", 22345),
     ],
 )
@@ -967,8 +965,9 @@ def test_split_by_year_fetches_once_when_the_count_fits(
     fetch_case: str,
     total: int,
 ) -> None:
-    """A count within the limit is fetched in one call with the filters as given; the
-    fetch replays a slice of the answer (``mount_ia_split`` says why)."""
+    """``year__GE`` alone and ``year``: a count within the limit is fetched in one call
+    with the filters as given; the fetch replays a slice of the answer (``mount_ia_split``
+    says why)."""
     counted = replay_fixture("get_counts", count_case)
     fetched = replay_fixture("api_get", fetch_case)
     result = tasks.get_data(filters, split_by_year=True)
