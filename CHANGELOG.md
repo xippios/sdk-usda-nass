@@ -123,9 +123,9 @@ All notable changes to this project are documented here. The format follows
   status, size and sha256), and the column-definitions table, which has merged cells, is
   kept as HTML. Upstream's content is unchanged since the snapshot of 2026-10-22.
   `scripts/refresh_reference.py` reads that HTML table before it writes any file, and
-  reproduces `columns.csv` from it byte for byte. `columns.csv` itself is not rebuilt
-  here: its provenance row in the reference README (snapshot of 2026-10-22) moves at the
-  next `/refresh-reference-data` run.
+  reproduces `columns.csv` from it byte for byte. `columns.csv` itself was not rebuilt
+  with the snapshot; its provenance row in the reference README, which named the
+  snapshot of 2026-10-22, moved to this snapshot's time at the refresh of 2026-10-28.
 - The README's "Upstream terms and attribution" displays the notice the NASS API Terms of
   Service ask every service that uses the API to display.
 
