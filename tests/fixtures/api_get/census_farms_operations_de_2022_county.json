@@ -1,0 +1,53 @@
+{
+  "recorded_at": "2026-10-28T21:26:29.636828Z",
+  "request": {
+    "body": null,
+    "body_base64": false,
+    "content_type": null,
+    "method": "GET",
+    "url": "https://quickstats.nass.usda.gov/api/api_GET/?source_desc=CENSUS&group_desc=FARMS+%26+LAND+%26+ASSETS&commodity_desc=FARM+OPERATIONS&class_desc=ALL+CLASSES&prodn_practice_desc=ALL+PRODUCTION+PRACTICES&domain_desc=TOTAL&statisticcat_desc=OPERATIONS&year=2022&agg_level_desc=COUNTY&state_alpha=DE&format=JSON&key=REDACTED"
+  },
+  "response": {
+    "body": "{\"data\":[{\"state_name\":\"DELAWARE\",\"country_code\":\"9000\",\"source_desc\":\"CENSUS\",\"group_desc\":\"FARMS & LAND & ASSETS\",\"state_fips_code\":\"10\",\"state_alpha\":\"DE\",\"domaincat_desc\":\"NOT SPECIFIED\",\"load_time\":\"2024-07-02 12:00:00.000\",\"year\":2022,\"short_desc\":\"FARM OPERATIONS - NUMBER OF OPERATIONS\",\"asd_code\":\"20\",\"zip_5\":\"\",\"sector_desc\":\"ECONOMICS\",\"Value\":\"335\",\"county_name\":\"NEW CASTLE\",\"begin_code\":\"00\",\"asd_desc\":\"NORTHERN\",\"region_desc\":\"\",\"state_ansi\":\"10\",\"location_desc\":\"DELAWARE, NORTHERN, NEW CASTLE\",\"county_ansi\":\"003\",\"statisticcat_desc\":\"OPERATIONS\",\"class_desc\":\"ALL CLASSES\",\"unit_desc\":\"OPERATIONS\",\"freq_desc\":\"ANNUAL\",\"week_ending\":\"\",\"watershed_code\":\"00000000\",\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"agg_level_desc\":\"COUNTY\",\"commodity_desc\":\"FARM OPERATIONS\",\"reference_period_desc\":\"YEAR\",\"country_name\":\"UNITED STATES\",\"congr_district_code\":\"\",\"domain_desc\":\"TOTAL\",\"watershed_desc\":\"\",\"CV (%)\":\"9.0\",\"county_code\":\"003\",\"end_code\":\"00\"},{\"country_code\":\"9000\",\"source_desc\":\"CENSUS\",\"state_name\":\"DELAWARE\",\"group_desc\":\"FARMS & LAND & ASSETS\",\"state_fips_code\":\"10\",\"year\":2022,\"short_desc\":\"FARM OPERATIONS - NUMBER OF OPERATIONS\",\"load_time\":\"2024-07-02 12:00:00.000\",\"domaincat_desc\":\"NOT SPECIFIED\",\"state_alpha\":\"DE\",\"asd_code\":\"50\",\"zip_5\":\"\",\"Value\":\"770\",\"sector_desc\":\"ECONOMICS\",\"asd_desc\":\"CENTRAL\",\"county_name\":\"KENT\",\"begin_code\":\"00\",\"state_ansi\":\"10\",\"region_desc\":\"\",\"location_desc\":\"DELAWARE, CENTRAL, KENT\",\"county_ansi\":\"001\",\"statisticcat_desc\":\"OPERATIONS\",\"class_desc\":\"ALL CLASSES\",\"freq_desc\":\"ANNUAL\",\"unit_desc\":\"OPERATIONS\",\"watershed_code\":\"00000000\",\"week_ending\":\"\",\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"agg_level_desc\":\"COUNTY\",\"commodity_desc\":\"FARM OPERATIONS\",\"country_name\":\"UNITED STATES\",\"reference_period_desc\":\"YEAR\",\"congr_district_code\":\"\",\"domain_desc\":\"TOTAL\",\"watershed_desc\":\"\",\"CV (%)\":\"9.0\",\"end_code\":\"00\",\"county_code\":\"001\"},{\"congr_district_code\":\"\",\"country_name\":\"UNITED STATES\",\"reference_period_desc\":\"YEAR\",\"watershed_desc\":\"\",\"domain_desc\":\"TOTAL\",\"CV (%)\":\"9.0\",\"county_code\":\"005\",\"end_code\":\"00\",\"freq_desc\":\"ANNUAL\",\"unit_desc\":\"OPERATIONS\",\"class_desc\":\"ALL CLASSES\",\"statisticcat_desc\":\"OPERATIONS\",\"util_practice_desc\":\"ALL UTILIZATION PRACTICES\",\"watershed_code\":\"00000000\",\"week_ending\":\"\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"commodity_desc\":\"FARM OPERATIONS\",\"agg_level_desc\":\"COUNTY\",\"Value\":\"1,053\",\"sector_desc\":\"ECONOMICS\",\"zip_5\":\"\",\"asd_desc\":\"SOUTHERN\",\"county_name\":\"SUSSEX\",\"begin_code\":\"00\",\"location_desc\":\"DELAWARE, SOUTHERN, SUSSEX\",\"state_ansi\":\"10\",\"region_desc\":\"\",\"county_ansi\":\"005\",\"source_desc\":\"CENSUS\",\"country_code\":\"9000\",\"state_name\":\"DELAWARE\",\"group_desc\":\"FARMS & LAND & ASSETS\",\"load_time\":\"2024-07-02 12:00:00.000\",\"short_desc\":\"FARM OPERATIONS - NUMBER OF OPERATIONS\",\"year\":2022,\"domaincat_desc\":\"NOT SPECIFIED\",\"state_alpha\":\"DE\",\"state_fips_code\":\"10\",\"asd_code\":\"80\"}]}",
+    "body_base64": false,
+    "headers": [
+      [
+        "date",
+        "Wed, 28 Oct 2026 21:26:27 GMT"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "server",
+        "Kestrel"
+      ],
+      [
+        "strict-transport-security",
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      [
+        "x-author",
+        "NICE HYPE (RJ)"
+      ],
+      [
+        "x-proxyversion",
+        "0.8.5"
+      ],
+      [
+        "x-cache",
+        "Miss"
+      ],
+      [
+        "x-handler-apgw-05-12",
+        "APPGW-Public"
+      ],
+      [
+        "x-content-type-options",
+        "nosniff"
+      ]
+    ],
+    "status": 200
+  }
+}
