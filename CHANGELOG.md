@@ -8,6 +8,16 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Live smoke tests for `get_crop_condition`, `get_county_production` and
+  `get_acreage_forecasts` (`test_crop_condition_live`, `test_county_production_live`,
+  `test_acreage_forecasts_live`), so every task has one (conventions §10);
+  `test_list_param_values_live` asks for `commodity_desc`, a list fetched live, where it
+  asked for the packaged `sector_desc`, which spent no call.
+- `meta.total` on `get_data`: the count `get_counts` reported for the filters, `0` on
+  the empty result it returns without a second call, never `len(data)`; `get_counts`
+  carries its count there too, beside `data` (conventions §4, ADR-0012). The task-shaped
+  functions skip the count and leave `total` `None`.
+
 - `statisticcat_desc` (278 values), `unit_desc` (373) and `domain_desc` (616) ship as
   packaged lists (fetched 2026-10-28), with the `StrEnum` classes `StatisticcatDesc`,
   `UnitDesc` and `DomainDesc` in `xippios.usda.nass.enums`; `list_param_values` answers
@@ -25,6 +35,20 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **BREAKING**: `get_counts` and `get_data` refuse an unknown value of a packaged
+  parameter (`params.PACKAGED_PARAMS`, the lists `list_param_values` answers without a
+  call, such as `state_alpha` and `sector_desc`) given as a bare key, before any call,
+  with core's `UnknownCode`, an `InvalidRequestError` (HTTP 422), naming the packaged
+  list, its fetch date and the closest known values, or, when none is close, pointing at
+  the task `list_param_values('state_alpha')` and the MCP tool
+  `usda_nass_list_param_values` (conventions §5, ADR-0022), where 0.1.0 sent it and
+  answered a count of 0 or an empty result, which cannot be told from a query without
+  data. The comparison ignores case, as Quick Stats does (`state_alpha=va` counts what
+  `VA` counts, recorded 2026-10-28), so a value upstream serves is never refused, and the
+  value is sent as given; an enum member is read by its value, and the hint names the
+  canonical spelling. A key with an operator (`state_alpha__LIKE`, `sector_desc__NE`) is
+  checked against the columns and operators and its value sent as given. Unknown columns
+  and operators still raise `InvalidRequestError` first, with the same text.
 - The packaged lists are refreshed (fetched 2026-10-28): no value changed, moved or
   disappeared in the six lists packaged before and the two derived ones. Each file's
   `fetched` is the full UTC time of its fetch (`2026-10-28T15:01:38Z`), so
@@ -55,6 +79,18 @@ All notable changes to this project are documented here. The format follows
   (conventions 1.22 §2 and §10). A wrapper's module and function carry the upstream
   operation name in snake case, here from the path: `/api/api_GET/` is `api_get`. The
   request URL and `meta.endpoint` (`"api_GET"`) are unchanged, and so are the tasks.
+- The upstream snapshot is refreshed (2026-10-28) through `scripts/refresh_upstream.py`,
+  the template's capture script filled for the api and param_define pages, with
+  `markdownify==1.2.3` pinned in it and in the dev group; `docs/upstream/FETCHED.md`
+  follows conventions §3 (the UTC time with `Z`, the attribution, one row per page with
+  status, size and sha256), and the column-definitions table, which has merged cells, is
+  kept as HTML. Upstream's content is unchanged since the snapshot of 2026-10-22.
+  `scripts/refresh_reference.py` reads that HTML table before it writes any file, and
+  reproduces `columns.csv` from it byte for byte. `columns.csv` itself is not rebuilt
+  here: its provenance row in the reference README (snapshot of 2026-10-22) moves at the
+  next `/refresh-reference-data` run.
+- The README's "Upstream terms and attribution" displays the notice the NASS API Terms of
+  Service ask every service that uses the API to display.
 
 ### Removed
 

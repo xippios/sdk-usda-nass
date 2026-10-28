@@ -1,17 +1,26 @@
 """Packaged Quick Stats parameter lists and column definitions (conventions §3).
 
 Nine parameter lists ship inside the package so the common lookups need no network
-call, and the column table from ``docs/upstream/param_define.md`` ships as
-``columns.csv``. Files are produced by ``scripts/refresh_reference.py``
-(``/refresh-reference-data``), never by hand, and a list is read with
-``PackagedList.load(PACKAGE, name)``; ``reference/README.md`` carries the provenance.
+call and ``validate_filters`` refuses a value they lack before one, and the column table
+from ``docs/upstream/param_define.md`` ships as ``columns.csv``. Files are produced by
+``scripts/refresh_reference.py`` (``/refresh-reference-data``), never by hand, and a list
+is read with ``PackagedList.load(PACKAGE, name)``; ``reference/README.md`` carries the
+provenance.
 """
 
 import difflib
 import functools
+from enum import Enum
 
 from pydantic import Field, field_validator
-from xippios.core import InvalidRequestError, UpstreamModel, load_table
+from xippios.core import (
+    InvalidRequestError,
+    PackagedList,
+    UnknownCode,
+    UpstreamModel,
+    closest,
+    load_table,
+)
 
 from xippios.usda.nass._client import SOURCE
 from xippios.usda.nass.models import Filters
@@ -87,11 +96,63 @@ def _column_names() -> frozenset[str]:
     return frozenset(column.column for column in columns())
 
 
+@functools.cache
+def _packaged(param: str) -> tuple[PackagedList, frozenset[str]]:
+    """A packaged parameter's list and its values upper-cased, loaded once per process."""
+    packaged = PackagedList.load(PACKAGE, param)
+    return packaged, frozenset(record[param].upper() for record in packaged.records)
+
+
+def _check_value(param: str, raw: str | int) -> None:
+    """Refuse a value of a packaged parameter that its packaged list lacks (conventions §5).
+
+    The comparison ignores case, as Quick Stats does (``state_alpha=va`` counts what
+    ``VA`` counts, ``get_counts/corn_va_since_2012_lowercase`` recorded 2026-10-28), so a
+    value upstream serves is never refused; the caller's spelling is sent. The refusal
+    names the list, its fetch date and the closest known values in their canonical
+    spelling, or points at ``list_param_values`` and its MCP tool
+    ``usda_nass_list_param_values`` when none is close.
+    """
+    value: str | int = raw.value if isinstance(raw, Enum) else raw
+    packaged, values = _packaged(param)
+    if str(value).upper() in values:
+        return
+    # A value list has no upstream names: each value stands for itself.
+    close = closest(str(value), {record[param]: record[param] for record in packaged.records})
+    hint = (
+        f"Did you mean {', '.join(code for code, _ in close)}?"
+        if close
+        else (
+            f"list_param_values({param!r}) lists the known values (over MCP, the tool "
+            "usda_nass_list_param_values)."
+        )
+    )
+    raise UnknownCode(
+        param,
+        value,
+        list_name=packaged.param,
+        fetched=packaged.fetched,
+        closest=close,
+        hint=hint,
+        reason=(
+            "Quick Stats ignores case but counts no records for a value it does not "
+            "know, the answer a query without data gets, so the package refuses it "
+            "before the call."
+        ),
+        source=SOURCE,
+    )
+
+
 def validate_filters(filters: Filters) -> dict[str, str | int]:
-    """Check every filter key against the packaged column table before calling upstream.
+    """Check the filters against the packaged column table and lists before calling upstream.
 
     Quick Stats ignores unknown column names, so a misspelt key would silently query the
-    whole database. A key is ``<column>`` or ``<column>__<OPERATOR>``.
+    whole database, and counts no records for an unknown value, the answer a query
+    without data gets. A key is ``<column>`` or ``<column>__<OPERATOR>``. The value of a
+    bare key that names a packaged parameter (``PACKAGED_PARAMS``) must be in its
+    packaged list, compared without regard to case as Quick Stats compares it, an enum
+    member by its ``value``; a key with an operator is checked as a key only. Every
+    value is sent as given.
 
     Args:
         filters: The query parameters as the caller gave them.
@@ -102,6 +163,10 @@ def validate_filters(filters: Filters) -> dict[str, str | int]:
     Raises:
         InvalidRequestError: Naming every unknown column, with the closest valid names,
             and every unknown operator.
+        UnknownCode: When the keys are known, for the first packaged parameter whose
+            value its packaged list lacks, naming the list, its fetch date and the
+            closest known values, or pointing at ``list_param_values`` (the MCP tool
+            ``usda_nass_list_param_values``) when none is close.
     """
     known = _column_names()
     problems: list[str] = []
@@ -119,4 +184,7 @@ def validate_filters(filters: Filters) -> dict[str, str | int]:
             "; ".join(problems) + ". Columns are defined in docs/upstream/param_define.md.",
             source=SOURCE,
         )
+    for key, value in filters.items():
+        if key in PACKAGED_PARAMS:
+            _check_value(key, value)
     return dict(filters)

@@ -46,6 +46,9 @@ dev = [
   "respx>=0.22",
   "anyio>=4",
   "detect-secrets>=1.5",
+  # scripts/refresh_upstream.py's one converter, at the pin of the script's own dependency
+  # block, so that mypy --strict reads its types; the two move together.
+  "markdownify==1.2.3",
 ]
 
 [build-system]
