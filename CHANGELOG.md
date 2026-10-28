@@ -8,6 +8,22 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `get_census_farms(year, statistic, state=, by_county=)`, the MCP tool
+  `usda_nass_get_census_farms` and its HTTP route: the Census of Agriculture's farm
+  counts (`FarmStatistic.OPERATIONS`) or land in farms (`FarmStatistic.AREA_OPERATED`)
+  for a Census year (2022, 2017), national, for one state, or by county, of one state
+  or of the whole country. Fixed filters, read from upstream with `get_counts` on
+  2026-10-28: `source_desc` `CENSUS`, `group_desc` `FARMS & LAND & ASSETS`,
+  `commodity_desc` `FARM OPERATIONS`, `class_desc` `ALL CLASSES`,
+  `prodn_practice_desc` `ALL PRODUCTION PRACTICES` and `domain_desc` `TOTAL`, so the
+  breakdowns by farm size, sales class, typology, organization and the like are left
+  out (of the 4,114 national rows the 2022 Census has for `FARM OPERATIONS` in that
+  group, 7 remain: 2 for `OPERATIONS`, 5 for `AREA OPERATED`). `unit_desc` tells the
+  rows apart (`OPERATIONS`, `PCT OF FARM OPERATIONS`; `ACRES`, `ACRES / OPERATION`,
+  `ACRES / OPERATION, MEDIAN`, `PCT OF AG LAND`, `PCT OF TOTAL LAND`); rows are sorted
+  by state, county and unit and come as `CensusFarmsRecord`, a projection under
+  upstream column names with `cv_percent` parsed. Like the other slices it skips the
+  count (`meta.total` `None`) and leaves `published_at` empty.
 - Live smoke tests for `get_crop_condition`, `get_county_production` and
   `get_acreage_forecasts` (`test_crop_condition_live`, `test_county_production_live`,
   `test_acreage_forecasts_live`), so every task has one (conventions §10);
