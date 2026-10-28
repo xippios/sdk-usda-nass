@@ -50,8 +50,10 @@ async def test_get_data_live() -> None:
         }
     )
     assert result.data
-    assert result.data[0].commodity_desc == "CORN"
-    assert result.data[0].value_number is not None
+    commodity = result.data[0].commodity_desc  # bound first, so a failure prints no record
+    assert commodity == "CORN"
+    figure = result.data[0].value_number
+    assert figure is not None
 
 
 async def test_list_param_values_live() -> None:
@@ -74,8 +76,9 @@ async def test_crop_progress_live() -> None:
         "CORN", 2024, state=StateAlpha.IA, stage=ProgressStage.PCT_PLANTED
     )
     assert result.data
-    assert result.data[-1].value_number is not None
-    assert result.data[-1].value_number >= 90
+    figure = result.data[-1].value_number  # bound first, so a failure prints no record
+    assert figure is not None
+    assert figure >= 90
 
 
 async def test_crop_condition_live() -> None:
@@ -130,7 +133,8 @@ async def test_acreage_live() -> None:
         "CORN", 2023, AreaStatistic.AREA_PLANTED, state=StateAlpha.IA
     )
     assert len(result.data) == 1
-    assert result.data[0].value_number == Decimal("13100000")
+    figure = result.data[0].value_number  # bound first, so a failure prints no record
+    assert figure == Decimal("13100000")
 
 
 async def test_acreage_forecasts_live() -> None:
