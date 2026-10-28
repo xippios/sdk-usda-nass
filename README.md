@@ -35,18 +35,21 @@ records[0].value, records[0].value_number  # '510,000', Decimal('510000'); JSON:
 ```
 
 `get_data` calls `get_counts` first: zero matches return an empty result, more than
-50,000 raise `QueryTooLarge` with the count and a hint to narrow, before anything is
-fetched. `list_param_values("sector_desc")` lists the values a filter can take.
+50,000 raise `QueryTooLarge` with the count and a hint, narrower filters or a split by
+year, before anything is fetched. `list_param_values("sector_desc")` lists the values a
+filter can take.
 
-`get_data(filters, split_by_year=True)` fetches a query over the limit one year at a
-time instead, when its filters bound the years as `year`, `year__GE` with `year__LE`, or
-`year__GE` alone up to the current UTC year; any other year filter is refused with
-`InvalidRequestError` before a call. Every year is counted before anything is fetched,
-a year over 50,000 on its own still raises `QueryTooLarge` naming it, and the records
-come in year order with `meta.total` the yearly counts summed. It costs two keyed calls
-per year after the first count. Quick Stats counted `year__GE` with `year__LE` as
-`year__GE` alone (2026-10-28), so that form's first count, and its one fetch when the
-count is within the limit, run from `year__GE` on, while a split stops at `year__LE`.
+`get_data(filters, split_by_year=True)` fetches the years one at a time where one call
+cannot serve them, at most 20 years a call, when its filters bound the years as `year`,
+`year__GE` with `year__LE`, or `year__GE` alone up to the current UTC year; any other
+year filter, or a longer range, is refused with `InvalidRequestError` before a call.
+Quick Stats keeps one bound on `year` per query (recorded 2026-10-28: it counts
+`year__GE` with `year__LE` as `year__GE` alone, and drops `year__GE` beside `year__LT`),
+so a two-sided year range is served only by this split. That form is always split, every
+year counted before anything is fetched; `year` is counted and fetched once, and
+`year__GE` alone is counted first and split only over the limit. A year over 50,000 on
+its own still raises `QueryTooLarge` naming it, and the records come in year order with
+`meta.total` the yearly counts summed. A split costs up to two keyed calls per year.
 
 Task-shaped functions sit on top for the slices an agent reaches in one call:
 
