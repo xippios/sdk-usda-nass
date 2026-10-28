@@ -258,8 +258,9 @@ class GrainStocksRecord(_Published):
     for soybeans and wheat ``ALL UTILIZATION PRACTICES``, the total, ``ON FARM`` and
     ``OFF FARM`` (recorded 2026-10-28). ``class_desc`` tells a class apart:
     ``ALL CLASSES``, or wheat's ``SPRING, DURUM``. ``value`` is the quantity in ``BU`` as
-    published and ``value_number`` its parsed form. The stocks rows carry no ``CV (%)``,
-    so the projection leaves it out.
+    published and ``value_number`` its parsed form. The stocks rows leave ``CV (%)`` empty,
+    since ``param_define.md`` gives coefficients of variation for the 2012 Census of
+    Agriculture only, so the projection leaves it out.
     """
 
     commodity_desc: str
