@@ -19,6 +19,12 @@ All notable changes to this project are documented here. The format follows
   packaged-list files, `{"param", "endpoint", "fetched", "records"}` with an optional
   `"note"`, converted without a request: values and order unchanged, `fetched` the date
   it was (2026-10-25, read as 00:00 UTC), the derived lists' query under `note`.
+- The upstream snapshot is refreshed (2026-10-28) through `scripts/refresh_upstream.py`,
+  the template's capture script filled for the api and param_define pages, with
+  `markdownify==1.2.3` pinned in it and in the dev group; `docs/upstream/FETCHED.md`
+  follows conventions §3 (the UTC time with `Z`, the attribution, one row per page with
+  status, size and sha256), and the column-definitions table, which has merged cells, is
+  kept as HTML. Upstream's content is unchanged since the snapshot of 2026-10-22.
 
 ### Removed
 

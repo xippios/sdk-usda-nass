@@ -39,8 +39,8 @@ src/xippios/usda/nass/
   reference/       packaged code lists (CSV/JSON) plus README with provenance
 scripts/
   refresh_reference.py   fetches the packaged lists through api/ and regenerates enums.py
-  refresh_upstream.py    captures docs/upstream/ and writes FETCHED.md (/refresh-upstream); the
-                         template's skeleton until the source fills it
+  refresh_upstream.py    captures docs/upstream/, the api and param_define pages as Markdown,
+                         and writes FETCHED.md (/refresh-upstream)
 tests/
   conftest.py      enables xippios.core.testing.plugin, which keeps the run offline
   fixtures/        recorded responses, <endpoint>/<case>.json, never hand-written
