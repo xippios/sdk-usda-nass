@@ -8,6 +8,19 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `get_data(filters, split_by_year=True)`, and `split_by_year` on the MCP tool
+  `usda_nass_get_data` and the HTTP route: a query over the 50,000-record limit is
+  fetched one year at a time. The filters bound the years as `year`, `year__GE` with
+  `year__LE`, or `year__GE` alone up to the current UTC year, checked before any call;
+  another year filter, or none, raises `InvalidRequestError` naming the three forms.
+  Every year is counted with `year=<y>` in place of the year filters before anything
+  is fetched; a year over the limit on its own raises `QueryTooLarge` naming it, which
+  now carries `year`; a year counting 0 is not fetched; the records come in year
+  order, each year's in upstream's order. `meta.total` is the yearly counts summed and
+  `meta.request` carries `split_by_year` beside the filters (conventions §4). A count
+  within the limit is fetched in one call, as without the flag. Cost: two keyed calls
+  per year after the first count. Quick Stats counted `year__GE` with `year__LE` as
+  `year__GE` alone (recorded 2026-10-28), which the docstring states.
 - `meta.total` on `get_data`: the count `get_counts` reported for the filters, `0` on
   the empty result it returns without a second call, never `len(data)`; `get_counts`
   carries its count there too, beside `data` (conventions §4, ADR-0012). The task-shaped
