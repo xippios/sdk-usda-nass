@@ -262,7 +262,7 @@ class LivestockInventoryRecord(_Published):
 
     Columns keep their upstream names (ADR-0003). ``class_desc`` names the class counted
     (``"INCL CALVES"``, ``"COWS, BEEF"``, ``"ALL CLASSES"``, ``"MARKET, LT 50 LBS"``);
-    ``prodn_practice_desc`` is ``"ON FEED"`` for cattle on feed and
+    ``prodn_practice_desc`` is ``"ON FEED"`` for cattle on feed and, in the rows recorded,
     ``"ALL PRODUCTION PRACTICES"`` otherwise. ``reference_period_desc`` names the day
     (``"FIRST OF JAN"``) and ``begin_code``/``end_code`` carry its month number. ``value``
     is the head count as published.

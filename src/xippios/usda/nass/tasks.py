@@ -767,13 +767,15 @@ async def get_livestock_inventory_async(
 
     Survey inventories (``statisticcat_desc`` ``INVENTORY``, ``unit_desc`` ``HEAD``,
     ``domain_desc`` ``TOTAL``, ``freq_desc`` ``POINT IN TIME``, ``source_desc``
-    ``SURVEY``), state or national, one row per survey day and class, sorted by the day
-    (``begin_code``, its month), then ``class_desc``. ``reference_period_desc`` names the
-    day: ``FIRST OF JAN`` in the national cattle series of 2024, ``FIRST OF MAR`` through
-    ``FIRST OF DEC`` in Iowa's hogs series. The whole herd is the class ``INCL CALVES``
-    for cattle, ``ALL CLASSES`` for hogs and ``INCL LAMBS`` for sheep; cattle on feed are
-    the class ``ALL CLASSES`` with ``prodn_practice_desc`` ``ON FEED``. ``value`` is the
-    head count as published.
+    ``SURVEY``), state or national, one row per survey day, class and ``short_desc``
+    (cattle on feed carry the class ``ALL CLASSES`` with ``prodn_practice_desc``
+    ``ON FEED``), sorted by the day (``begin_code``, its month), then
+    ``reference_period_desc``, ``class_desc`` and ``short_desc``.
+    ``reference_period_desc`` names the day: ``FIRST OF JAN`` in the national cattle
+    series of 2024; the four quarterly days ``FIRST OF MAR``, ``FIRST OF JUN``,
+    ``FIRST OF SEP`` and ``FIRST OF DEC`` in Iowa's hogs series of 2024. The whole herd is
+    the class ``INCL CALVES`` for cattle, ``ALL CLASSES`` for hogs and ``INCL LAMBS`` for
+    sheep. ``value`` is the head count as published.
 
     Args:
         commodity: Upstream ``commodity_desc``: ``LivestockCommodity.CATTLE``,
@@ -837,7 +839,9 @@ async def get_milk_production_async(
         state: Two-letter state code for the state series, e.g. ``StateAlpha.WI``,
             ``StateAlpha.CA``; ``None`` returns the national ``US TOTAL`` series.
         frequency: ``FreqDesc.MONTHLY`` (the months and quarters) or ``FreqDesc.ANNUAL``
-            (the year) to keep one; ``None`` returns both.
+            (the year) to keep one; ``None`` returns both. ``FreqDesc.WEEKLY``,
+            ``FreqDesc.SEASON`` and ``FreqDesc.POINT_IN_TIME`` raise ``NotFoundError``,
+            since upstream files no milk production under them.
     """
     return await _slice(
         _milk_filters(year, state, frequency),

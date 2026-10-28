@@ -14,9 +14,11 @@ All notable changes to this project are documented here. The format follows
   `usda_nass_get_milk_production` and their HTTP routes. `get_livestock_inventory`
   returns the survey head counts of cattle, hogs or sheep (`LivestockCommodity`, a
   `StrEnum` of the three upstream `commodity_desc` values, in `models.py`) on the survey
-  days of a year, state or national, one row per day and class (`statisticcat_desc`
-  `INVENTORY`, `unit_desc` `HEAD`, `domain_desc` `TOTAL`, `freq_desc` `POINT IN TIME`,
-  `source_desc` `SURVEY`), sorted by the day (`begin_code`), then `class_desc`;
+  days of a year, state or national, one row per survey day, class and `short_desc`
+  (`statisticcat_desc` `INVENTORY`, `unit_desc` `HEAD`, `domain_desc` `TOTAL`,
+  `freq_desc` `POINT IN TIME`, `source_desc` `SURVEY`; cattle on feed carry
+  `ALL CLASSES` with `prodn_practice_desc` `ON FEED`), sorted by the day (`begin_code`),
+  then `reference_period_desc`, `class_desc` and `short_desc`;
   `class_desc` keeps one class, `None` returns every class. `get_milk_production` returns
   the milk production series in pounds, the year and the months and quarters, state or
   national (`commodity_desc` `MILK`, `class_desc` `ALL CLASSES`, `statisticcat_desc`
