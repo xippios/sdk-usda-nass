@@ -1,0 +1,53 @@
+{
+  "recorded_at": "2026-10-28T20:50:47.493066Z",
+  "request": {
+    "body": null,
+    "body_base64": false,
+    "content_type": null,
+    "method": "GET",
+    "url": "https://quickstats.nass.usda.gov/api/api_GET/?commodity_desc=CORN&statisticcat_desc=PRODUCTION&domain_desc=TOTAL&prodn_practice_desc=ALL+PRODUCTION+PRACTICES&freq_desc=ANNUAL&year=2023&agg_level_desc=NATIONAL&reference_period_desc__LIKE=FORECAST&format=JSON&key=REDACTED"
+  },
+  "response": {
+    "body": "{\"data\":[{\"reference_period_desc\":\"YEAR - AUG FORECAST\",\"unit_desc\":\"BU\",\"domain_desc\":\"TOTAL\",\"freq_desc\":\"ANNUAL\",\"location_desc\":\"US TOTAL\",\"watershed_code\":\"00000000\",\"group_desc\":\"FIELD CROPS\",\"begin_code\":\"00\",\"load_time\":\"2023-08-11 12:00:00.000\",\"domaincat_desc\":\"NOT SPECIFIED\",\"state_alpha\":\"US\",\"end_code\":\"00\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"country_code\":\"9000\",\"asd_code\":\"\",\"commodity_desc\":\"CORN\",\"week_ending\":\"\",\"watershed_desc\":\"\",\"state_name\":\"US TOTAL\",\"year\":2023,\"state_fips_code\":\"99\",\"short_desc\":\"CORN, GRAIN - PRODUCTION, MEASURED IN BU\",\"util_practice_desc\":\"GRAIN\",\"congr_district_code\":\"\",\"statisticcat_desc\":\"PRODUCTION\",\"zip_5\":\"\",\"asd_desc\":\"\",\"county_ansi\":\"\",\"county_code\":\"\",\"region_desc\":\"\",\"sector_desc\":\"CROPS\",\"CV (%)\":\"\",\"state_ansi\":\"\",\"class_desc\":\"ALL CLASSES\",\"source_desc\":\"SURVEY\",\"agg_level_desc\":\"NATIONAL\",\"county_name\":\"\",\"Value\":\"15,110,787,000\",\"country_name\":\"UNITED STATES\"},{\"group_desc\":\"FIELD CROPS\",\"location_desc\":\"US TOTAL\",\"watershed_code\":\"00000000\",\"freq_desc\":\"ANNUAL\",\"domain_desc\":\"TOTAL\",\"unit_desc\":\"BU\",\"reference_period_desc\":\"YEAR - NOV FORECAST\",\"domaincat_desc\":\"NOT SPECIFIED\",\"load_time\":\"2023-11-09 12:00:00.000\",\"begin_code\":\"00\",\"end_code\":\"00\",\"state_alpha\":\"US\",\"asd_code\":\"\",\"country_code\":\"9000\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"watershed_desc\":\"\",\"week_ending\":\"\",\"commodity_desc\":\"CORN\",\"state_name\":\"US TOTAL\",\"year\":2023,\"util_practice_desc\":\"GRAIN\",\"state_fips_code\":\"99\",\"short_desc\":\"CORN, GRAIN - PRODUCTION, MEASURED IN BU\",\"zip_5\":\"\",\"statisticcat_desc\":\"PRODUCTION\",\"congr_district_code\":\"\",\"county_ansi\":\"\",\"asd_desc\":\"\",\"region_desc\":\"\",\"county_code\":\"\",\"state_ansi\":\"\",\"class_desc\":\"ALL CLASSES\",\"CV (%)\":\"\",\"sector_desc\":\"CROPS\",\"county_name\":\"\",\"Value\":\"15,234,285,000\",\"agg_level_desc\":\"NATIONAL\",\"source_desc\":\"SURVEY\",\"country_name\":\"UNITED STATES\"},{\"country_name\":\"UNITED STATES\",\"county_name\":\"\",\"Value\":\"15,064,420,000\",\"agg_level_desc\":\"NATIONAL\",\"source_desc\":\"SURVEY\",\"class_desc\":\"ALL CLASSES\",\"CV (%)\":\"\",\"state_ansi\":\"\",\"sector_desc\":\"CROPS\",\"region_desc\":\"\",\"county_code\":\"\",\"county_ansi\":\"\",\"asd_desc\":\"\",\"zip_5\":\"\",\"statisticcat_desc\":\"PRODUCTION\",\"congr_district_code\":\"\",\"util_practice_desc\":\"GRAIN\",\"short_desc\":\"CORN, GRAIN - PRODUCTION, MEASURED IN BU\",\"state_fips_code\":\"99\",\"year\":2023,\"state_name\":\"US TOTAL\",\"watershed_desc\":\"\",\"week_ending\":\"\",\"commodity_desc\":\"CORN\",\"asd_code\":\"\",\"country_code\":\"9000\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"state_alpha\":\"US\",\"end_code\":\"00\",\"domaincat_desc\":\"NOT SPECIFIED\",\"load_time\":\"2023-10-12 12:00:00.000\",\"begin_code\":\"00\",\"group_desc\":\"FIELD CROPS\",\"location_desc\":\"US TOTAL\",\"freq_desc\":\"ANNUAL\",\"watershed_code\":\"00000000\",\"domain_desc\":\"TOTAL\",\"unit_desc\":\"BU\",\"reference_period_desc\":\"YEAR - OCT FORECAST\"},{\"asd_code\":\"\",\"country_code\":\"9000\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"watershed_desc\":\"\",\"week_ending\":\"\",\"commodity_desc\":\"CORN\",\"state_name\":\"US TOTAL\",\"year\":2023,\"group_desc\":\"FIELD CROPS\",\"freq_desc\":\"ANNUAL\",\"watershed_code\":\"00000000\",\"location_desc\":\"US TOTAL\",\"unit_desc\":\"BU\",\"domain_desc\":\"TOTAL\",\"reference_period_desc\":\"YEAR - SEP FORECAST\",\"domaincat_desc\":\"NOT SPECIFIED\",\"load_time\":\"2023-09-12 12:00:00.000\",\"begin_code\":\"00\",\"end_code\":\"00\",\"state_alpha\":\"US\",\"class_desc\":\"ALL CLASSES\",\"state_ansi\":\"\",\"CV (%)\":\"\",\"sector_desc\":\"CROPS\",\"Value\":\"15,133,911,000\",\"county_name\":\"\",\"agg_level_desc\":\"NATIONAL\",\"source_desc\":\"SURVEY\",\"country_name\":\"UNITED STATES\",\"state_fips_code\":\"99\",\"util_practice_desc\":\"GRAIN\",\"short_desc\":\"CORN, GRAIN - PRODUCTION, MEASURED IN BU\",\"zip_5\":\"\",\"statisticcat_desc\":\"PRODUCTION\",\"congr_district_code\":\"\",\"county_ansi\":\"\",\"asd_desc\":\"\",\"region_desc\":\"\",\"county_code\":\"\"}]}",
+    "body_base64": false,
+    "headers": [
+      [
+        "date",
+        "Wed, 28 Oct 2026 20:50:45 GMT"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "server",
+        "Kestrel"
+      ],
+      [
+        "strict-transport-security",
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      [
+        "x-author",
+        "NICE HYPE (RJ)"
+      ],
+      [
+        "x-proxyversion",
+        "0.8.5"
+      ],
+      [
+        "x-cache",
+        "Miss"
+      ],
+      [
+        "x-handler-apgw-05-12",
+        "APPGW-Public"
+      ],
+      [
+        "x-content-type-options",
+        "nosniff"
+      ]
+    ],
+    "status": 200
+  }
+}

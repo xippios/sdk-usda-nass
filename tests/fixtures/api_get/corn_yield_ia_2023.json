@@ -1,0 +1,53 @@
+{
+  "recorded_at": "2026-10-28T20:50:54.221269Z",
+  "request": {
+    "body": null,
+    "body_base64": false,
+    "content_type": null,
+    "method": "GET",
+    "url": "https://quickstats.nass.usda.gov/api/api_GET/?commodity_desc=CORN&statisticcat_desc=YIELD&domain_desc=TOTAL&prodn_practice_desc=ALL+PRODUCTION+PRACTICES&freq_desc=ANNUAL&year=2023&agg_level_desc=STATE&state_alpha=IA&reference_period_desc=YEAR&format=JSON&key=REDACTED"
+  },
+  "response": {
+    "body": "{\"data\":[{\"asd_code\":\"\",\"country_code\":\"9000\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"watershed_desc\":\"\",\"week_ending\":\"\",\"commodity_desc\":\"CORN\",\"state_name\":\"IOWA\",\"year\":2023,\"group_desc\":\"FIELD CROPS\",\"watershed_code\":\"00000000\",\"location_desc\":\"IOWA\",\"freq_desc\":\"ANNUAL\",\"reference_period_desc\":\"YEAR\",\"domain_desc\":\"TOTAL\",\"unit_desc\":\"BU / ACRE\",\"domaincat_desc\":\"NOT SPECIFIED\",\"load_time\":\"2024-09-30 12:00:00.000\",\"begin_code\":\"00\",\"end_code\":\"00\",\"state_alpha\":\"IA\",\"CV (%)\":\"\",\"state_ansi\":\"19\",\"class_desc\":\"ALL CLASSES\",\"sector_desc\":\"CROPS\",\"county_name\":\"\",\"Value\":\"201\",\"agg_level_desc\":\"STATE\",\"source_desc\":\"SURVEY\",\"country_name\":\"UNITED STATES\",\"short_desc\":\"CORN, GRAIN - YIELD, MEASURED IN BU / ACRE\",\"util_practice_desc\":\"GRAIN\",\"state_fips_code\":\"19\",\"zip_5\":\"\",\"statisticcat_desc\":\"YIELD\",\"congr_district_code\":\"\",\"county_ansi\":\"\",\"asd_desc\":\"\",\"region_desc\":\"\",\"county_code\":\"\"},{\"commodity_desc\":\"CORN\",\"week_ending\":\"\",\"watershed_desc\":\"\",\"prodn_practice_desc\":\"ALL PRODUCTION PRACTICES\",\"country_code\":\"9000\",\"asd_code\":\"\",\"year\":2023,\"state_name\":\"IOWA\",\"begin_code\":\"00\",\"load_time\":\"2024-09-30 12:00:00.000\",\"domaincat_desc\":\"NOT SPECIFIED\",\"unit_desc\":\"TONS / ACRE\",\"domain_desc\":\"TOTAL\",\"reference_period_desc\":\"YEAR\",\"watershed_code\":\"00000000\",\"location_desc\":\"IOWA\",\"freq_desc\":\"ANNUAL\",\"group_desc\":\"FIELD CROPS\",\"state_alpha\":\"IA\",\"end_code\":\"00\",\"source_desc\":\"SURVEY\",\"agg_level_desc\":\"STATE\",\"county_name\":\"\",\"Value\":\"20\",\"sector_desc\":\"CROPS\",\"state_ansi\":\"19\",\"class_desc\":\"ALL CLASSES\",\"CV (%)\":\"\",\"country_name\":\"UNITED STATES\",\"congr_district_code\":\"\",\"statisticcat_desc\":\"YIELD\",\"zip_5\":\"\",\"short_desc\":\"CORN, SILAGE - YIELD, MEASURED IN TONS / ACRE\",\"state_fips_code\":\"19\",\"util_practice_desc\":\"SILAGE\",\"county_code\":\"\",\"region_desc\":\"\",\"asd_desc\":\"\",\"county_ansi\":\"\"}]}",
+    "body_base64": false,
+    "headers": [
+      [
+        "date",
+        "Wed, 28 Oct 2026 20:50:51 GMT"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "server",
+        "Kestrel"
+      ],
+      [
+        "strict-transport-security",
+        "max-age=31536000; includeSubDomains; preload"
+      ],
+      [
+        "x-author",
+        "NICE HYPE (RJ)"
+      ],
+      [
+        "x-proxyversion",
+        "0.8.5"
+      ],
+      [
+        "x-cache",
+        "Miss"
+      ],
+      [
+        "x-handler-apgw-05-12",
+        "APPGW-Public"
+      ],
+      [
+        "x-content-type-options",
+        "nosniff"
+      ]
+    ],
+    "status": 200
+  }
+}
