@@ -121,6 +121,18 @@ def test_enum_members_are_accepted_as_filter_values(
     assert sent_query(route)["sector_desc"] == "CROPS"
 
 
+@pytest.mark.anyio
+async def test_upstream_counts_no_records_for_an_unknown_packaged_value(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """The refusal's premise, recorded at layer 1 on 2026-10-28: Quick Stats answers a
+    ``state_alpha`` it does not know with HTTP 200 and a count of 0, the answer a query
+    without data gets."""
+    route = replay_fixture("get_counts", "unknown_state_alpha")
+    assert (await api.get_counts({"state_alpha": "XX"})).count == 0
+    assert sent_query(route)["state_alpha"] == "XX"
+
+
 @pytest.mark.parametrize("task", [tasks.get_counts, tasks.get_data])
 def test_unknown_packaged_value_is_refused_before_any_call(
     respx_mock: respx.MockRouter, task: Callable[..., object]
