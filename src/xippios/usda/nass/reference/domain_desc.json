@@ -1,0 +1,1855 @@
+{
+  "param": "domain_desc",
+  "endpoint": "get_param_values",
+  "fetched": "2026-10-28T15:01:51Z",
+  "records": [
+    {
+      "domain_desc": "AREA"
+    },
+    {
+      "domain_desc": "AREA BEARING & NON-BEARING"
+    },
+    {
+      "domain_desc": "AREA CROPLAND, HARVESTED"
+    },
+    {
+      "domain_desc": "AREA EQUIPPED FOR IRRIGATION"
+    },
+    {
+      "domain_desc": "AREA EQUIPPED FOR IRRIGATION AND IRRIGATION STATUS"
+    },
+    {
+      "domain_desc": "AREA GROWN"
+    },
+    {
+      "domain_desc": "AREA HARVESTED"
+    },
+    {
+      "domain_desc": "AREA HARVESTED, FRESH MARKET & PROCESSING"
+    },
+    {
+      "domain_desc": "AREA IN PRODUCTION"
+    },
+    {
+      "domain_desc": "AREA IRRIGATED"
+    },
+    {
+      "domain_desc": "AREA IRRIGATED, BEARING & NON-BEARING"
+    },
+    {
+      "domain_desc": "AREA IRRIGATED, HARVESTED"
+    },
+    {
+      "domain_desc": "AREA IRRIGATED, IN PRODUCTION"
+    },
+    {
+      "domain_desc": "AREA OPERATED"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND AREA BEARING & NON-BEARING"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND AREA CROPLAND, HARVESTED"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND AREA HARVESTED"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND AREA HARVESTED, FRESH MARKET & PROCESSING"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND AREA IN PRODUCTION"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND CHEMICAL, FUNGICIDE"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND CHEMICAL, HERBICIDE"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND CHEMICAL, INSECTICIDE"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND CHEMICAL, OTHER"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND ECONOMIC CLASS"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND EXPENSE"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND FERTILIZER"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND HOUSEHOLD SIZE"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND HOUSEHOLDS SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND INVENTORY"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND INVENTORY OF BEEF COWS"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND INVENTORY OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND INVENTORY OF HOGS"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND INVENTORY OF MILK COWS"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND IRRIGATION STATUS"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND LABOR"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND NAICS CLASSIFICATION"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND NET GAIN"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND NET LOSS"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND OPERATORS"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND OPERATORS, PRINCIPAL, HOUSEHOLD INCOME"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND ORGANIC STATUS"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND PRODUCERS"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND SALES"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND SALES & DISTRIBUTION"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND SALES OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND SALES OF HOGS"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND TENURE"
+    },
+    {
+      "domain_desc": "AREA OPERATED AND VALUE"
+    },
+    {
+      "domain_desc": "AREA PRACTICED"
+    },
+    {
+      "domain_desc": "BALES GINNED"
+    },
+    {
+      "domain_desc": "CAPACITY"
+    },
+    {
+      "domain_desc": "CHEMICAL"
+    },
+    {
+      "domain_desc": "CHEMICAL & FERTILIZER"
+    },
+    {
+      "domain_desc": "CHEMICAL & FERTILIZER AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "CHEMICAL & FERTILIZER AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "CHEMICAL & FERTILIZER AND TENURE"
+    },
+    {
+      "domain_desc": "CHEMICAL, APPLICATION AREA"
+    },
+    {
+      "domain_desc": "CHEMICAL, APPLICATION METHOD"
+    },
+    {
+      "domain_desc": "CHEMICAL, APPLICATION TIMING"
+    },
+    {
+      "domain_desc": "CHEMICAL, APPLICATOR"
+    },
+    {
+      "domain_desc": "CHEMICAL, FUNGICIDE"
+    },
+    {
+      "domain_desc": "CHEMICAL, FUNGICIDE AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "CHEMICAL, FUNGICIDE AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "CHEMICAL, FUNGICIDE AND TENURE"
+    },
+    {
+      "domain_desc": "CHEMICAL, HERBICIDE"
+    },
+    {
+      "domain_desc": "CHEMICAL, HERBICIDE AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "CHEMICAL, HERBICIDE AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "CHEMICAL, HERBICIDE AND TENURE"
+    },
+    {
+      "domain_desc": "CHEMICAL, INSECTICIDE"
+    },
+    {
+      "domain_desc": "CHEMICAL, INSECTICIDE AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "CHEMICAL, INSECTICIDE AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "CHEMICAL, INSECTICIDE AND TENURE"
+    },
+    {
+      "domain_desc": "CHEMICAL, OTHER"
+    },
+    {
+      "domain_desc": "CHEMICAL, TREATED FACILITY"
+    },
+    {
+      "domain_desc": "COMMODITIES (INCL VALUE-ADDED)"
+    },
+    {
+      "domain_desc": "COMMODITIES (INCL VALUE-ADDED) AND OPERATORS"
+    },
+    {
+      "domain_desc": "COMMODITIES (INCL VALUE-ADDED) AND ORGANIC STATUS"
+    },
+    {
+      "domain_desc": "COMMODITIES (INCL VALUE-ADDED) AND PRODUCERS"
+    },
+    {
+      "domain_desc": "CONCENTRATION"
+    },
+    {
+      "domain_desc": "DEPTH TO BOWLS"
+    },
+    {
+      "domain_desc": "DEPTH TO WATER"
+    },
+    {
+      "domain_desc": "DESTINATION"
+    },
+    {
+      "domain_desc": "DIRECT SALES"
+    },
+    {
+      "domain_desc": "DIRECT TO CONSUMER SALES"
+    },
+    {
+      "domain_desc": "DISTANCE FROM OPERATION TO SALES LOCATION AND SALES"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND AREA BEARING & NON-BEARING"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND AREA HARVESTED"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND AREA HARVESTED, FRESH MARKET & PROCESSING"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND AREA IN PRODUCTION"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND CHEMICAL, FUNGICIDE"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND CHEMICAL, HERBICIDE"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND CHEMICAL, INSECTICIDE"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND CHEMICAL, OTHER"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND EXPENSE"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND FERTILIZER"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND HOUSEHOLD SIZE"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND HOUSEHOLDS SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND INVENTORY"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND INVENTORY OF BEEF COWS"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND INVENTORY OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND INVENTORY OF HOGS"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND INVENTORY OF MILK COWS"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND LABOR"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND NAICS CLASSIFICATION"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND NET GAIN"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND NET LOSS"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND OPERATORS"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND OPERATORS, PRINCIPAL, HOUSEHOLD INCOME"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND ORGANIC STATUS"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND PRODUCERS"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND SALES"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND SALES & DISTRIBUTION"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND SALES OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND SALES OF HOGS"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND TENURE"
+    },
+    {
+      "domain_desc": "ECONOMIC CLASS AND VALUE"
+    },
+    {
+      "domain_desc": "EXPENSE"
+    },
+    {
+      "domain_desc": "EXPENSE, PRIMARY FUNDING ASSISTANCE"
+    },
+    {
+      "domain_desc": "EXPENSE, PRIMARY PURPOSE"
+    },
+    {
+      "domain_desc": "FAMILIES SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "FAMILIES SHARING NET INCOME AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "FAMILIES SHARING NET INCOME AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "FAMILIES SHARING NET INCOME AND TENURE"
+    },
+    {
+      "domain_desc": "FARM OPERATIONS"
+    },
+    {
+      "domain_desc": "FARM OPERATIONS AND PRODUCERS"
+    },
+    {
+      "domain_desc": "FARM SALES"
+    },
+    {
+      "domain_desc": "FARM SALES AND AREA BEARING & NON-BEARING"
+    },
+    {
+      "domain_desc": "FARM SALES AND AREA HARVESTED"
+    },
+    {
+      "domain_desc": "FARM SALES AND AREA HARVESTED, FRESH MARKET & PROCESSING"
+    },
+    {
+      "domain_desc": "FARM SALES AND AREA IN PRODUCTION"
+    },
+    {
+      "domain_desc": "FARM SALES AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "FARM SALES AND CHEMICAL & FERTILIZER"
+    },
+    {
+      "domain_desc": "FARM SALES AND CHEMICAL, FUNGICIDE"
+    },
+    {
+      "domain_desc": "FARM SALES AND CHEMICAL, HERBICIDE"
+    },
+    {
+      "domain_desc": "FARM SALES AND CHEMICAL, INSECTICIDE"
+    },
+    {
+      "domain_desc": "FARM SALES AND CHEMICAL, OTHER"
+    },
+    {
+      "domain_desc": "FARM SALES AND ECONOMIC CLASS"
+    },
+    {
+      "domain_desc": "FARM SALES AND EXPENSE"
+    },
+    {
+      "domain_desc": "FARM SALES AND FAMILIES SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "FARM SALES AND FARM OPERATIONS"
+    },
+    {
+      "domain_desc": "FARM SALES AND FERTILIZER"
+    },
+    {
+      "domain_desc": "FARM SALES AND HOUSEHOLD SIZE"
+    },
+    {
+      "domain_desc": "FARM SALES AND HOUSEHOLDS SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "FARM SALES AND INVENTORY"
+    },
+    {
+      "domain_desc": "FARM SALES AND INVENTORY OF BEEF COWS"
+    },
+    {
+      "domain_desc": "FARM SALES AND INVENTORY OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "FARM SALES AND INVENTORY OF HOGS"
+    },
+    {
+      "domain_desc": "FARM SALES AND INVENTORY OF MILK COWS"
+    },
+    {
+      "domain_desc": "FARM SALES AND IRRIGATION METHOD"
+    },
+    {
+      "domain_desc": "FARM SALES AND IRRIGATION STATUS"
+    },
+    {
+      "domain_desc": "FARM SALES AND LABOR"
+    },
+    {
+      "domain_desc": "FARM SALES AND NAICS CLASSIFICATION"
+    },
+    {
+      "domain_desc": "FARM SALES AND NET GAIN"
+    },
+    {
+      "domain_desc": "FARM SALES AND NET LOSS"
+    },
+    {
+      "domain_desc": "FARM SALES AND OPERATORS"
+    },
+    {
+      "domain_desc": "FARM SALES AND OPERATORS, AGE"
+    },
+    {
+      "domain_desc": "FARM SALES AND OPERATORS, PRINCIPAL"
+    },
+    {
+      "domain_desc": "FARM SALES AND OPERATORS, PRINCIPAL, HOUSEHOLD INCOME"
+    },
+    {
+      "domain_desc": "FARM SALES AND ORGANIC STATUS"
+    },
+    {
+      "domain_desc": "FARM SALES AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "FARM SALES AND PRODUCERS"
+    },
+    {
+      "domain_desc": "FARM SALES AND PRODUCERS, AGE"
+    },
+    {
+      "domain_desc": "FARM SALES AND SALES"
+    },
+    {
+      "domain_desc": "FARM SALES AND SALES & DISTRIBUTION"
+    },
+    {
+      "domain_desc": "FARM SALES AND SALES OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "FARM SALES AND SALES OF HOGS"
+    },
+    {
+      "domain_desc": "FARM SALES AND TENURE"
+    },
+    {
+      "domain_desc": "FARM SALES AND TYPE OF OPERATION"
+    },
+    {
+      "domain_desc": "FARM SALES AND VALUE"
+    },
+    {
+      "domain_desc": "FARM SALES AND WATER SOURCE"
+    },
+    {
+      "domain_desc": "FERTILIZER"
+    },
+    {
+      "domain_desc": "FERTILIZER AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "FERTILIZER AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "FERTILIZER AND TENURE"
+    },
+    {
+      "domain_desc": "HOUSEHOLD INCOME, NET"
+    },
+    {
+      "domain_desc": "HOUSEHOLD SIZE"
+    },
+    {
+      "domain_desc": "HOUSEHOLD SIZE AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "HOUSEHOLD SIZE AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "HOUSEHOLD SIZE AND TENURE"
+    },
+    {
+      "domain_desc": "HOUSEHOLDS"
+    },
+    {
+      "domain_desc": "HOUSEHOLDS SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "IMPACT OF COVID-19 ON FARM SALES"
+    },
+    {
+      "domain_desc": "IMPACT OF COVID-19 ON MARKETING EXPENSES"
+    },
+    {
+      "domain_desc": "IMPACT OF COVID-19 ON ONLINE SALES"
+    },
+    {
+      "domain_desc": "IMPACT OF COVID-19 ON PRE-ORDERS FOR PICK-UP AND PICK-UP LOCATION"
+    },
+    {
+      "domain_desc": "INVENTORY"
+    },
+    {
+      "domain_desc": "INVENTORY OF BEE COLONIES"
+    },
+    {
+      "domain_desc": "INVENTORY OF BEEF COWS"
+    },
+    {
+      "domain_desc": "INVENTORY OF BREEDING HOGS"
+    },
+    {
+      "domain_desc": "INVENTORY OF CATTLE ON FEED"
+    },
+    {
+      "domain_desc": "INVENTORY OF CATTLE, (EXCL COWS)"
+    },
+    {
+      "domain_desc": "INVENTORY OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "INVENTORY OF COWS"
+    },
+    {
+      "domain_desc": "INVENTORY OF EWES GE 1 YEAR OLD"
+    },
+    {
+      "domain_desc": "INVENTORY OF HOGS"
+    },
+    {
+      "domain_desc": "INVENTORY OF LAYERS, TABLE"
+    },
+    {
+      "domain_desc": "INVENTORY OF MARKET HOGS"
+    },
+    {
+      "domain_desc": "INVENTORY OF MILK COWS"
+    },
+    {
+      "domain_desc": "INVENTORY OF SHEEP, INCL LAMBS"
+    },
+    {
+      "domain_desc": "IRRIGATION DISCONTINUANCE"
+    },
+    {
+      "domain_desc": "IRRIGATION EQUIPMENT"
+    },
+    {
+      "domain_desc": "IRRIGATION EQUIPMENT, IDLE"
+    },
+    {
+      "domain_desc": "IRRIGATION IMPROVEMENTS"
+    },
+    {
+      "domain_desc": "IRRIGATION INFORMATION"
+    },
+    {
+      "domain_desc": "IRRIGATION INTERRUPTION"
+    },
+    {
+      "domain_desc": "IRRIGATION METHOD"
+    },
+    {
+      "domain_desc": "IRRIGATION METHOD AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "IRRIGATION METHOD AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "IRRIGATION METHOD AND TENURE"
+    },
+    {
+      "domain_desc": "IRRIGATION METHOD AND WATER SOURCE"
+    },
+    {
+      "domain_desc": "IRRIGATION METHOD, PRIMARY"
+    },
+    {
+      "domain_desc": "IRRIGATION OR DRAINAGE IMPROVEMENTS"
+    },
+    {
+      "domain_desc": "IRRIGATION ORGANIZATIONS"
+    },
+    {
+      "domain_desc": "IRRIGATION SCHEDULING"
+    },
+    {
+      "domain_desc": "IRRIGATION STATUS"
+    },
+    {
+      "domain_desc": "LABOR"
+    },
+    {
+      "domain_desc": "LANDLORDS, COMBINED"
+    },
+    {
+      "domain_desc": "LANDLORDS, COMBINED, AREA RENTED OUT"
+    },
+    {
+      "domain_desc": "LANDLORDS, COMBINED, TENANTS"
+    },
+    {
+      "domain_desc": "LANDLORDS, COMBINED, VALUE OF LAND & BUILDINGS"
+    },
+    {
+      "domain_desc": "LANDLORDS, COMBINED, VALUE OF LAND AND BUILDINGS"
+    },
+    {
+      "domain_desc": "LANDLORDS, NON-OPERATING"
+    },
+    {
+      "domain_desc": "LANDLORDS, NON-OPERATING, AREA RENTED OUT"
+    },
+    {
+      "domain_desc": "LANDLORDS, NON-OPERATING, OWNERSHIP TYPE"
+    },
+    {
+      "domain_desc": "LANDLORDS, NON-OPERATING, PRINCIPAL"
+    },
+    {
+      "domain_desc": "LANDLORDS, NON-OPERATING, TENANTS"
+    },
+    {
+      "domain_desc": "LANDLORDS, NON-OPERATING, VALUE OF LAND & BUILDINGS"
+    },
+    {
+      "domain_desc": "LANDLORDS, NON-OPERATING, VALUE OF LAND AND BUILDINGS"
+    },
+    {
+      "domain_desc": "LANDLORDS, OPERATING"
+    },
+    {
+      "domain_desc": "LANDLORDS, OPERATING, AREA RENTED OUT"
+    },
+    {
+      "domain_desc": "LANDLORDS, OPERATING, TENANTS"
+    },
+    {
+      "domain_desc": "LANDLORDS, OPERATING, VALUE OF LAND & BUILDINGS"
+    },
+    {
+      "domain_desc": "LIVESTOCK INVENTORY, INCL AQUACULTURE & POULTRY & SPECIALTY ANIMALS"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND AREA BEARING & NON-BEARING"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND AREA HARVESTED"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND AREA HARVESTED, FRESH MARKET & PROCESSING"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND AREA IN PRODUCTION"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND CHEMICAL, FUNGICIDE"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND CHEMICAL, HERBICIDE"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND CHEMICAL, INSECTICIDE"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND CHEMICAL, OTHER"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND ECONOMIC CLASS"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND EXPENSE"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND FERTILIZER"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND HOUSEHOLD SIZE"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND HOUSEHOLDS SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND INVENTORY"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND INVENTORY OF BEEF COWS"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND INVENTORY OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND INVENTORY OF HOGS"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND INVENTORY OF MILK COWS"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND LABOR"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND NET GAIN"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND NET LOSS"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND OPERATORS"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND OPERATORS, PRINCIPAL, HOUSEHOLD INCOME"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND ORGANIC STATUS"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND PRODUCERS"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND SALES"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND SALES & DISTRIBUTION"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND SALES OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND SALES OF HOGS"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND TENURE"
+    },
+    {
+      "domain_desc": "NAICS CLASSIFICATION AND VALUE"
+    },
+    {
+      "domain_desc": "NET GAIN"
+    },
+    {
+      "domain_desc": "NET LOSS"
+    },
+    {
+      "domain_desc": "OPERATING PRESSURE"
+    },
+    {
+      "domain_desc": "OPERATORS"
+    },
+    {
+      "domain_desc": "OPERATORS AND AREA BEARING & NON-BEARING"
+    },
+    {
+      "domain_desc": "OPERATORS AND AREA HARVESTED"
+    },
+    {
+      "domain_desc": "OPERATORS AND AREA HARVESTED, FRESH MARKET & PROCESSING"
+    },
+    {
+      "domain_desc": "OPERATORS AND AREA IN PRODUCTION"
+    },
+    {
+      "domain_desc": "OPERATORS AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "OPERATORS AND CHEMICAL, FUNGICIDE"
+    },
+    {
+      "domain_desc": "OPERATORS AND CHEMICAL, HERBICIDE"
+    },
+    {
+      "domain_desc": "OPERATORS AND CHEMICAL, INSECTICIDE"
+    },
+    {
+      "domain_desc": "OPERATORS AND CHEMICAL, OTHER"
+    },
+    {
+      "domain_desc": "OPERATORS AND ECONOMIC CLASS"
+    },
+    {
+      "domain_desc": "OPERATORS AND EXPENSE"
+    },
+    {
+      "domain_desc": "OPERATORS AND FERTILIZER"
+    },
+    {
+      "domain_desc": "OPERATORS AND HOUSEHOLD SIZE"
+    },
+    {
+      "domain_desc": "OPERATORS AND HOUSEHOLDS SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "OPERATORS AND INVENTORY"
+    },
+    {
+      "domain_desc": "OPERATORS AND INVENTORY OF BEEF COWS"
+    },
+    {
+      "domain_desc": "OPERATORS AND INVENTORY OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "OPERATORS AND INVENTORY OF HOGS"
+    },
+    {
+      "domain_desc": "OPERATORS AND INVENTORY OF MILK COWS"
+    },
+    {
+      "domain_desc": "OPERATORS AND LABOR"
+    },
+    {
+      "domain_desc": "OPERATORS AND NAICS CLASSIFICATION"
+    },
+    {
+      "domain_desc": "OPERATORS AND NET GAIN"
+    },
+    {
+      "domain_desc": "OPERATORS AND NET LOSS"
+    },
+    {
+      "domain_desc": "OPERATORS AND OPERATORS"
+    },
+    {
+      "domain_desc": "OPERATORS AND OPERATORS, PRINCIPAL, HOUSEHOLD INCOME"
+    },
+    {
+      "domain_desc": "OPERATORS AND ORGANIC STATUS"
+    },
+    {
+      "domain_desc": "OPERATORS AND SALES"
+    },
+    {
+      "domain_desc": "OPERATORS AND SALES & DISTRIBUTION"
+    },
+    {
+      "domain_desc": "OPERATORS AND SALES OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "OPERATORS AND SALES OF HOGS"
+    },
+    {
+      "domain_desc": "OPERATORS AND TENURE"
+    },
+    {
+      "domain_desc": "OPERATORS AND VALUE"
+    },
+    {
+      "domain_desc": "OPERATORS, AGE"
+    },
+    {
+      "domain_desc": "OPERATORS, AGE AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "OPERATORS, AGE AND TENURE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND AREA BEARING & NON-BEARING"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND AREA HARVESTED"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND AREA HARVESTED, FRESH MARKET & PROCESSING"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND AREA IN PRODUCTION"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND CHEMICAL & FERTILIZER"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND CHEMICAL, FUNGICIDE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND CHEMICAL, HERBICIDE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND CHEMICAL, INSECTICIDE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND CHEMICAL, OTHER"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND ECONOMIC CLASS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND EXPENSE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND FAMILIES SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND FARM SALES"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND FERTILIZER"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND HOUSEHOLD SIZE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND INVENTORY"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND INVENTORY OF BEEF COWS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND INVENTORY OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND INVENTORY OF HOGS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND INVENTORY OF MILK COWS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND IRRIGATION METHOD"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND LABOR"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND NAICS CLASSIFICATION"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND NET GAIN"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND NET LOSS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND OPERATORS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND OPERATORS, PRINCIPAL, HOUSEHOLD INCOME"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND ORGANIC STATUS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND SALES"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND SALES & DISTRIBUTION"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND SALES OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND SALES OF HOGS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND TENURE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND TYPE OF OPERATION"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND VALUE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL AND WATER SOURCE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, HOUSEHOLD INCOME"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, HOUSEHOLD INCOME AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, HOUSEHOLD INCOME AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, HOUSEHOLD INCOME AND TENURE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND AREA BEARING & NON-BEARING"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND AREA HARVESTED"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND AREA HARVESTED, FRESH MARKET & PROCESSING"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND AREA IN PRODUCTION"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND CHEMICAL, FUNGICIDE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND CHEMICAL, HERBICIDE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND CHEMICAL, INSECTICIDE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND CHEMICAL, OTHER"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND ECONOMIC CLASS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND EXPENSE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND FERTILIZER"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND HOUSEHOLD SIZE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND HOUSEHOLDS SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND INVENTORY"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND INVENTORY OF BEEF COWS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND INVENTORY OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND INVENTORY OF HOGS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND INVENTORY OF MILK COWS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND LABOR"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND NAICS CLASSIFICATION"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND NET GAIN"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND NET LOSS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND OPERATORS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND OPERATORS, PRINCIPAL, HOUSEHOLD INCOME"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND ORGANIC STATUS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND SALES"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND SALES & DISTRIBUTION"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND SALES OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND SALES OF HOGS"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND TENURE"
+    },
+    {
+      "domain_desc": "OPERATORS, PRINCIPAL, ON PRESENT OPERATION AND VALUE"
+    },
+    {
+      "domain_desc": "ORGANIC STATUS"
+    },
+    {
+      "domain_desc": "ORGANIC STATUS AND AREA COVERED"
+    },
+    {
+      "domain_desc": "ORGANIC STATUS AND CONCENTRATION"
+    },
+    {
+      "domain_desc": "ORGANIC STATUS AND CONTRACT"
+    },
+    {
+      "domain_desc": "ORGANIC STATUS AND ORGANIC AREA"
+    },
+    {
+      "domain_desc": "ORGANIC STATUS AND PRICE PREMIUM"
+    },
+    {
+      "domain_desc": "ORGANIC STATUS AND SALES"
+    },
+    {
+      "domain_desc": "ORGANIC STATUS AND SALES AS PCT OF FARM SALES"
+    },
+    {
+      "domain_desc": "ORGANIC STATUS AND SALES AS PCT OF NET HOUSEHOLD INCOME"
+    },
+    {
+      "domain_desc": "ORGANIC STATUS AND SALES OF VALUE-ADDED"
+    },
+    {
+      "domain_desc": "ORGANIC STATUS AND YEARS CERTIFIED ORGANIC"
+    },
+    {
+      "domain_desc": "ORGANIC STATUS AND YEARS IN AG PRODUCTION"
+    },
+    {
+      "domain_desc": "ORGANIZATION"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND AREA BEARING & NON-BEARING"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND AREA HARVESTED"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND AREA HARVESTED, FRESH MARKET & PROCESSING"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND AREA IN PRODUCTION"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND CHEMICAL, FUNGICIDE"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND CHEMICAL, HERBICIDE"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND CHEMICAL, INSECTICIDE"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND CHEMICAL, OTHER"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND ECONOMIC CLASS"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND EXPENSE"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND FERTILIZER"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND HOUSEHOLD SIZE"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND HOUSEHOLDS SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND INVENTORY"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND INVENTORY OF BEEF COWS"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND INVENTORY OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND INVENTORY OF HOGS"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND INVENTORY OF MILK COWS"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND LABOR"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND NAICS CLASSIFICATION"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND NET GAIN"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND NET LOSS"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND OPERATORS"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND OPERATORS, PRINCIPAL, HOUSEHOLD INCOME"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND ORGANIC STATUS"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND PRODUCERS"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND SALES"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND SALES & DISTRIBUTION"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND SALES OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND SALES OF HOGS"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND TENURE"
+    },
+    {
+      "domain_desc": "ORGANIZATION AND VALUE"
+    },
+    {
+      "domain_desc": "PLANT POPULATION"
+    },
+    {
+      "domain_desc": "PRACTICE, APPLY PESTICIDES"
+    },
+    {
+      "domain_desc": "PRACTICE, AVOIDANCE"
+    },
+    {
+      "domain_desc": "PRACTICE, CLEANING ACTIVITIES"
+    },
+    {
+      "domain_desc": "PRACTICE, FUMIGATION SCHEDULE"
+    },
+    {
+      "domain_desc": "PRACTICE, INSPECTED FOR INSECTS"
+    },
+    {
+      "domain_desc": "PRACTICE, MEASURED TEMPERATURE"
+    },
+    {
+      "domain_desc": "PRACTICE, MECHANICAL DEVICES"
+    },
+    {
+      "domain_desc": "PRACTICE, MONITORING"
+    },
+    {
+      "domain_desc": "PRACTICE, OBTAIN PESTICIDES"
+    },
+    {
+      "domain_desc": "PRACTICE, PREVENTION"
+    },
+    {
+      "domain_desc": "PRACTICE, RECOMMENDATIONS"
+    },
+    {
+      "domain_desc": "PRACTICE, SUPPRESSION"
+    },
+    {
+      "domain_desc": "PRINCIPAL COUNTY RUCC AND POPULATION"
+    },
+    {
+      "domain_desc": "PRINCIPAL COUNTY RUCC AND URBAN POPULATION"
+    },
+    {
+      "domain_desc": "PRODUCER DECISIONMAKING"
+    },
+    {
+      "domain_desc": "PRODUCERS"
+    },
+    {
+      "domain_desc": "PRODUCERS AND AREA BEARING & NON-BEARING"
+    },
+    {
+      "domain_desc": "PRODUCERS AND AREA CROPLAND, HARVESTED"
+    },
+    {
+      "domain_desc": "PRODUCERS AND AREA HARVESTED"
+    },
+    {
+      "domain_desc": "PRODUCERS AND AREA HARVESTED, FRESH MARKET & PROCESSING"
+    },
+    {
+      "domain_desc": "PRODUCERS AND AREA IN PRODUCTION"
+    },
+    {
+      "domain_desc": "PRODUCERS AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "PRODUCERS AND CHEMICAL, FUNGICIDE"
+    },
+    {
+      "domain_desc": "PRODUCERS AND CHEMICAL, HERBICIDE"
+    },
+    {
+      "domain_desc": "PRODUCERS AND CHEMICAL, INSECTICIDE"
+    },
+    {
+      "domain_desc": "PRODUCERS AND CHEMICAL, OTHER"
+    },
+    {
+      "domain_desc": "PRODUCERS AND ECONOMIC CLASS"
+    },
+    {
+      "domain_desc": "PRODUCERS AND EXPENSE"
+    },
+    {
+      "domain_desc": "PRODUCERS AND FERTILIZER"
+    },
+    {
+      "domain_desc": "PRODUCERS AND HOUSEHOLDS SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "PRODUCERS AND INVENTORY"
+    },
+    {
+      "domain_desc": "PRODUCERS AND INVENTORY OF BEEF COWS"
+    },
+    {
+      "domain_desc": "PRODUCERS AND INVENTORY OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "PRODUCERS AND INVENTORY OF HOGS"
+    },
+    {
+      "domain_desc": "PRODUCERS AND INVENTORY OF MILK COWS"
+    },
+    {
+      "domain_desc": "PRODUCERS AND LABOR"
+    },
+    {
+      "domain_desc": "PRODUCERS AND LIVESTOCK INVENTORY, INCL AQUACULTURE & POULTRY & SPECIALTY ANIMALS"
+    },
+    {
+      "domain_desc": "PRODUCERS AND NAICS CLASSIFICATION"
+    },
+    {
+      "domain_desc": "PRODUCERS AND NET GAIN"
+    },
+    {
+      "domain_desc": "PRODUCERS AND NET LOSS"
+    },
+    {
+      "domain_desc": "PRODUCERS AND ORGANIC STATUS"
+    },
+    {
+      "domain_desc": "PRODUCERS AND ORGANIC STATUS: (NOP USDA CERTIFIED & EXEMPT)"
+    },
+    {
+      "domain_desc": "PRODUCERS AND PRODUCERS"
+    },
+    {
+      "domain_desc": "PRODUCERS AND SALES"
+    },
+    {
+      "domain_desc": "PRODUCERS AND SALES & DISTRIBUTION"
+    },
+    {
+      "domain_desc": "PRODUCERS AND SALES OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "PRODUCERS AND SALES OF HOGS"
+    },
+    {
+      "domain_desc": "PRODUCERS AND TENURE"
+    },
+    {
+      "domain_desc": "PRODUCERS AND VALUE"
+    },
+    {
+      "domain_desc": "PRODUCERS, AGE"
+    },
+    {
+      "domain_desc": "PRODUCERS, AGE AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "PRODUCERS, AGE AND PRODUCERS"
+    },
+    {
+      "domain_desc": "PRODUCERS, AGE AND TENURE"
+    },
+    {
+      "domain_desc": "PRODUCERS, ON ANY OPERATION"
+    },
+    {
+      "domain_desc": "PRODUCERS, PRINCIPAL"
+    },
+    {
+      "domain_desc": "PRODUCERS, PRINCIPAL, AGE"
+    },
+    {
+      "domain_desc": "PRODUCERS, PRINCIPAL, ON ANY OPERATION"
+    },
+    {
+      "domain_desc": "PUMPING CAPACITY"
+    },
+    {
+      "domain_desc": "PUMPS USED"
+    },
+    {
+      "domain_desc": "RECEIPTS"
+    },
+    {
+      "domain_desc": "REFRIGERATED CAPACITY"
+    },
+    {
+      "domain_desc": "RESTRICTED USE CHEMICAL, FUNGICIDE"
+    },
+    {
+      "domain_desc": "RESTRICTED USE CHEMICAL, HERBICIDE"
+    },
+    {
+      "domain_desc": "RESTRICTED USE CHEMICAL, INSECTICIDE"
+    },
+    {
+      "domain_desc": "RESTRICTED USE CHEMICAL, OTHER"
+    },
+    {
+      "domain_desc": "ROW WIDTH"
+    },
+    {
+      "domain_desc": "SALES"
+    },
+    {
+      "domain_desc": "SALES & DISTRIBUTION"
+    },
+    {
+      "domain_desc": "SALES OF ANIMALS & NON-IRRIGATED CROPS AND IRRIGATION STATUS"
+    },
+    {
+      "domain_desc": "SALES OF CALVES"
+    },
+    {
+      "domain_desc": "SALES OF CATTLE GE 500 LBS"
+    },
+    {
+      "domain_desc": "SALES OF CATTLE ON FEED"
+    },
+    {
+      "domain_desc": "SALES OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "SALES OF FLORICULTURE"
+    },
+    {
+      "domain_desc": "SALES OF HOGS"
+    },
+    {
+      "domain_desc": "SALES OF HORTICULTURE"
+    },
+    {
+      "domain_desc": "SALES OF IRRIGATED CROPS AND IRRIGATION STATUS"
+    },
+    {
+      "domain_desc": "SALES TO CONSUMER MARKETS"
+    },
+    {
+      "domain_desc": "SALES TO INSTITUTIONS & INTERMEDIATE MARKETS"
+    },
+    {
+      "domain_desc": "SALES TO RETAIL MARKETS"
+    },
+    {
+      "domain_desc": "SALES WITHIN STATE OR 400 MILES OF OPERATION"
+    },
+    {
+      "domain_desc": "TAPS"
+    },
+    {
+      "domain_desc": "TENURE"
+    },
+    {
+      "domain_desc": "TENURE AND AREA BEARING & NON-BEARING"
+    },
+    {
+      "domain_desc": "TENURE AND AREA HARVESTED"
+    },
+    {
+      "domain_desc": "TENURE AND AREA HARVESTED, FRESH MARKET & PROCESSING"
+    },
+    {
+      "domain_desc": "TENURE AND AREA IN PRODUCTION"
+    },
+    {
+      "domain_desc": "TENURE AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "TENURE AND CHEMICAL, FUNGICIDE"
+    },
+    {
+      "domain_desc": "TENURE AND CHEMICAL, HERBICIDE"
+    },
+    {
+      "domain_desc": "TENURE AND CHEMICAL, INSECTICIDE"
+    },
+    {
+      "domain_desc": "TENURE AND CHEMICAL, OTHER"
+    },
+    {
+      "domain_desc": "TENURE AND ECONOMIC CLASS"
+    },
+    {
+      "domain_desc": "TENURE AND EXPENSE"
+    },
+    {
+      "domain_desc": "TENURE AND FARM OPERATIONS"
+    },
+    {
+      "domain_desc": "TENURE AND FERTILIZER"
+    },
+    {
+      "domain_desc": "TENURE AND HOUSEHOLD SIZE"
+    },
+    {
+      "domain_desc": "TENURE AND HOUSEHOLDS SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "TENURE AND INVENTORY"
+    },
+    {
+      "domain_desc": "TENURE AND INVENTORY OF BEEF COWS"
+    },
+    {
+      "domain_desc": "TENURE AND INVENTORY OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "TENURE AND INVENTORY OF HOGS"
+    },
+    {
+      "domain_desc": "TENURE AND INVENTORY OF MILK COWS"
+    },
+    {
+      "domain_desc": "TENURE AND LABOR"
+    },
+    {
+      "domain_desc": "TENURE AND NAICS CLASSIFICATION"
+    },
+    {
+      "domain_desc": "TENURE AND NET GAIN"
+    },
+    {
+      "domain_desc": "TENURE AND NET LOSS"
+    },
+    {
+      "domain_desc": "TENURE AND OPERATORS"
+    },
+    {
+      "domain_desc": "TENURE AND OPERATORS, PRINCIPAL"
+    },
+    {
+      "domain_desc": "TENURE AND OPERATORS, PRINCIPAL, HOUSEHOLD INCOME"
+    },
+    {
+      "domain_desc": "TENURE AND ORGANIC STATUS"
+    },
+    {
+      "domain_desc": "TENURE AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "TENURE AND PRODUCERS"
+    },
+    {
+      "domain_desc": "TENURE AND SALES"
+    },
+    {
+      "domain_desc": "TENURE AND SALES & DISTRIBUTION"
+    },
+    {
+      "domain_desc": "TENURE AND SALES OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "TENURE AND SALES OF HOGS"
+    },
+    {
+      "domain_desc": "TENURE AND VALUE"
+    },
+    {
+      "domain_desc": "TOTAL"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND CHEMICAL & FERTILIZER"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND CHEMICAL, FUNGICIDE"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND CHEMICAL, HERBICIDE"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND CHEMICAL, INSECTICIDE"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND FAMILIES SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND FARM SALES"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND FERTILIZER"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND HOUSEHOLD SIZE"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND INVENTORY OF BEE COLONIES"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND IRRIGATION METHOD"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND OPERATORS, PRINCIPAL"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND OPERATORS, PRINCIPAL, HOUSEHOLD INCOME"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND SALES OF HORTICULTURE"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND TENURE"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND VALUE"
+    },
+    {
+      "domain_desc": "TYPE OF OPERATION AND WATER SOURCE"
+    },
+    {
+      "domain_desc": "TYPOLOGY"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND AREA BEARING & NON-BEARING"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND AREA HARVESTED"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND AREA HARVESTED, FRESH MARKET & PROCESSING"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND AREA IN PRODUCTION"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND CHEMICAL, FUNGICIDE"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND CHEMICAL, HERBICIDE"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND CHEMICAL, INSECTICIDE"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND CHEMICAL, OTHER"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND ECONOMIC CLASS"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND EXPENSE"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND FERTILIZER"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND HOUSEHOLD SIZE"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND HOUSEHOLDS SHARING NET INCOME"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND INVENTORY"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND INVENTORY OF BEEF COWS"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND INVENTORY OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND INVENTORY OF HOGS"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND INVENTORY OF MILK COWS"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND LABOR"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND NAICS CLASSIFICATION"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND NET GAIN"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND NET LOSS"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND OPERATORS"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND OPERATORS, PRINCIPAL, HOUSEHOLD INCOME"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND ORGANIC STATUS"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND PRODUCERS"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND SALES"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND SALES & DISTRIBUTION"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND SALES OF CATTLE, INCL CALVES"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND SALES OF HOGS"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND TENURE"
+    },
+    {
+      "domain_desc": "TYPOLOGY AND VALUE"
+    },
+    {
+      "domain_desc": "VALUE"
+    },
+    {
+      "domain_desc": "VALUE AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "VALUE AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "VALUE AND TENURE"
+    },
+    {
+      "domain_desc": "WATER APPLIED"
+    },
+    {
+      "domain_desc": "WATER MGMT"
+    },
+    {
+      "domain_desc": "WATER SOURCE"
+    },
+    {
+      "domain_desc": "WATER SOURCE AND AREA OPERATED"
+    },
+    {
+      "domain_desc": "WATER SOURCE AND ORGANIZATION"
+    },
+    {
+      "domain_desc": "WATER SOURCE AND TENURE"
+    },
+    {
+      "domain_desc": "WELL DEPTH"
+    },
+    {
+      "domain_desc": "WELLS USED"
+    },
+    {
+      "domain_desc": "WELLS, USED FOR IRRIGATION"
+    }
+  ]
+}

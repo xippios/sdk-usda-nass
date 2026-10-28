@@ -78,12 +78,14 @@ MCP_CAPS: Mapping[str, ResultCap] = {
 }
 """MCP result caps of their own, by task function name (conventions §8, ADR-0016).
 
-``list_param_values`` is the reference lookup an agent needs whole to form valid filters:
-lists fetched live run past the family's default of 200 rows (``statisticcat_desc`` has
-278 values, 5,411 bytes of compact JSON, recorded 2026-10-22), while every packaged list
-has fewer than 60. Its cap keeps the default 64 KB, and its note promises no filter, since
-the tool has none. Every other tool keeps the default, 200 rows or 64 KB, with core's
-note.
+``list_param_values`` is the reference lookup an agent needs whole to form valid filters,
+and its lists run past the family's default of 200 rows. Of the nine packaged lists
+(fetched 2026-10-28), ``statisticcat_desc`` has 278 values, ``unit_desc`` 373 and
+``domain_desc`` 616 (22,194 bytes of compact JSON, the largest), the other six fewer than
+60; lists fetched live run longer too (``commodity_desc`` has 467 values, 6,773 bytes,
+recorded 2026-10-28). Its cap keeps the default 64 KB, and its note promises no filter,
+since the tool has none. Every other tool keeps the default, 200 rows or 64 KB, with
+core's note.
 """
 
 
@@ -435,16 +437,17 @@ async def get_data_async(
 async def list_param_values_async(param: str) -> Result[list[str]]:
     """List every value a Quick Stats filter parameter can take, to form valid queries.
 
-    Six small, stable lists are answered from data packaged with this version, with no
-    upstream call (``meta.endpoint`` is ``"get_param_values"``, the operation they were
-    fetched from, and ``meta.retrieved_at`` the time they were fetched): ``source_desc``,
-    ``sector_desc``, ``group_desc``, ``agg_level_desc``, ``freq_desc``, ``state_alpha``.
-    Every other parameter is fetched live.
+    Nine lists are answered from data packaged with this version, with no upstream call
+    (``meta.endpoint`` is ``"get_param_values"``, the operation they were fetched from,
+    and ``meta.retrieved_at`` the time they were fetched): ``source_desc``,
+    ``sector_desc``, ``group_desc``, ``agg_level_desc``, ``freq_desc``, ``state_alpha``,
+    ``statisticcat_desc``, ``unit_desc``, ``domain_desc``. Every other parameter is
+    fetched live.
 
     Args:
-        param: A Quick Stats column name. Large lists worth fetching live:
-            ``"commodity_desc"``, ``"statisticcat_desc"``, ``"short_desc"``,
-            ``"county_name"``, ``"year"``. Definitions are in
+        param: A Quick Stats column name, e.g. ``"statisticcat_desc"`` or ``"unit_desc"``
+            (packaged), or ``"commodity_desc"``, ``"short_desc"``, ``"county_name"``,
+            ``"year"`` (fetched live). Definitions are in
             ``docs/upstream/param_define.md``.
     """
     if param in PACKAGED_PARAMS:

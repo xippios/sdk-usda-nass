@@ -82,12 +82,12 @@ Filters are Quick Stats column names, optionally suffixed with an operator (`__G
 `docs/upstream/param_define.md`. Quick Stats ignores unknown column names, so the
 package checks every key against its column table and raises `InvalidRequestError`,
 naming the closest valid names, before anything is sent; it checks the value of a
-packaged parameter (`state_alpha`, `sector_desc`, ...) against its packaged list too and
-refuses an unknown one with `UnknownCode` before the call, since Quick Stats counts no
-records for it. `xippios.usda.nass.enums` holds StrEnums for the six packaged lists
-(`StateAlpha.VA`, `SectorDesc.CROPS`, ...) and for the progress stages and condition
-categories derived from the data (`ProgressStage.PCT_PLANTED`,
-`ConditionCategory.PCT_GOOD`).
+packaged parameter (`state_alpha`, `sector_desc`, `unit_desc`, ...) against its packaged
+list too and refuses an unknown one with `UnknownCode` before the call, since Quick Stats
+counts no records for it. `xippios.usda.nass.enums` holds StrEnums for the nine packaged
+lists (`StateAlpha.VA`, `SectorDesc.CROPS`, `UnitDesc.DOLLARS_PER_BU`, ...) and for the
+progress stages and condition categories derived from the data
+(`ProgressStage.PCT_PLANTED`, `ConditionCategory.PCT_GOOD`).
 
 ## MCP
 
@@ -105,11 +105,11 @@ categories derived from the data (`ProgressStage.PCT_PLANTED`,
 
 Tools are read-only and named `usda_nass_<verb>_<noun>`. Results are capped, at
 200 rows or 64 KB unless a tool has a cap of its own, with a note on how to see the rest:
-`usda_nass_list_param_values` returns up to 1,000 values, since lists fetched live run
-longer than 200 (`statisticcat_desc` has 278). `--http` serves streamable HTTP instead
-of stdio. `--split-years YEARS`, 1 to 20 and 5 by default, is the most years one
-`usda_nass_get_data` call with `split_by_year` splits into, at most 11 keyed calls at 5;
-the setting holds for the whole process.
+`usda_nass_list_param_values` returns up to 1,000 values, since its lists run longer than
+200 (`domain_desc`, packaged, has 616; `commodity_desc`, fetched live, 467). `--http`
+serves streamable HTTP instead of stdio. `--split-years YEARS`, 1 to 20 and 5 by default,
+is the most years one `usda_nass_get_data` call with `split_by_year` splits into, at most
+11 keyed calls at 5; the setting holds for the whole process.
 
 ## Status
 

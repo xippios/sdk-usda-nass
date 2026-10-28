@@ -4,9 +4,10 @@
 """
 
 import argparse
+import re
 import sys
 from collections.abc import Callable, Iterator
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -28,6 +29,7 @@ from xippios.core.testing import (
     REDACTED,
     ReplayFixture,
     assert_projection,
+    assert_time_between,
     load_fixture,
     mcp_call,
     mcp_call_text,
@@ -111,20 +113,58 @@ def test_query_too_large_is_an_invalid_request_for_http_too() -> None:
 
 
 def fetched_as_written(name: str) -> datetime:
-    """A packaged file's ``fetched``, read from its text: a bare date is 00:00 UTC that day."""
-    when = datetime.fromisoformat(load_json(PACKAGE, f"{name}.json")["fetched"])
-    return when if when.tzinfo else when.replace(tzinfo=UTC)
+    """A packaged file's ``fetched``, read from its text: UTC to the second, with ``Z``.
+
+    ``PackagedList.write`` writes it so (``"2026-10-28T15:01:38Z"``); a bare date, as the
+    files carried before the refresh of 2026-10-28, fails here rather than read as midnight.
+    """
+    text = load_json(PACKAGE, f"{name}.json")["fetched"]
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", text), (name, text)
+    when = datetime.fromisoformat(text)
+    assert when.utcoffset() == timedelta(0), (name, text)
+    return when
 
 
-def test_enums_match_the_packaged_lists() -> None:
-    for param in PACKAGED_PARAMS:
-        cls = getattr(enums, "".join(part.capitalize() for part in param.split("_")))
-        packaged = PackagedList.load(PACKAGE, param)
-        values = [record[param] for record in packaged.records]
-        assert [member.value for member in cls] == values, param
+@pytest.mark.parametrize("param", PACKAGED_PARAMS)
+def test_enums_match_the_packaged_lists(param: str) -> None:
+    cls = getattr(enums, "".join(part.capitalize() for part in param.split("_")))
+    packaged = PackagedList.load(PACKAGE, param)
+    values = [record[param] for record in packaged.records]
+    assert [member.value for member in cls] == values
+    assert cls.__doc__ == f"Values of ``{param}`` (fetched {packaged.fetched:%Y-%m-%d})."
+
+
+def test_enum_members_keep_upstream_values_and_the_hand_names() -> None:
+    """Derived names, and the ones the refresh script sets (``member_names``): every dollar
+    unit by the DOLLARS / PER rule, and the two spelled-out landlord domains."""
+    assert {"statisticcat_desc", "unit_desc", "domain_desc"} <= set(PACKAGED_PARAMS)
     assert enums.StateAlpha.VA.value == "VA"
     assert enums.SectorDesc.ANIMALS_AND_PRODUCTS.value == "ANIMALS & PRODUCTS"
     assert enums.AggLevelDesc.REGION_MULTI_STATE.value == "REGION : MULTI-STATE"
+    assert enums.StatisticcatDesc.AREA_PLANTED.value == "AREA PLANTED"
+    assert enums.DomainDesc.TOTAL.value == "TOTAL"
+    assert enums.UnitDesc.ACRES.value == "ACRES"
+    assert enums.UnitDesc.DOLLARS.value == "$"
+    assert enums.UnitDesc.BU.value == "BU"
+    assert enums.UnitDesc.DOLLARS_PER_BU.value == "$ / BU"
+    assert enums.UnitDesc.LB_CHERRY_BASIS.value == "LB, CHERRY BASIS"
+    assert enums.UnitDesc.DOLLARS_PER_LB_CHERRY_BASIS.value == "$ / LB, CHERRY BASIS"
+    assert enums.UnitDesc.ACRE_FEET.value == "ACRE FEET"
+    assert enums.UnitDesc.DOLLARS_PER_ACRE.value == "$ / ACRE"
+    assert enums.UnitDesc.DOLLARS_PER_TON_DRY_BASIS.value == "$ / TON, DRY BASIS"
+    assert enums.UnitDesc.DOLLARS_PER_1_000_EGGS.value == "$ / 1,000 EGGS"
+    assert enums.UnitDesc.DOLLARS_CHERRY_BASIS.value == "$, CHERRY BASIS"
+    for member in enums.UnitDesc:
+        assert member.name.startswith("DOLLARS") == ("$" in member.value), member
+        assert member.name.startswith("DOLLARS_PER_") == member.value.startswith("$ / "), member
+    landlords = "LANDLORDS_NON_OPERATING_VALUE_OF_LAND_AND_BUILDINGS"
+    assert enums.DomainDesc[landlords].value == (
+        "LANDLORDS, NON-OPERATING, VALUE OF LAND & BUILDINGS"
+    )
+    assert enums.DomainDesc[f"{landlords}_SPELLED_OUT"].value == (
+        "LANDLORDS, NON-OPERATING, VALUE OF LAND AND BUILDINGS"
+    )
+    assert sum(member.name.endswith("_SPELLED_OUT") for member in enums.DomainDesc) == 2
 
 
 def test_enum_members_are_accepted_as_filter_values(
@@ -349,26 +389,46 @@ async def test_get_param_values_replays_the_documented_example(
 def test_list_param_values_goes_live_for_an_unpackaged_parameter(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    route = replay_fixture("get_param_values", "statisticcat_desc")
-    result = tasks.list_param_values("statisticcat_desc")
+    assert "commodity_desc" not in PACKAGED_PARAMS
+    route = replay_fixture("get_param_values", "commodity_desc")
+    before = datetime.now(UTC)
+    result = tasks.list_param_values("commodity_desc")
+    after = datetime.now(UTC)
     assert route.called
+    assert sent_query(route)["param"] == "commodity_desc"
     assert result.meta.endpoint == "get_param_values"
-    assert result.meta.request == {"param": "statisticcat_desc"}
-    assert "AREA PLANTED" in result.data
+    assert result.meta.request == {"param": "commodity_desc"}
+    assert_time_between(result.meta.retrieved_at, before, after)
+    assert {"CORN", "SOYBEANS"} <= set(result.data)
     assert len(result.data) > 200
 
 
 @pytest.mark.anyio
 async def test_list_param_values_over_mcp_is_whole_past_the_default_cap(
-    replay_fixture: Callable[[str, str], respx.Route],
+    respx_mock: respx.MockRouter,
 ) -> None:
-    """278 values, past the default cap of 200 rows: the tool's own cap, ``tasks.MCP_CAPS``
-    (ADR-0016), lets every one through, so no note is added."""
-    replay_fixture("get_param_values", "statisticcat_desc")
+    """``statisticcat_desc``, past the default cap of 200 rows, answered from the package
+    with no upstream call: the tool's own cap, ``tasks.MCP_CAPS`` (ADR-0016), lets every
+    one through, so no note is added."""
     payload = await mcp_call(server, "usda_nass_list_param_values", {"param": "statisticcat_desc"})
-    assert len(payload["data"]) == 278
+    assert not respx_mock.calls
+    assert len(payload["data"]) == len(PackagedList.load(PACKAGE, "statisticcat_desc").records)
+    assert len(payload["data"]) > 200
     assert "note" not in payload
     assert tasks.MCP_CAPS["list_param_values"].max_rows == 1000
+
+
+@pytest.mark.anyio
+async def test_list_param_values_over_mcp_is_whole_for_a_live_list(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """A list fetched live, ``commodity_desc``, past the default cap too, is whole."""
+    route = replay_fixture("get_param_values", "commodity_desc")
+    payload = await mcp_call(server, "usda_nass_list_param_values", {"param": "commodity_desc"})
+    assert route.called
+    assert len(payload["data"]) > 200
+    assert "CORN" in payload["data"]
+    assert "note" not in payload
 
 
 def test_list_param_values_unknown_parameter_is_not_found(
@@ -379,22 +439,31 @@ def test_list_param_values_unknown_parameter_is_not_found(
         tasks.list_param_values("not_a_column")
 
 
+@pytest.mark.parametrize("param", PACKAGED_PARAMS)
 def test_packaged_parameters_are_answered_without_a_network_call(
-    respx_mock: respx.MockRouter,
+    param: str, respx_mock: respx.MockRouter
 ) -> None:
     """respx is active with no routes mounted, so any upstream call would fail loudly."""
-    for param in PACKAGED_PARAMS:
-        packaged = PackagedList.load(PACKAGE, param)
-        result = tasks.list_param_values(param)
-        assert result.data == [record[param] for record in packaged.records], param
-        assert result.meta.endpoint == "get_param_values"
-        assert result.meta.retrieved_at == fetched_as_written(param)
-        assert result.meta.vintage is None
-        assert result.meta.published_at is None
-        assert result.meta.request == {"param": param}
+    packaged = PackagedList.load(PACKAGE, param)
+    result = tasks.list_param_values(param)
+    assert result.data == [record[param] for record in packaged.records]
+    assert result.data
+    assert result.meta.endpoint == "get_param_values"
+    assert result.meta.retrieved_at == fetched_as_written(param)
+    assert result.meta.vintage is None
+    assert result.meta.published_at is None
+    assert result.meta.total is None
+    assert result.meta.request == {"param": param}
     assert not respx_mock.calls
+
+
+def test_packaged_answers_hold_known_values(respx_mock: respx.MockRouter) -> None:
     assert "CROPS" in tasks.list_param_values("sector_desc").data
     assert "VA" in tasks.list_param_values("state_alpha").data
+    assert "AREA PLANTED" in tasks.list_param_values("statisticcat_desc").data
+    assert {"ACRES", "$ / BU"} <= set(tasks.list_param_values("unit_desc").data)
+    assert "TOTAL" in tasks.list_param_values("domain_desc").data
+    assert not respx_mock.calls
 
 
 def test_columns_cover_every_record_field() -> None:
@@ -479,6 +548,8 @@ def test_derived_enums_match_their_lists_and_provenance() -> None:
     ]
     for derived in (stages, categories):
         assert (derived.param, derived.endpoint) == ("unit_desc", "api_GET")
+    for name in DERIVED_LISTS:
+        assert PackagedList.load(PACKAGE, name).fetched == fetched_as_written(name)
     assert stages.note is not None
     assert "statisticcat_desc=PROGRESS" in stages.note
     assert "agg_level_desc=NATIONAL" in stages.note

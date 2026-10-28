@@ -44,6 +44,17 @@ All notable changes to this project are documented here. The format follows
   carries its count there too, beside `data` (conventions §4, ADR-0012). The task-shaped
   functions skip the count and leave `total` `None`.
 
+- `statisticcat_desc` (278 values), `unit_desc` (373) and `domain_desc` (616) ship as
+  packaged lists (fetched 2026-10-28), with the `StrEnum` classes `StatisticcatDesc`,
+  `UnitDesc` and `DomainDesc` in `xippios.usda.nass.enums`; `list_param_values` answers
+  nine parameters from the package, with no upstream call. The refresh script names some
+  members itself, where the renderer would derive none, one name for two values, or a
+  name that reads as a unit, not a price: in `UnitDesc`, every value with `$` (61) reads
+  `$` as `DOLLARS` and `/` as `PER`, so `"$"` is `DOLLARS`, `"$ / BU"` is
+  `DOLLARS_PER_BU` beside `BU`, `"$ / ACRE"` is `DOLLARS_PER_ACRE` and
+  `"$, CHERRY BASIS"` is `DOLLARS_CHERRY_BASIS`; in `DomainDesc`, a `_SPELLED_OUT` suffix
+  marks the two landlord domains upstream also spells with `AND` in place of `&`.
+
 ### Changed
 
 - **BREAKING**: `get_counts` and `get_data` refuse an unknown value of a packaged
@@ -60,6 +71,16 @@ All notable changes to this project are documented here. The format follows
   canonical spelling. A key with an operator (`state_alpha__LIKE`, `sector_desc__NE`) is
   checked against the columns and operators and its value sent as given. Unknown columns
   and operators still raise `InvalidRequestError` first, with the same text.
+- The packaged lists are refreshed (fetched 2026-10-28): no value changed, moved or
+  disappeared in the six lists packaged before and the two derived ones. Each file's
+  `fetched` is the full UTC time of its fetch (`2026-10-28T15:01:38Z`), so
+  `meta.retrieved_at` of a packaged answer is that time, where it read 00:00 UTC of
+  2026-10-25; the `enums.py` docstrings name 2026-10-28, and `reference/README.md` lists
+  the eleven files with their fetch times.
+- `list_param_values` answers `statisticcat_desc`, `unit_desc` and `domain_desc` from
+  the package, no longer live. The live path's replay test uses a new
+  `get_param_values/commodity_desc` fixture (recorded 2026-10-28); the
+  `statisticcat_desc` fixture, which no test replays any more, is removed.
 - `QueryTooLarge`'s hint for a whole query names the way through the limit: narrower
   filters, or `get_data` with `split_by_year=True` (the MCP tool `usda_nass_get_data`)
   on a bounded year range of at most 20 years in Python and over HTTP, 5 by default on
