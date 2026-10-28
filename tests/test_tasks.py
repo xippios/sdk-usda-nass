@@ -145,7 +145,10 @@ def test_unknown_packaged_value_is_refused_before_any_call(
     assert str(info.value).startswith(
         f"'XX' is not a state_alpha in the packaged state_alpha list (fetched {fetched:%Y-%m-%d})."
     )
-    assert "list_param_values('state_alpha') lists the known values" in str(info.value)
+    assert (
+        "list_param_values('state_alpha') lists the known values (over MCP, the tool "
+        "usda_nass_list_param_values)."
+    ) in str(info.value)
     assert (info.value.param, info.value.value, info.value.list_name) == (
         "state_alpha", "XX", "state_alpha",
     )  # fmt: skip
@@ -193,6 +196,7 @@ def test_operator_keys_of_packaged_parameters_are_sent_as_given(
     route = replay_fixture("get_counts", "no_match")
     result = tasks.get_counts({"state_alpha__LIKE": "X", "sector_desc__NE": "NOT A SECTOR"})
     assert route.called
+    # (0, 0) is the no_match fixture's count, recorded for year=1800, not for this query.
     assert (result.data, result.meta.total) == (0, 0)
     sent = sent_query(route)
     assert (sent["state_alpha__LIKE"], sent["sector_desc__NE"]) == ("X", "NOT A SECTOR")

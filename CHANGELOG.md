@@ -19,9 +19,11 @@ All notable changes to this project are documented here. The format follows
   parameter (`params.PACKAGED_PARAMS`, the lists `list_param_values` answers without a
   call, such as `state_alpha` and `sector_desc`) given as a bare key, before any call,
   with core's `UnknownCode`, an `InvalidRequestError` (HTTP 422), naming the packaged
-  list, its fetch date and the closest known values (conventions §5, ADR-0022), where
-  0.1.0 sent it and answered a count of 0 or an empty result, which cannot be told from
-  a query without data. The comparison is exact, upper case as upstream writes the
+  list, its fetch date and the closest known values, or, when none is close, pointing at
+  the task `list_param_values('state_alpha')` and the MCP tool
+  `usda_nass_list_param_values` (conventions §5, ADR-0022), where 0.1.0 sent it and
+  answered a count of 0 or an empty result, which cannot be told from a query without
+  data. The comparison is exact, upper case as upstream writes the
   values, an enum member read by its value; a key with an operator (`state_alpha__LIKE`,
   `sector_desc__NE`) is sent as given. Unknown columns and operators still raise
   `InvalidRequestError` first, with the same text.

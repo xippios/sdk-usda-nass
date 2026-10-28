@@ -101,7 +101,12 @@ def _packaged(param: str) -> tuple[PackagedList, frozenset[str]]:
 
 
 def _check_value(param: str, raw: str | int) -> None:
-    """Refuse a value of a packaged parameter that its packaged list lacks (conventions §5)."""
+    """Refuse a value of a packaged parameter that its packaged list lacks (conventions §5).
+
+    The refusal names the list, its fetch date and the closest known values, or points at
+    ``list_param_values`` and its MCP tool ``usda_nass_list_param_values`` when none is
+    close.
+    """
     value: str | int = raw.value if isinstance(raw, Enum) else raw
     packaged, values = _packaged(param)
     if value in values:
@@ -111,7 +116,10 @@ def _check_value(param: str, raw: str | int) -> None:
     hint = (
         f"Did you mean {', '.join(code for code, _ in close)}?"
         if close
-        else f"list_param_values({param!r}) lists the known values."
+        else (
+            f"list_param_values({param!r}) lists the known values (over MCP, the tool "
+            "usda_nass_list_param_values)."
+        )
     )
     raise UnknownCode(
         param,
@@ -149,7 +157,8 @@ def validate_filters(filters: Filters) -> dict[str, str | int]:
             and every unknown operator.
         UnknownCode: When the keys are known, for the first packaged parameter whose
             value its packaged list lacks, naming the list, its fetch date and the
-            closest known values.
+            closest known values, or pointing at ``list_param_values`` (the MCP tool
+            ``usda_nass_list_param_values``) when none is close.
     """
     known = _column_names()
     problems: list[str] = []
