@@ -8,9 +8,11 @@ fetch to the second and the values as records of one field named by the paramete
 one national year of weekly ``api_GET`` rows, the query they come from kept as the file's
 ``note``. Then ``enums.py`` is regenerated from the packaged files by one
 ``xippios.core.reference.render_enums`` call, one ``StrEnum`` per packaged and derived
-list (member names derived from the values, values verbatim), each class naming the day
-its list was fetched, and formatted with ``ruff format`` and ``ruff check --fix``, as it
-is committed (ADR-0008); and ``columns.csv`` is rebuilt from the column table in
+list, values verbatim and member names derived from the values except the 63 the script
+sets itself in ``member_names`` (on 2026-10-28: the 61 ``unit_desc`` values with ``$``,
+named by one rule, and two ``domain_desc`` values, named literally), each class naming
+the day its list was fetched, and formatted with ``ruff format`` and ``ruff check --fix``,
+as it is committed (ADR-0008); and ``columns.csv`` is rebuilt from the column table in
 ``docs/upstream/param_define.md``, which the snapshot keeps as HTML (conventions §3). The
 table is parsed before any file is written, so a snapshot the parser cannot read leaves
 every packaged file as it was. Quick Stats' lists are value lists, so there is no
@@ -20,7 +22,7 @@ environment, the API key, since every Quick Stats endpoint takes it::
     uv run python scripts/refresh_reference.py
 
 ``--render-only`` regenerates ``enums.py`` from the packaged ``reference/*.json`` alone,
-the six parameter lists and the two derived ones, without a request and without a key:
+the nine parameter lists and the two derived ones, without a request and without a key:
 after a core release changes the renderer (conventions §15, item 6), it changes
 ``enums.py`` and nothing else.
 """
@@ -37,7 +39,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 from xippios.core import PackagedList, sync
-from xippios.core.reference import render_enums
+from xippios.core.reference import enum_member_name, render_enums
 
 from xippios.usda.nass import api
 from xippios.usda.nass.params import DERIVED_LISTS, PACKAGED_PARAMS
@@ -146,7 +148,45 @@ def columns_csv(rows: list[dict[str, str]]) -> str:
     return buffer.getvalue()
 
 
-_ENUM_NAMES = {"progress_stages": "ProgressStage", "condition_categories": "ConditionCategory"}
+_ENUM_NAMES = {
+    "statisticcat_desc": "StatisticcatDesc",
+    "unit_desc": "UnitDesc",
+    "domain_desc": "DomainDesc",
+    "progress_stages": "ProgressStage",
+    "condition_categories": "ConditionCategory",
+}
+
+# Members the script names, not render_enums (ADR-0008), passed to it by member_names().
+# unit_desc: every value with "$" (61 on 2026-10-28) is named by one rule, "$" read as
+# DOLLARS and "/" as PER before the renderer derives the name: "$" is DOLLARS and "$ / X"
+# DOLLARS_PER_<X> (Johannes, 2026-10-28), and "$, X" is DOLLARS_<X> by the same rule.
+# The renderer derives no name from "$" and drops "$" and "/" from the others, so "$ / BU"
+# would share BU with the unit "BU" that unit_desc lists as well, and "$ / ACRE" would read
+# as the unit ACRE. Row 175 proposes the rule for core: "$" as DOLLARS everywhere and "/"
+# as PER only inside a value that contains "$", since reading every "/" as PER would
+# rename 89 unit_desc members without "$".
+# domain_desc: upstream lists two landlord domains spelled both with "&" and with "AND",
+# which derive one name since "&" reads as AND; the "&" spellings keep the derived name,
+# the spelled-out ones take _SPELLED_OUT (Johannes, 2026-10-28).
+_SPELLED_OUT: dict[str, str] = {
+    "LANDLORDS, COMBINED, VALUE OF LAND AND BUILDINGS": (
+        "LANDLORDS_COMBINED_VALUE_OF_LAND_AND_BUILDINGS_SPELLED_OUT"
+    ),
+    "LANDLORDS, NON-OPERATING, VALUE OF LAND AND BUILDINGS": (
+        "LANDLORDS_NON_OPERATING_VALUE_OF_LAND_AND_BUILDINGS_SPELLED_OUT"
+    ),
+}
+
+
+def dollar_name(value: str) -> str:
+    """The member name of a ``unit_desc`` value with ``$``: ``"$ / BU"`` → ``DOLLARS_PER_BU``."""
+    return enum_member_name(value.replace("$", " DOLLARS ").replace("/", " PER "))
+
+
+def member_names(lists: Mapping[str, list[str]]) -> dict[str, dict[str, str]]:
+    """The hand-named members per list: every dollar unit, and the two spelled-out domains."""
+    dollars = {value: dollar_name(value) for value in lists["unit_desc"] if "$" in value}
+    return {"unit_desc": dollars, "domain_desc": _SPELLED_OUT}
 
 
 def write(name: str, packaged: PackagedList) -> None:
@@ -194,7 +234,13 @@ def render() -> None:
         packaged = read(name)
         lists[name] = [record[packaged.param] for record in packaged.records]
         fetched[name] = f"{packaged.fetched:%Y-%m-%d}"
-    module = render_enums(lists, fetched=fetched, class_names=_ENUM_NAMES, generator=GENERATOR)
+    module = render_enums(
+        lists,
+        fetched=fetched,
+        class_names=_ENUM_NAMES,
+        member_names=member_names(lists),
+        generator=GENERATOR,
+    )
     ENUMS.write_text(module, encoding="utf-8")
     sys.stdout.flush()
     for command in (["format"], ["check", "--fix"]):
