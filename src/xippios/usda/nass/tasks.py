@@ -757,7 +757,8 @@ async def get_grain_stocks_async(
         commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``,
             ``"WHEAT"``; ``list_param_values("commodity_desc")`` lists them.
         year: Year of the stocks days, e.g. ``2024`` for the stocks on 1 March, 1 June,
-            1 September and 1 December 2024.
+            1 September and 1 December 2024; the current year returns only the stocks
+            days published so far.
         state: Two-letter state code for the state estimates, e.g. ``"IA"``, ``"ND"``;
             ``None`` returns the national ``US TOTAL`` estimates.
     """
