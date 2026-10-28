@@ -25,6 +25,10 @@ All notable changes to this project are documented here. The format follows
   follows conventions §3 (the UTC time with `Z`, the attribution, one row per page with
   status, size and sha256), and the column-definitions table, which has merged cells, is
   kept as HTML. Upstream's content is unchanged since the snapshot of 2026-10-22.
+  `scripts/refresh_reference.py` reads that HTML table before it writes any file, and
+  rebuilds `columns.csv` from it unchanged.
+- The README's "Upstream terms and attribution" displays the notice the NASS API Terms of
+  Service require of every service that uses the API.
 
 ### Removed
 
