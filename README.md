@@ -61,10 +61,13 @@ Filters are Quick Stats column names, optionally suffixed with an operator (`__G
 `__LE`, `__LIKE`, ...), mapped to values; the columns are listed in
 `docs/upstream/param_define.md`. Quick Stats ignores unknown column names, so the
 package checks every key against its column table and raises `InvalidRequestError`,
-naming the closest valid names, before anything is sent. `xippios.usda.nass.enums`
-holds StrEnums for the six packaged lists (`StateAlpha.VA`, `SectorDesc.CROPS`, ...) and
-for the progress stages and condition categories derived from the data
-(`ProgressStage.PCT_PLANTED`, `ConditionCategory.PCT_GOOD`).
+naming the closest valid names, before anything is sent; it checks the value of a
+packaged parameter (`state_alpha`, `sector_desc`, ...) against its packaged list too and
+refuses an unknown one with `UnknownCode` before the call, since Quick Stats counts no
+records for it. `xippios.usda.nass.enums` holds StrEnums for the six packaged lists
+(`StateAlpha.VA`, `SectorDesc.CROPS`, ...) and for the progress stages and condition
+categories derived from the data (`ProgressStage.PCT_PLANTED`,
+`ConditionCategory.PCT_GOOD`).
 
 ## MCP
 

@@ -13,9 +13,27 @@ All notable changes to this project are documented here. The format follows
   `test_acreage_forecasts_live`), so every task has one (conventions §10);
   `test_list_param_values_live` asks for `commodity_desc`, a list fetched live, where it
   asked for the packaged `sector_desc`, which spent no call.
+- `meta.total` on `get_data`: the count `get_counts` reported for the filters, `0` on
+  the empty result it returns without a second call, never `len(data)`; `get_counts`
+  carries its count there too, beside `data` (conventions §4, ADR-0012). The task-shaped
+  functions skip the count and leave `total` `None`.
 
 ### Changed
 
+- **BREAKING**: `get_counts` and `get_data` refuse an unknown value of a packaged
+  parameter (`params.PACKAGED_PARAMS`, the lists `list_param_values` answers without a
+  call, such as `state_alpha` and `sector_desc`) given as a bare key, before any call,
+  with core's `UnknownCode`, an `InvalidRequestError` (HTTP 422), naming the packaged
+  list, its fetch date and the closest known values, or, when none is close, pointing at
+  the task `list_param_values('state_alpha')` and the MCP tool
+  `usda_nass_list_param_values` (conventions §5, ADR-0022), where 0.1.0 sent it and
+  answered a count of 0 or an empty result, which cannot be told from a query without
+  data. The comparison ignores case, as Quick Stats does (`state_alpha=va` counts what
+  `VA` counts, recorded 2026-10-28), so a value upstream serves is never refused, and the
+  value is sent as given; an enum member is read by its value, and the hint names the
+  canonical spelling. A key with an operator (`state_alpha__LIKE`, `sector_desc__NE`) is
+  checked against the columns and operators and its value sent as given. Unknown columns
+  and operators still raise `InvalidRequestError` first, with the same text.
 - Adopted xippios-core 0.3.0, sdk-template v0.3.0 and conventions 1.22 (conventions §15).
 - **BREAKING**: depends on `xippios-core~=0.3.0`, its `mcp`, `http` and `testing` extras
   likewise, from PyPI; a core minor keeps no compatibility with the one before it while

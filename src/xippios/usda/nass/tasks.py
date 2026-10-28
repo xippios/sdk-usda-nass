@@ -73,8 +73,8 @@ note.
 """
 
 
-def _meta(endpoint: str, request: dict[str, str | int]) -> ResultMeta:
-    return ResultMeta(source=SOURCE, endpoint=endpoint, request=request)
+def _meta(endpoint: str, request: dict[str, str | int], *, total: int | None = None) -> ResultMeta:
+    return ResultMeta(source=SOURCE, endpoint=endpoint, request=request, total=total)
 
 
 def _project[M: UpstreamModel](model: type[M], record: QuickStatsRecord) -> M:
@@ -89,7 +89,8 @@ async def _slice[M: UpstreamModel](
 ) -> Result[list[M]]:
     """Fetch a task-shaped slice without the count check: its filters keep it small.
 
-    An over-limit answer still raises ``QueryTooLarge`` from the wrapper.
+    An over-limit answer still raises ``QueryTooLarge`` from the wrapper. Without the
+    count, ``meta.total`` stays ``None``.
     """
     checked = validate_filters(filters)
     response = await api.api_get(checked)
@@ -108,12 +109,20 @@ async def get_counts_async(filters: Filters) -> Result[int]:
     """Count the Quick Stats records a set of filters would return, before fetching them.
 
     ``api_GET`` returns at most 50,000 records; check the count first and narrow the
-    filters when it is higher.
+    filters when it is higher. ``data`` is the count, and ``meta.total`` carries the
+    same number.
 
     Args:
         filters: Quick Stats columns, optionally suffixed with an operator, mapped to
             values. Keys are checked against the column table before anything is sent;
-            an unknown column or operator raises ``InvalidRequestError`` naming it.
+            an unknown column or operator raises ``InvalidRequestError`` naming it. A
+            parameter ``list_param_values`` answers from packaged data (``state_alpha``,
+            ``sector_desc``, ``agg_level_desc``, ...), given without an operator, takes a
+            value of its list only, in any case, since Quick Stats ignores case
+            (``"va"`` counts what ``"VA"`` counts), and is sent as given; another raises
+            ``UnknownCode`` before anything is sent, naming the list, its fetch date and
+            the closest known values, or pointing at ``list_param_values`` (the tool
+            ``usda_nass_list_param_values``) when none is close.
             Columns are the What, Where and When dimensions, for example
             ``commodity_desc`` (``"CORN"``), ``statisticcat_desc`` (``"AREA PLANTED"``),
             ``agg_level_desc`` (``"STATE"``, ``"COUNTY"``), ``state_alpha`` (``"VA"``),
@@ -124,8 +133,7 @@ async def get_counts_async(filters: Filters) -> Result[int]:
     """
     checked = validate_filters(filters)
     response = await api.get_counts(checked)
-    meta = ResultMeta(source=SOURCE, endpoint="get_counts", request=checked)
-    return Result(data=response.count, meta=meta)
+    return Result(data=response.count, meta=_meta("get_counts", checked, total=response.count))
 
 
 async def get_data_async(filters: Filters) -> Result[list[QuickStatsRecord]]:
@@ -133,25 +141,30 @@ async def get_data_async(filters: Filters) -> Result[list[QuickStatsRecord]]:
 
     Calls ``get_counts`` first: a count of zero returns an empty result without a second
     call, and a count above 50,000 raises ``QueryTooLarge`` with the count and a hint to
-    narrow, before anything is fetched. Each record carries every Quick Stats column;
+    narrow, before anything is fetched. ``meta.total`` is the count ``get_counts``
+    reported, ``0`` for the empty result. Each record carries every Quick Stats column;
     ``value`` is the published figure as a string (``"510,000"``, or a suppression code
     such as ``"(D)"``) and ``value_number`` the parsed number.
 
     Args:
         filters: Quick Stats columns, optionally suffixed with an operator, mapped to
-            values; the same shape as for ``get_counts``. A query that stays well under
-            the limit names the commodity, the statistic, the level and the time, e.g.
+            values; the same shape and the same checks as for ``get_counts``: an
+            unknown value of a packaged parameter raises ``UnknownCode`` naming the
+            list, its fetch date and the closest known values, or pointing at
+            ``list_param_values`` (the tool ``usda_nass_list_param_values``) when none
+            is close. A query that stays well under the limit names the commodity, the
+            statistic, the level and the time, e.g.
             ``{"commodity_desc": "CORN", "statisticcat_desc": "AREA PLANTED",
             "agg_level_desc": "STATE", "state_alpha": "VA", "year": 2012}``.
     """
     checked = validate_filters(filters)
     count = (await api.get_counts(checked)).count
     if count == 0:
-        return Result(data=[], meta=_meta("api_GET", checked))
+        return Result(data=[], meta=_meta("api_GET", checked, total=0))
     if count > RECORD_LIMIT:
         raise QueryTooLarge(count)
     response = await api.api_get(checked)
-    return Result(data=response.data, meta=_meta("api_GET", checked))
+    return Result(data=response.data, meta=_meta("api_GET", checked, total=count))
 
 
 async def list_param_values_async(param: str) -> Result[list[str]]:
