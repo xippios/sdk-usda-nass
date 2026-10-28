@@ -6,8 +6,30 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `statisticcat_desc` (278 values), `unit_desc` (373) and `domain_desc` (616) ship as
+  packaged lists (fetched 2026-10-28), with the `StrEnum` classes `StatisticcatDesc`,
+  `UnitDesc` and `DomainDesc` in `xippios.usda.nass.enums`; `list_param_values` answers
+  nine parameters from the package, with no upstream call. Twelve members are named by
+  hand in the refresh script, where the renderer derives no name or one name for two
+  values: in `UnitDesc`, `DOLLARS` for `"$"` and `DOLLARS_PER_<unit>` for the nine
+  `"$ / <unit>"` values whose unit `unit_desc` lists as well (`DOLLARS_PER_BU` for
+  `"$ / BU"`, beside `BU`); in `DomainDesc`, a `_SPELLED_OUT` suffix on the two landlord
+  domains upstream also spells with `AND` in place of `&`.
+
 ### Changed
 
+- The packaged lists are refreshed (fetched 2026-10-28): no value changed, moved or
+  disappeared in the six lists packaged before and the two derived ones. Each file's
+  `fetched` is the full UTC time of its fetch (`2026-10-28T15:01:38Z`), so
+  `meta.retrieved_at` of a packaged answer is that time, where it read 00:00 UTC of
+  2026-10-25; the `enums.py` docstrings name 2026-10-28, and `reference/README.md` lists
+  the eleven files with their fetch times.
+- `list_param_values("statisticcat_desc")` is answered from the package, no longer
+  live. The live path's replay test uses a new `get_param_values/commodity_desc`
+  fixture (recorded 2026-10-28); the `statisticcat_desc` fixture, which no test
+  replays any more, is removed.
 - Adopted xippios-core 0.3.0, sdk-template v0.3.0 and conventions 1.22 (conventions §15).
 - **BREAKING**: depends on `xippios-core~=0.3.0`, its `mcp`, `http` and `testing` extras
   likewise, from PyPI; a core minor keeps no compatibility with the one before it while

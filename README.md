@@ -62,9 +62,9 @@ Filters are Quick Stats column names, optionally suffixed with an operator (`__G
 `docs/upstream/param_define.md`. Quick Stats ignores unknown column names, so the
 package checks every key against its column table and raises `InvalidRequestError`,
 naming the closest valid names, before anything is sent. `xippios.usda.nass.enums`
-holds StrEnums for the six packaged lists (`StateAlpha.VA`, `SectorDesc.CROPS`, ...) and
-for the progress stages and condition categories derived from the data
-(`ProgressStage.PCT_PLANTED`, `ConditionCategory.PCT_GOOD`).
+holds StrEnums for the nine packaged lists (`StateAlpha.VA`, `SectorDesc.CROPS`,
+`UnitDesc.DOLLARS_PER_BU`, ...) and for the progress stages and condition categories
+derived from the data (`ProgressStage.PCT_PLANTED`, `ConditionCategory.PCT_GOOD`).
 
 ## MCP
 
@@ -82,9 +82,9 @@ for the progress stages and condition categories derived from the data
 
 Tools are read-only and named `usda_nass_<verb>_<noun>`. Results are capped, at
 200 rows or 64 KB unless a tool has a cap of its own, with a note on how to see the rest:
-`usda_nass_list_param_values` returns up to 1,000 values, since lists fetched live run
-longer than 200 (`statisticcat_desc` has 278). `--http` serves streamable HTTP instead
-of stdio.
+`usda_nass_list_param_values` returns up to 1,000 values, since its lists run longer than
+200 (`domain_desc`, packaged, has 616; `commodity_desc`, fetched live, 467). `--http`
+serves streamable HTTP instead of stdio.
 
 ## Status
 
