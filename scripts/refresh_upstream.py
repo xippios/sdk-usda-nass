@@ -17,7 +17,8 @@ the page's chrome cut (``CHROME``) and the column-definitions table, whose dimen
 span all three columns, kept as HTML (conventions §3). Quick Stats publishes no OpenAPI
 document, so ``SPEC_URL`` stays ``None``. The rest is the family's capture frame, with one
 change in ``check_attribution``: it leaves out HTML comments, which a page does not print,
-and ``REFERENCES``, the names the api page gives the terms it states.
+and ``REFERENCES``, the three exact texts in which the api page refers to the terms it
+states.
 
 Everything is fetched before anything is written, one request at a time after a pause,
 each URL retried at most once after a network error or a 5xx. Each page with a file is
@@ -28,9 +29,10 @@ sent. A page recorded without a file (a 403 or a 404, a page without documentati
 has a row of its own, and a file cut from a shared document keeps the whole document's
 size and sha256 in its row (conventions §3). Files the run does not produce are removed
 from the subdirectories it writes to; nothing else under ``docs/upstream/`` is touched.
-Every run stops, before writing, when a page states a copyright, a licence or terms of use
-that ``ATTRIBUTION`` does not record. No key is needed or read. Run from the repository
-root::
+Every copyright line, licence, terms-of-use or public-domain statement a page prints that
+``ATTRIBUTION`` does not record stops the run before anything is written; HTML comments
+aside, the three references in ``REFERENCES`` are the only texts the check ignores. No key
+is needed or read. Run from the repository root::
 
     uv run scripts/refresh_upstream.py            # fetch, then write the snapshot
     uv run scripts/refresh_upstream.py --check    # fetch and compare; write nothing
@@ -129,15 +131,27 @@ ATTRIBUTION: tuple[str, ...] = (
 The api page prints the NASS API Terms of Service on its Terms of Service tab, and a copy
 in its key request form, with the notice their Attribution section asks every service that
 uses the API to display; param_define states none. ``FETCHED.md`` quotes them under
-Attribution, and every run stops when a page states one that is not here.
+Attribution. Every copyright line, licence, terms-of-use or public-domain statement a page
+prints that is not here stops the run; HTML comments aside, the three references in
+``REFERENCES`` are the only texts the check ignores.
 """
 
-REFERENCES: tuple[str, ...] = ("NASS Terms of Service", "Terms of Service")
-"""How the api page names the recorded terms without stating anything new.
+REFERENCES: tuple[str, ...] = (
+    '<div class="menu" id="list" onclick="openDiv(\'disclaim\', \'block\');"> Terms of Service '
+    '<br clear="all"> <br clear="all"> </div>',
+    'agree to the <span class="menu" id="list" onclick="openDiv(\'disclaim\', \'block\');">'
+    "NASS Terms of Service</span >",
+    "Do you agree with <a href=\"javascript:setVisibility('tos', 'block');\">Terms of Service</a>?",
+)
+"""The three texts in which the api page refers to the recorded terms, as it serves them.
 
-Its Introduction asks the reader to agree to the "NASS Terms of Service", its tab menu has
-a "Terms of Service" tab and the key form asks "Do you agree with Terms of Service?".
-``check_attribution`` removes these after ``ATTRIBUTION``, before it searches.
+The Terms of Service tab of its tab menu, the whole element; the Introduction's "agree to
+the NASS Terms of Service", with the span that opens the tab; and the key form's question
+"Do you agree with Terms of Service?", with the link that opens the terms. None states
+anything new. ``check_attribution`` removes each where it appears exactly so, any run of
+whitespace standing for a space, after ``ATTRIBUTION`` and before it searches. "Terms of
+Service" anywhere else stops the run like any other statement: HTML comments aside, these
+three are the only texts the check ignores.
 """
 
 CAPTURE = (
@@ -165,6 +179,9 @@ _STATEMENT = re.compile(
 )
 _FETCHED = re.compile(r"\| (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z) \|")
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+_REFERENCES = tuple(
+    re.compile(r"\s+".join(re.escape(word) for word in text.split())) for text in REFERENCES
+)
 
 
 @dataclass(frozen=True)
@@ -294,11 +311,14 @@ def check_attribution(page: Page, response: Response) -> None:
     anything (a ``license`` class) checks the text its ``reduce`` keeps instead. Quick Stats'
     pages carry them in two places that state nothing, and the check leaves both out: HTML
     comments, which a page does not print (both pages keep a 2008 copyright footer commented
-    out), and ``REFERENCES``, removed after ``ATTRIBUTION``.
+    out), and the three exact references to the recorded terms in ``REFERENCES``, removed
+    after ``ATTRIBUTION``. Nothing else is ignored.
     """
     body = html.unescape(_COMMENT.sub("", response.body.decode("utf-8", "replace")))
-    for statement in (*ATTRIBUTION, *REFERENCES):
+    for statement in ATTRIBUTION:
         body = body.replace(statement, "")
+    for reference in _REFERENCES:
+        body = reference.sub("", body)
     match = _STATEMENT.search(body)
     if match:
         around = " ".join(body[max(match.start() - 60, 0) : match.end() + 60].split())
