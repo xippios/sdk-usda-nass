@@ -40,16 +40,19 @@ year, before anything is fetched. `list_param_values("sector_desc")` lists the v
 filter can take.
 
 `get_data(filters, split_by_year=True)` fetches the years one at a time where one call
-cannot serve them, at most 20 years a call, when its filters bound the years as `year`,
-`year__GE` with `year__LE`, or `year__GE` alone up to the current UTC year; any other
-year filter, or a longer range, is refused with `InvalidRequestError` before a call.
-Quick Stats keeps one bound on `year` per query (recorded 2026-10-28: it counts
-`year__GE` with `year__LE` as `year__GE` alone, and drops `year__GE` beside `year__LT`),
-so a two-sided year range is served only by this split. That form is always split, every
-year counted before anything is fetched; `year` is counted and fetched once, and
-`year__GE` alone is counted first and split only over the limit. A year over 50,000 on
-its own still raises `QueryTooLarge` naming it, and the records come in year order with
-`meta.total` the yearly counts summed. A split costs up to two keyed calls per year.
+cannot serve them, when its filters bound the years as `year`, `year__GE` with
+`year__LE`, or `year__GE` alone up to the current UTC year; any other year filter is
+refused with `InvalidRequestError` before a call. Quick Stats keeps one bound on `year`
+per query (recorded 2026-10-28: it counts `year__GE` with `year__LE` as `year__GE` alone,
+and drops `year__GE` beside `year__LT`), so a two-sided year range is served only by
+this split. That form is always split, every year counted before anything is fetched;
+`year` is counted and fetched once, and `year__GE` alone is counted first and split only
+over the limit. One call splits into at most 20 years: a longer split raises
+`InvalidRequestError` naming the ceiling, for a two-sided range before any call, for
+`year__GE` alone after its count, while an open range within the limit is fetched whole
+however far back it starts. A year over 50,000 on its own still raises `QueryTooLarge`
+naming it, and the records come in year order with `meta.total` the yearly counts
+summed. A split costs up to two keyed calls per year.
 
 Task-shaped functions sit on top for the slices an agent reaches in one call:
 

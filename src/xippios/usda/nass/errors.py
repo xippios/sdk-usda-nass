@@ -10,10 +10,11 @@ RECORD_LIMIT = 50_000
 """Most records ``api_GET`` returns for one query (``docs/upstream/api.md``)."""
 
 SPLIT_CEILING = 20
-"""Most years one ``get_data(split_by_year=True)`` call covers, this package's ceiling.
+"""Most years one ``get_data(split_by_year=True)`` call splits into, this package's ceiling.
 
-A task that assembles a period series states its ceiling (conventions §4); a longer
-range is refused before any call.
+A task that assembles a period series states its ceiling (conventions §4). A split of
+more years is refused before its first yearly count: a two-sided range before any call,
+``year__GE`` alone after its first count; a range one call serves whole is not split.
 """
 
 

@@ -1010,27 +1010,86 @@ def test_split_bounds_year_ge_alone_at_the_current_utc_year(
     assert not fetched.called
 
 
-@pytest.mark.parametrize(
-    ("years", "first", "last"),
-    [
-        ({"year__GE": 2000, "year__LE": 2020}, 2000, 2020),
-        ({"year__GE": THIS_YEAR - 20}, THIS_YEAR - 20, THIS_YEAR),
-    ],
-)
-def test_split_refuses_more_than_twenty_years_before_any_call(
-    respx_mock: respx.MockRouter, years: dict[str, str | int], first: int, last: int
-) -> None:
-    """The ceiling of conventions §4, for both ranges: 21 years is one too many."""
-    with pytest.raises(InvalidRequestError) as info:
-        tasks.get_data({"commodity_desc": "CORN", **years}, split_by_year=True)
-    assert not isinstance(info.value, QueryTooLarge | UnknownCode)
-    assert str(info.value) == (
+def ceiling_message(first: int, last: int) -> str:
+    return (
         f"split_by_year covers at most 20 years per call; the years run from {first} to "
-        f"{last}, 21 years. Give a shorter range, e.g. year__GE={first + 1} with "
-        f"year__LE={last}."
+        f"{last}, {last - first + 1} years. Give a shorter range, e.g. year__GE={last - 19} "
+        f"with year__LE={last}."
     )
+
+
+def test_split_refuses_a_two_sided_range_of_more_than_twenty_years_before_any_call(
+    respx_mock: respx.MockRouter,
+) -> None:
+    """The ceiling of conventions §4, the most years one call splits into: a two-sided
+    range always splits, so 21 years, one too many, are refused before any call."""
+    filters: dict[str, str | int] = {"commodity_desc": "CORN", "year__GE": 2000, "year__LE": 2020}
+    with pytest.raises(InvalidRequestError) as info:
+        tasks.get_data(filters, split_by_year=True)
+    assert not isinstance(info.value, QueryTooLarge | UnknownCode)
+    assert str(info.value) == ceiling_message(2000, 2020)
     assert status_for(info.value) == 422
     assert not respx_mock.calls
+
+
+def test_split_fetches_a_fitting_year_ge_range_whole_however_far_back(
+    replay_fixture: ReplayFixture,
+) -> None:
+    """The ceiling binds a split, not the filters: ``year__GE`` 25 years back with a count
+    within the limit is fetched whole. ``get_counts/corn_va_since_2012`` (22,345) stands
+    in for the count, and ``api_get/corn_va_2012_area_planted`` replays a slice."""
+    start = THIS_YEAR - 25
+    counted = replay_fixture(
+        "get_counts",
+        "corn_va_since_2012",
+        url=f"{BASE_URL}/get_counts/?year__GE={start}",
+        match_params=["year__GE"],
+    )
+    fetched = replay_fixture(
+        "api_get",
+        "corn_va_2012_area_planted",
+        url=f"{BASE_URL}/api_GET/?year__GE={start}",
+        match_params=["year__GE"],
+    )
+    filters: dict[str, str | int] = {
+        "commodity_desc": "CORN",
+        "state_alpha": "VA",
+        "year__GE": start,
+    }
+    result = tasks.get_data(filters, split_by_year=True)
+    assert (counted.call_count, fetched.call_count) == (1, 1)
+    assert sent_query(fetched) == {
+        **{key: str(value) for key, value in filters.items()},
+        "format": "JSON",
+        "key": REDACTED,
+    }
+    assert result.meta.total == 22345
+    assert len(result.data) == 2
+    assert result.meta.request == {**filters, "split_by_year": True}
+
+
+@pytest.mark.parametrize("back", [20, 25])
+def test_split_of_year_ge_alone_refuses_more_than_twenty_years_after_the_first_count(
+    replay_fixture: ReplayFixture, respx_mock: respx.MockRouter, back: int
+) -> None:
+    """Over the limit, ``year__GE`` alone 21 or 26 years back would split into more years
+    than the ceiling: refused after the first count, before any yearly count or fetch.
+    ``get_counts/corn_county_2020_2021`` (85,535) stands in for the count."""
+    start = THIS_YEAR - back
+    counted = replay_fixture(
+        "get_counts",
+        "corn_county_2020_2021",
+        url=f"{BASE_URL}/get_counts/?year__GE={start}",
+        match_params=["year__GE"],
+    )
+    fetched = replay_fixture("api_get", "exceeds_limit")
+    with pytest.raises(InvalidRequestError) as info:
+        tasks.get_data({"commodity_desc": "CORN", "year__GE": start}, split_by_year=True)
+    assert not isinstance(info.value, QueryTooLarge | UnknownCode)
+    assert str(info.value) == ceiling_message(start, THIS_YEAR)
+    assert counted.call_count == 1
+    assert sent_in_order(respx_mock) == [("/api/get_counts/", None)]
+    assert not fetched.called
 
 
 def test_split_accepts_twenty_years_of_a_two_sided_range(
@@ -1050,12 +1109,23 @@ def test_split_accepts_twenty_years_of_a_two_sided_range(
 def test_split_accepts_twenty_years_from_year_ge_on(
     replay_fixture: ReplayFixture,
 ) -> None:
-    """``get_counts/no_match`` answers the first count with 0: one call, nothing fetched."""
-    counted = replay_fixture("get_counts", "no_match")
-    fetched = replay_fixture("api_get", "no_match")
+    """Over the limit, ``year__GE`` alone 19 years back splits into 20 years: the first
+    count, ``get_counts/corn_county_2020_2021`` moved, then ``get_counts/no_match`` (a
+    count of 0) for every year, and nothing fetched."""
     start = THIS_YEAR - 19
+    first = replay_fixture(
+        "get_counts",
+        "corn_county_2020_2021",
+        url=f"{BASE_URL}/get_counts/?year__GE={start}",
+        match_params=["year__GE"],
+    )
+    yearly = replay_fixture("get_counts", "no_match")
+    fetched = replay_fixture("api_get", "no_match")
     result = tasks.get_data({"commodity_desc": "CORN", "year__GE": start}, split_by_year=True)
-    assert [httpx.URL(url).params.get("year__GE") for url in sent_urls(counted)] == [str(start)]
+    assert first.call_count == 1
+    sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
+    assert sent == [str(year) for year in range(start, THIS_YEAR + 1)]
+    assert len(sent) == 20
     assert (result.data, result.meta.total) == ([], 0)
     assert not fetched.called
 

@@ -167,8 +167,7 @@ def _years(filters: Mapping[str, str | int]) -> range:
 
     Raises:
         InvalidRequestError: The year filters are none of the three bounded forms, a
-            bound is not a whole year, the range holds no year, or it holds more than
-            ``SPLIT_CEILING`` years.
+            bound is not a whole year, or the range holds no year.
     """
     keys = sorted(key for key in filters if _is_year(key))
     if keys == ["year"]:
@@ -189,15 +188,7 @@ def _years(filters: Mapping[str, str | int]) -> range:
             f"split_by_year: the years run from {first} to {last}, a range without a year.",
             source=SOURCE,
         )
-    years = range(first, last + 1)
-    if len(years) > SPLIT_CEILING:
-        raise InvalidRequestError(
-            f"split_by_year covers at most {SPLIT_CEILING} years per call; the years run "
-            f"from {first} to {last}, {len(years)} years. Give a shorter range, e.g. "
-            f"year__GE={last - SPLIT_CEILING + 1} with year__LE={last}.",
-            source=SOURCE,
-        )
-    return years
+    return range(first, last + 1)
 
 
 async def _split_by_year(
@@ -209,7 +200,20 @@ async def _split_by_year(
     Every year is counted before the first fetch, so a year over the limit raises
     ``QueryTooLarge`` naming it before anything is fetched; a year counting 0 is not
     fetched. ``meta.total`` is the yearly counts summed.
+
+    Raises:
+        InvalidRequestError: ``years`` holds more than ``SPLIT_CEILING`` years, the most
+            one call splits into (conventions §4); raised before the first yearly count.
+        QueryTooLarge: A year alone is over the limit.
     """
+    if len(years) > SPLIT_CEILING:
+        first, last = years[0], years[-1]
+        raise InvalidRequestError(
+            f"split_by_year covers at most {SPLIT_CEILING} years per call; the years run "
+            f"from {first} to {last}, {len(years)} years. Give a shorter range, e.g. "
+            f"year__GE={last - SPLIT_CEILING + 1} with year__LE={last}.",
+            source=SOURCE,
+        )
     rest = {key: value for key, value in filters.items() if not _is_year(key)}
     chunks: list[tuple[dict[str, str | int], int]] = []
     for year in years:
@@ -254,25 +258,27 @@ async def get_data_async(
             ``year__GE`` with ``year__LE`` as ``year__GE`` alone, in either order, and
             drops ``year__GE`` beside ``year__LT``, so a two-sided year range is served
             only by ``split_by_year``.
-        split_by_year: ``True`` fetches the years one at a time where one call cannot
-            serve them, at most 20 years a call. The filters bound the years in one of
-            three forms, checked before any call: ``year`` (``2022``), ``year__GE`` with
-            ``year__LE`` (``2020`` and ``2023``), or ``year__GE`` alone, up to the
+        split_by_year: ``True`` fetches the years one at a time where one call cannot serve
+            them, splitting one call into at most 20 years. The filters bound the years in
+            one of three forms, checked before any call: ``year`` (``2022``), ``year__GE``
+            with ``year__LE`` (``2020`` and ``2023``), or ``year__GE`` alone, up to the
             current UTC year; another year filter (``year__LE`` alone, ``year__GT``,
             ``year__NE``, ...), a mix or none raises ``InvalidRequestError`` naming the
-            three forms, and a range of more than 20 years raises it naming the ceiling.
-            ``year`` is counted and fetched once, as without the flag; over the limit it
-            raises ``QueryTooLarge`` naming the year. ``year__GE`` with ``year__LE`` is
-            always split, without a count of the range, which Quick Stats would count
-            as ``year__GE`` alone. ``year__GE`` alone is counted first and fetched once
-            when the count is within the limit, else split. A split counts each year
-            with ``year=<y>`` in place of the year filters, every year before the first
-            fetch, so a year over 50,000 on its own raises ``QueryTooLarge`` naming it
-            before anything is fetched; it then fetches each year holding records, the
-            records in year order, each year's in upstream's order. Cost: up to two
-            keyed calls per year, plus the first count for ``year__GE`` alone, paced at
-            30 a minute, so 20 years take up to 41 calls, about 80 seconds.
-            ``meta.request`` carries ``split_by_year`` beside the filters.
+            three forms. ``year`` is counted and fetched once, as without the flag; over the
+            limit it raises ``QueryTooLarge`` naming the year. ``year__GE`` with
+            ``year__LE`` is always split, without a count of the range, which Quick Stats
+            would count as ``year__GE`` alone; more than 20 years raise
+            ``InvalidRequestError`` naming the ceiling before any call. ``year__GE`` alone
+            is counted first and fetched once when the count is within the limit, however
+            far back it starts; over the limit it is split, and more than 20 years raise
+            ``InvalidRequestError`` naming the ceiling after that count, before the split. A
+            split counts each year with ``year=<y>`` in place of the year filters, every
+            year before the first fetch, so a year over 50,000 on its own raises
+            ``QueryTooLarge`` naming it before anything is fetched; it then fetches each
+            year holding records, the records in year order, each year's in upstream's
+            order. Cost: up to two keyed calls per year, plus the first count for
+            ``year__GE`` alone, paced at 30 a minute, so 20 years take up to 41 calls, about
+            80 seconds. ``meta.request`` carries ``split_by_year`` beside the filters.
             ``False``, the default, never splits.
     """
     checked = validate_filters(filters)

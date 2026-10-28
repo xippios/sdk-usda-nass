@@ -12,16 +12,18 @@ All notable changes to this project are documented here. The format follows
   `usda_nass_get_data` and the HTTP route: the years are fetched one at a time where one
   call cannot serve them. The filters bound the years as `year`, `year__GE` with
   `year__LE`, or `year__GE` alone up to the current UTC year, checked before any call;
-  another year filter, or none, raises `InvalidRequestError` naming the three forms, and
-  a range of more than 20 years (`errors.SPLIT_CEILING`) raises it naming the ceiling
-  (conventions §4). Quick Stats keeps one bound on `year` per query (recorded
-  2026-10-28: `year__GE` with `year__LE` counts as `year__GE` alone, in either order, and
-  beside `year__LT` the lower bound is dropped), which the `get_counts` and `get_data`
-  docstrings state (ADR-0003), so `year__GE` with `year__LE` is always split, without a
-  count of the range. `year` is counted and fetched once, as without the flag;
-  `year__GE` alone is counted first and fetched once when the count is within the
-  limit, else split. A split counts every year with `year=<y>` in place of the year
-  filters before anything is fetched; a year over the limit on its own raises
+  another year filter, or none, raises `InvalidRequestError` naming the three forms. One
+  call splits into at most 20 years (`errors.SPLIT_CEILING`, conventions §4): a longer
+  split raises `InvalidRequestError` naming the ceiling, for a two-sided range before
+  any call, for `year__GE` alone after its count, while an open range within the limit
+  is fetched whole however far back it starts. Quick Stats keeps one bound on `year` per
+  query (recorded 2026-10-28: `year__GE` with `year__LE` counts as `year__GE` alone, in
+  either order, and beside `year__LT` the lower bound is dropped), which the
+  `get_counts` and `get_data` docstrings state (ADR-0003), so `year__GE` with `year__LE`
+  is always split, without a count of the range. `year` is counted and fetched once, as
+  without the flag; `year__GE` alone is counted first and fetched once when the count is
+  within the limit, else split. A split counts every year with `year=<y>` in place of
+  the year filters before anything is fetched; a year over the limit on its own raises
   `QueryTooLarge` naming it, which now carries `year`; a year counting 0 is not fetched;
   the records come in year order, each year's in upstream's order. `meta.total` is the
   yearly counts summed and `meta.request` carries `split_by_year` beside the filters
