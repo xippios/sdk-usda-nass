@@ -18,7 +18,7 @@ from collections.abc import Callable, Mapping
 from datetime import date
 from typing import Any
 
-from xippios.core import Result, ResultMeta, UpstreamModel, parse_decimal, sync
+from xippios.core import PackagedList, Result, ResultMeta, UpstreamModel, parse_decimal, sync
 
 from xippios.usda.nass import api
 from xippios.usda.nass._client import SOURCE
@@ -33,7 +33,7 @@ from xippios.usda.nass.models import (
     PriceReceivedRecord,
     QuickStatsRecord,
 )
-from xippios.usda.nass.params import packaged_values, validate_filters
+from xippios.usda.nass.params import PACKAGE, PACKAGED_PARAMS, validate_filters
 
 __all__ = [
     "get_acreage",
@@ -160,9 +160,10 @@ async def list_param_values_async(param: str) -> Result[list[str]]:
     """List every value a Quick Stats filter parameter can take, to form valid queries.
 
     Six small, stable lists are answered from data packaged with this version, with no
-    upstream call (``meta.endpoint`` is ``"reference"`` and ``meta.vintage`` the day they
-    were fetched): ``source_desc``, ``sector_desc``, ``group_desc``, ``agg_level_desc``,
-    ``freq_desc``, ``state_alpha``. Every other parameter is fetched live.
+    upstream call (``meta.endpoint`` is ``"get_param_values"``, the operation they were
+    fetched from, and ``meta.retrieved_at`` the time they were fetched): ``source_desc``,
+    ``sector_desc``, ``group_desc``, ``agg_level_desc``, ``freq_desc``, ``state_alpha``.
+    Every other parameter is fetched live.
 
     Args:
         param: A Quick Stats column name. Large lists worth fetching live:
@@ -170,15 +171,10 @@ async def list_param_values_async(param: str) -> Result[list[str]]:
             ``"county_name"``, ``"year"``. Definitions are in
             ``docs/upstream/param_define.md``.
     """
-    packaged = packaged_values(param)
-    if packaged is not None:
-        meta = ResultMeta(
-            source=SOURCE,
-            endpoint="reference",
-            vintage=packaged.fetched.isoformat(),
-            request={"param": param},
-        )
-        return Result(data=list(packaged.values), meta=meta)
+    if param in PACKAGED_PARAMS:
+        packaged = PackagedList.load(PACKAGE, param)
+        meta = packaged.meta(SOURCE, request={"param": param})
+        return Result(data=[record[param] for record in packaged.records], meta=meta)
     values = await api.get_param_values(param)
     meta = ResultMeta(source=SOURCE, endpoint="get_param_values", request={"param": param})
     return Result(data=values, meta=meta)

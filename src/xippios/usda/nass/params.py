@@ -2,16 +2,16 @@
 
 Six small, stable parameter lists ship inside the package so the common lookups need no
 network call, and the column table from ``docs/upstream/param_define.md`` ships as
-``columns.csv``. Files are produced by ``scripts/refresh_reference.py``, never by hand;
-``reference/README.md`` carries the provenance.
+``columns.csv``. Files are produced by ``scripts/refresh_reference.py``
+(``/refresh-reference-data``), never by hand, and a list is read with
+``PackagedList.load(PACKAGE, name)``; ``reference/README.md`` carries the provenance.
 """
 
 import difflib
 import functools
-from datetime import date
 
 from pydantic import Field, field_validator
-from xippios.core import InvalidRequestError, UpstreamModel, load_json, load_table
+from xippios.core import InvalidRequestError, UpstreamModel, load_table
 
 from xippios.usda.nass._client import SOURCE
 from xippios.usda.nass.models import Filters
@@ -21,10 +21,7 @@ __all__ = [
     "OPERATORS",
     "PACKAGED_PARAMS",
     "Column",
-    "PackagedValues",
     "columns",
-    "derived_values",
-    "packaged_values",
     "validate_filters",
 ]
 
@@ -51,25 +48,9 @@ DERIVED_LISTS: dict[str, dict[str, str | int]] = {
 
 Quick Stats has no endpoint for "the stages a progress series uses", so the refresh
 script fetches the national PROGRESS and CONDITION rows of the previous year and keeps
-the distinct ``unit_desc`` values; the file records the query it came from.
+the distinct ``unit_desc`` values; the file, ``reference/<name>.json`` with ``param``
+``unit_desc``, records the query it came from in its ``note``.
 """
-
-
-class PackagedValues(UpstreamModel):
-    """One packaged value list: ``reference/<name>.json``.
-
-    Attributes:
-        param: The Quick Stats parameter the values belong to.
-        fetched: Day the list was fetched.
-        values: The values, as upstream lists them.
-        derived_from: For a derived list, the ``api_GET`` filters the values were
-            collected from; ``None`` for a ``get_param_values`` list.
-    """
-
-    param: str
-    fetched: date
-    values: list[str]
-    derived_from: dict[str, str | int] | None = None
 
 
 class Column(UpstreamModel):
@@ -91,18 +72,6 @@ class Column(UpstreamModel):
     @classmethod
     def _empty_is_none(cls, raw: object) -> object:
         return None if raw == "" else raw
-
-
-def packaged_values(param: str) -> PackagedValues | None:
-    """The packaged list for ``param``, or ``None`` when the parameter is not packaged."""
-    if param not in PACKAGED_PARAMS:
-        return None
-    return PackagedValues.model_validate(load_json(PACKAGE, f"{param}.json"))
-
-
-def derived_values(name: str) -> PackagedValues:
-    """A derived list by name, e.g. ``"progress_stages"``; see ``DERIVED_LISTS``."""
-    return PackagedValues.model_validate(load_json(PACKAGE, f"{name}.json"))
 
 
 def columns() -> list[Column]:

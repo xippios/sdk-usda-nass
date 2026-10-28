@@ -1,17 +1,23 @@
 {
   "param": "unit_desc",
+  "endpoint": "api_GET",
   "fetched": "2026-10-25",
-  "values": [
-    "PCT EXCELLENT",
-    "PCT FAIR",
-    "PCT GOOD",
-    "PCT POOR",
-    "PCT VERY POOR"
-  ],
-  "derived_from": {
-    "statisticcat_desc": "CONDITION",
-    "agg_level_desc": "NATIONAL",
-    "freq_desc": "WEEKLY",
-    "year": 2025
-  }
+  "note": "distinct unit_desc of api_GET with statisticcat_desc=CONDITION, agg_level_desc=NATIONAL, freq_desc=WEEKLY, year=2025",
+  "records": [
+    {
+      "unit_desc": "PCT EXCELLENT"
+    },
+    {
+      "unit_desc": "PCT FAIR"
+    },
+    {
+      "unit_desc": "PCT GOOD"
+    },
+    {
+      "unit_desc": "PCT POOR"
+    },
+    {
+      "unit_desc": "PCT VERY POOR"
+    }
+  ]
 }

@@ -1,17 +1,40 @@
 {
   "param": "agg_level_desc",
+  "endpoint": "get_param_values",
   "fetched": "2026-10-25",
-  "values": [
-    "AGRICULTURAL DISTRICT",
-    "AMERICAN INDIAN RESERVATION",
-    "COUNTY",
-    "INTERNATIONAL",
-    "NATIONAL",
-    "PUERTO RICO & OUTLYING AREAS",
-    "REGION : MULTI-STATE",
-    "REGION : SUB-STATE",
-    "STATE",
-    "WATERSHED",
-    "ZIP CODE"
+  "records": [
+    {
+      "agg_level_desc": "AGRICULTURAL DISTRICT"
+    },
+    {
+      "agg_level_desc": "AMERICAN INDIAN RESERVATION"
+    },
+    {
+      "agg_level_desc": "COUNTY"
+    },
+    {
+      "agg_level_desc": "INTERNATIONAL"
+    },
+    {
+      "agg_level_desc": "NATIONAL"
+    },
+    {
+      "agg_level_desc": "PUERTO RICO & OUTLYING AREAS"
+    },
+    {
+      "agg_level_desc": "REGION : MULTI-STATE"
+    },
+    {
+      "agg_level_desc": "REGION : SUB-STATE"
+    },
+    {
+      "agg_level_desc": "STATE"
+    },
+    {
+      "agg_level_desc": "WATERSHED"
+    },
+    {
+      "agg_level_desc": "ZIP CODE"
+    }
   ]
 }

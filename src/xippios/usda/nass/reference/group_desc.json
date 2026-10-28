@@ -1,26 +1,67 @@
 {
   "param": "group_desc",
+  "endpoint": "get_param_values",
   "fetched": "2026-10-25",
-  "values": [
-    "ANIMAL TOTALS",
-    "AQUACULTURE",
-    "COMMODITIES",
-    "CROP TOTALS",
-    "DAIRY",
-    "ENERGY",
-    "EXPENSES",
-    "FARMS & LAND & ASSETS",
-    "FIELD CROPS",
-    "FRUIT & TREE NUTS",
-    "HORTICULTURE",
-    "INCOME",
-    "IRRIGATION",
-    "LIVESTOCK",
-    "OPERATORS",
-    "POULTRY",
-    "PRICES PAID",
-    "PRODUCERS",
-    "SPECIALTY",
-    "VEGETABLES"
+  "records": [
+    {
+      "group_desc": "ANIMAL TOTALS"
+    },
+    {
+      "group_desc": "AQUACULTURE"
+    },
+    {
+      "group_desc": "COMMODITIES"
+    },
+    {
+      "group_desc": "CROP TOTALS"
+    },
+    {
+      "group_desc": "DAIRY"
+    },
+    {
+      "group_desc": "ENERGY"
+    },
+    {
+      "group_desc": "EXPENSES"
+    },
+    {
+      "group_desc": "FARMS & LAND & ASSETS"
+    },
+    {
+      "group_desc": "FIELD CROPS"
+    },
+    {
+      "group_desc": "FRUIT & TREE NUTS"
+    },
+    {
+      "group_desc": "HORTICULTURE"
+    },
+    {
+      "group_desc": "INCOME"
+    },
+    {
+      "group_desc": "IRRIGATION"
+    },
+    {
+      "group_desc": "LIVESTOCK"
+    },
+    {
+      "group_desc": "OPERATORS"
+    },
+    {
+      "group_desc": "POULTRY"
+    },
+    {
+      "group_desc": "PRICES PAID"
+    },
+    {
+      "group_desc": "PRODUCERS"
+    },
+    {
+      "group_desc": "SPECIALTY"
+    },
+    {
+      "group_desc": "VEGETABLES"
+    }
   ]
 }

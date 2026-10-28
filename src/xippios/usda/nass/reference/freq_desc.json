@@ -1,11 +1,22 @@
 {
   "param": "freq_desc",
+  "endpoint": "get_param_values",
   "fetched": "2026-10-25",
-  "values": [
-    "ANNUAL",
-    "MONTHLY",
-    "POINT IN TIME",
-    "SEASON",
-    "WEEKLY"
+  "records": [
+    {
+      "freq_desc": "ANNUAL"
+    },
+    {
+      "freq_desc": "MONTHLY"
+    },
+    {
+      "freq_desc": "POINT IN TIME"
+    },
+    {
+      "freq_desc": "SEASON"
+    },
+    {
+      "freq_desc": "WEEKLY"
+    }
   ]
 }
