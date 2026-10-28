@@ -161,11 +161,10 @@ The entries marked **BREAKING** change what 0.1.0 offered.
 - The packaged lists are refreshed, all eleven fetched 2026-10-28T21:37:56Z to
   21:38:24Z: no value was added, removed or moved since 0.1.0's lists of 2026-10-25, in
   the six lists packaged before and the two derived ones. Each file's `fetched` is the
-  full UTC time of its fetch, so `meta.retrieved_at` of a packaged answer is that time,
-  not 00:00 UTC of 2026-10-25, the date 0.1.0's lists carried; the `enums.py`
-  docstrings name 2026-10-28. `reference/README.md` lists each list with its fetch time,
-  and `columns.csv`, unchanged, with the upstream snapshot it is rebuilt from,
-  2026-10-28T13:44:34Z, where its row named the snapshot of 2026-10-22.
+  full UTC time of its fetch, so `meta.retrieved_at` of a packaged answer is that time;
+  the `enums.py` docstrings name 2026-10-28. `reference/README.md` lists each list with
+  its fetch time, and `columns.csv`, unchanged, with the upstream snapshot it is rebuilt
+  from, 2026-10-28T13:44:34Z, where its row named the snapshot of 2026-10-22.
 - `list_param_values` answers `statisticcat_desc`, `unit_desc` and `domain_desc` from
   the package, no longer live. The live path's replay test uses a new
   `get_param_values/commodity_desc` fixture (recorded 2026-10-28); the
@@ -184,8 +183,8 @@ The entries marked **BREAKING** change what 0.1.0 offered.
   list's `fetched` and `meta.vintage` `None` (ADR-0022, rule 1), where 0.1.0 wrote
   `"reference"` and the fetch date as `vintage`. The packaged files are core's
   packaged-list files, `{"param", "endpoint", "fetched", "records"}` with an optional
-  `"note"`, converted without a request: values and order unchanged, `fetched` the date
-  it was (2026-10-25, read as 00:00 UTC), the derived lists' query under `note`.
+  `"note"`, converted without a request: values and order unchanged, the derived lists'
+  query under `note`.
 - **BREAKING**: the endpoint wrapper `api.get_param_values` returns
   `ParamValues(values, retrieved_at)`, read through `AsyncClient.get_answer`, where it
   returned the list alone: `retrieved_at` is a cached answer's stored time, else the time
