@@ -1,13 +1,6 @@
-"""Task-shaped functions for USDA NASS Quick Stats.
+"""Task functions, the public API: the adapters serve ``__all__`` (conventions §2).
 
-The public API (ADR-0001, layer 2). A task composes endpoint wrappers from ``api/``,
-resolves pagination and reference lookups, and returns ``Result[T]`` with full
-``ResultMeta``. Write the async version, derive the sync one with ``xippios.core.sync``,
-and list the sync name in ``__all__``: the MCP server and the HTTP router register
-exactly what is named there.
-
-Docstrings are read by agents: one sentence first, then ``Args:`` with examples of
-valid values for every parameter. ``/add-endpoint`` walks through the whole recipe.
+``/add-endpoint`` adds them.
 
 ``meta.published_at`` stays empty: Quick Stats publishes no release time, and the
 per-row ``load_time`` carries no zone. Reading one into it would be a guess; that
@@ -18,7 +11,15 @@ from collections.abc import Callable, Mapping
 from datetime import date
 from typing import Any
 
-from xippios.core import PackagedList, Result, ResultMeta, UpstreamModel, parse_decimal, sync
+from xippios.core import (
+    PackagedList,
+    Result,
+    ResultCap,
+    ResultMeta,
+    UpstreamModel,
+    parse_decimal,
+    sync,
+)
 
 from xippios.usda.nass import api
 from xippios.usda.nass._client import SOURCE
@@ -48,21 +49,19 @@ __all__ = [
     "list_param_values",
 ]
 
-try:
-    from xippios.core.mcp import ResultCap
-except ImportError:  # pragma: no cover - a base install, without the mcp extra, has no server
-    MCP_CAPS: "Mapping[str, ResultCap]" = {}
-else:
-    MCP_CAPS = {
-        "list_param_values": ResultCap(
-            max_rows=1000,
-            note=(
-                "usda_nass_list_param_values takes no filter to reach the rest; a value past "
-                "the cap is still accepted as a filter value by usda_nass_get_counts and "
-                "usda_nass_get_data"
-            ),
+# A task named here is Python-only: no tool, no route; the adapters skip it (ADR-0019 decision 4).
+BULK_TASKS: frozenset[str] = frozenset()
+
+MCP_CAPS: Mapping[str, ResultCap] = {
+    "list_param_values": ResultCap(
+        max_rows=1000,
+        note=(
+            "usda_nass_list_param_values takes no filter to reach the rest; a value past "
+            "the cap is still accepted as a filter value by usda_nass_get_counts and "
+            "usda_nass_get_data"
         ),
-    }
+    ),
+}
 """MCP result caps of their own, by task function name (conventions §8, ADR-0016).
 
 ``list_param_values`` is the reference lookup an agent needs whole to form valid filters:
@@ -70,8 +69,7 @@ lists fetched live run past the family's default of 200 rows (``statisticcat_des
 278 values, 5,411 bytes of compact JSON, recorded 2026-10-22), while every packaged list
 has fewer than 60. Its cap keeps the default 64 KB, and its note promises no filter, since
 the tool has none. Every other tool keeps the default, 200 rows or 64 KB, with core's
-note. ``ResultCap`` lives in ``xippios.core.mcp``, which needs the ``mcp`` extra, so a base
-install, which serves no MCP tool, has no caps.
+note.
 """
 
 
