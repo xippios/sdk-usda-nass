@@ -19,6 +19,11 @@ All notable changes to this project are documented here. The format follows
   packaged-list files, `{"param", "endpoint", "fetched", "records"}` with an optional
   `"note"`, converted without a request: values and order unchanged, `fetched` the date
   it was (2026-10-25, read as 00:00 UTC), the derived lists' query under `note`.
+- **BREAKING**: the endpoint wrapper `api_GET` is `api_get`, imported from
+  `xippios.usda.nass.api.api_get`, its fixtures under `tests/fixtures/api_get/`
+  (conventions 1.22 §2 and §10). A wrapper's module and function carry the upstream
+  operation name in snake case, here from the path: `/api/api_GET/` is `api_get`. The
+  request URL and `meta.endpoint` (`"api_GET"`) are unchanged, and so are the tasks.
 - The upstream snapshot is refreshed (2026-10-28) through `scripts/refresh_upstream.py`,
   the template's capture script filled for the api and param_define pages, with
   `markdownify==1.2.3` pinned in it and in the dev group; `docs/upstream/FETCHED.md`
