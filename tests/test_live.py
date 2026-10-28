@@ -61,8 +61,10 @@ async def test_list_param_values_live() -> None:
     assert "commodity_desc" not in PACKAGED_PARAMS
     result = await tasks.list_param_values_async("commodity_desc")
     assert result.meta.endpoint == "get_param_values"
-    assert len(result.data) > 100
-    assert "CORN" in result.data
+    count = len(result.data)  # bound first, so a failure prints a number, not the list
+    assert count > 100
+    has_corn = "CORN" in result.data
+    assert has_corn
 
 
 async def test_crop_progress_live() -> None:
@@ -84,7 +86,8 @@ async def test_crop_condition_live() -> None:
         "CORN", 2024, state=StateAlpha.IA, category=ConditionCategory.PCT_GOOD
     )
     assert result.meta.endpoint == "api_GET"
-    assert len(result.data) >= 15  # a season of weekly ratings
+    count = len(result.data)
+    assert count >= 15  # a season of weekly ratings
     assert all(isinstance(row, CropProgressRecord) for row in result.data)
     assert {row.unit_desc for row in result.data} == {"PCT GOOD"}
     assert all(row.value_number is not None and 0 <= row.value_number <= 100 for row in result.data)
@@ -135,7 +138,8 @@ async def test_acreage_forecasts_live() -> None:
 
     result = await tasks.get_acreage_forecasts_async("CORN", 2023, AreaStatistic.AREA_PLANTED)
     assert result.meta.endpoint == "api_GET"
-    assert len(result.data) >= 2  # the March and June reports at least
+    count = len(result.data)
+    assert count >= 2  # the March and June reports at least
     assert all(isinstance(row, AcreageRecord) for row in result.data)
     assert {row.state_alpha for row in result.data} == {"US"}
     assert {row.unit_desc for row in result.data} == {"ACRES"}
