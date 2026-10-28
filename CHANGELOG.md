@@ -12,7 +12,8 @@ All notable changes to this project are documented here. The format follows
   `usda_nass_get_data` and the HTTP route: the years are fetched one at a time where one
   call cannot serve them. The filters bound the years as `year`, `year__GE` with
   `year__LE`, or `year__GE` alone up to the current UTC year, checked before any call;
-  another year filter, or none, raises `InvalidRequestError` naming the three forms. One
+  another year filter, or none, raises `InvalidRequestError` naming the three forms, and
+  a `year__GE` or `year__LE` past the current UTC year raises it naming that year. One
   call splits into at most 20 years (`errors.SPLIT_CEILING`, conventions §4): a longer
   split raises `InvalidRequestError` naming the ceiling, for a two-sided range before
   any call, for `year__GE` alone after its count, while an open range within the limit
@@ -24,11 +25,12 @@ All notable changes to this project are documented here. The format follows
   without the flag; `year__GE` alone is counted first and fetched once when the count is
   within the limit, else split. A split counts every year with `year=<y>` in place of
   the year filters before anything is fetched; a year over the limit on its own raises
-  `QueryTooLarge` naming it, which now carries `year`; a year counting 0 is not fetched;
-  the records come in year order, each year's in upstream's order. `meta.total` is the
-  yearly counts summed and `meta.request` carries `split_by_year` beside the filters
-  (conventions §4). Cost: up to two keyed calls per year, plus the first count for
-  `year__GE` alone.
+  `QueryTooLarge` naming it, which now carries `year`; a year counting 0 is skipped,
+  since it has no records, or none published yet, which Quick Stats does not tell apart
+  (`meta.vintage` stays `None`: Quick Stats names no release); the records come in year
+  order, each year's in upstream's order. `meta.total` is the yearly counts summed and
+  `meta.request` carries `split_by_year` beside the filters (conventions §4). Cost: up
+  to two keyed calls per year, plus the first count for `year__GE` alone.
 - `meta.total` on `get_data`: the count `get_counts` reported for the filters, `0` on
   the empty result it returns without a second call, never `len(data)`; `get_counts`
   carries its count there too, beside `data` (conventions §4, ADR-0012). The task-shaped
