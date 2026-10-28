@@ -4,17 +4,27 @@ from xippios.core import InvalidRequestError
 
 from xippios.usda.nass._client import SOURCE
 
-__all__ = ["RECORD_LIMIT", "SPLIT_CEILING", "QueryTooLarge"]
+__all__ = ["MCP_SPLIT_YEARS", "RECORD_LIMIT", "SPLIT_CEILING", "QueryTooLarge"]
 
 RECORD_LIMIT = 50_000
 """Most records ``api_GET`` returns for one query (``docs/upstream/api.md``)."""
 
 SPLIT_CEILING = 20
-"""Most years one ``get_data(split_by_year=True)`` call splits into, this package's ceiling.
+"""Most years one ``get_data(split_by_year=True)`` call splits into in Python and over HTTP.
 
 A task that assembles a period series states its ceiling (conventions §4). A split of
 more years is refused before its first yearly count: a two-sided range before any call,
-``year__GE`` alone after its first count; a range one call serves whole is not split.
+``year__GE`` alone after its first count; a range one call serves whole is not split. No
+ceiling goes above it (``tasks.set_split_ceiling``).
+"""
+
+MCP_SPLIT_YEARS = 5
+"""The split ceiling the entry point ``xippios-usda-nass-mcp`` starts the MCP server with.
+
+Five years: at most 11 keyed calls for one tool call (a first count, then two calls a
+year), about 22 seconds at the client's pace of 30 a minute. Its ``--split-years`` sets
+another, from 1 to ``SPLIT_CEILING`` (``tasks.mcp_add_options``,
+``tasks.mcp_apply_options``).
 """
 
 
@@ -26,8 +36,10 @@ class QueryTooLarge(InvalidRequestError):
     limit; and by the ``api_get`` wrapper when upstream answers HTTP 413
     ``exceeds limit=50000``. The message for the whole query names the way through the
     limit: narrower filters, or ``get_data`` with ``split_by_year=True`` on a bounded
-    year range of at most ``SPLIT_CEILING`` years; the one for a year names narrower
-    filters only.
+    year range of at most ``SPLIT_CEILING`` years in Python and over HTTP,
+    ``MCP_SPLIT_YEARS`` by default on the MCP server; the one for a year names narrower
+    filters only. The hint is static: it names the defaults, not a ceiling set for the
+    process.
 
     Attributes:
         count: Records the query, or the year, would return, when known.
@@ -46,7 +58,8 @@ class QueryTooLarge(InvalidRequestError):
                 "Narrow the filters, for example by year, state_alpha, agg_level_desc or "
                 "statisticcat_desc, or call get_data with split_by_year=True (over MCP, the "
                 f"tool usda_nass_get_data) on a bounded year range of at most {SPLIT_CEILING} "
-                "years."
+                f"years in Python and over HTTP, {MCP_SPLIT_YEARS} by default on the MCP "
+                "server (--split-years)."
             )
         else:
             message = (

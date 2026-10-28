@@ -5,11 +5,21 @@
 ``meta.published_at`` stays empty: Quick Stats publishes no release time, and the
 per-row ``load_time`` carries no zone. Reading one into it would be a guess; that
 belongs to the normalisation layer, not here.
+
+``get_data(split_by_year=True)`` splits one call into at most ``split_ceiling()`` years:
+``SPLIT_CEILING`` (20) in Python and over HTTP; the MCP server starts with
+``MCP_SPLIT_YEARS`` (5), and its ``--split-years`` sets another ceiling from 1 to 20
+through core's option hooks (``mcp_add_options``, ``mcp_apply_options``; ADR-0014). The
+entry point ``xippios-usda-nass-mcp`` sets the MCP ceiling, since core's ``main`` applies
+the option, so a host that imports ``xippios.usda.nass.mcp.server`` and serves it another
+way keeps 20. The ceiling is process-wide: a Python or HTTP call made in the MCP server's
+process meets the MCP ceiling too.
 """
 
+import argparse
 from collections.abc import Callable, Mapping
 from datetime import UTC, date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from xippios.core import (
     InvalidRequestError,
@@ -25,7 +35,7 @@ from xippios.core import (
 from xippios.usda.nass import api
 from xippios.usda.nass._client import SOURCE
 from xippios.usda.nass.enums import ConditionCategory, FreqDesc, ProgressStage, StateAlpha
-from xippios.usda.nass.errors import RECORD_LIMIT, SPLIT_CEILING, QueryTooLarge
+from xippios.usda.nass.errors import MCP_SPLIT_YEARS, RECORD_LIMIT, SPLIT_CEILING, QueryTooLarge
 from xippios.usda.nass.models import (
     AcreageRecord,
     AreaStatistic,
@@ -36,6 +46,9 @@ from xippios.usda.nass.models import (
     QuickStatsRecord,
 )
 from xippios.usda.nass.params import PACKAGE, PACKAGED_PARAMS, validate_filters
+
+if TYPE_CHECKING:
+    from mcp.server.mcpserver import MCPServer
 
 __all__ = [
     "get_acreage",
@@ -72,6 +85,99 @@ has fewer than 60. Its cap keeps the default 64 KB, and its note promises no fil
 the tool has none. Every other tool keeps the default, 200 rows or 64 KB, with core's
 note.
 """
+
+
+_split_ceiling = SPLIT_CEILING
+"""The split ceiling in force, process-wide: ``split_ceiling`` reads it,
+``set_split_ceiling`` sets it."""
+
+
+def split_ceiling() -> int:
+    """The most years one ``get_data(split_by_year=True)`` call splits into, e.g. ``20``.
+
+    ``SPLIT_CEILING`` (20) unless ``set_split_ceiling`` set another, as the entry point
+    ``xippios-usda-nass-mcp`` does when it starts the MCP server: ``MCP_SPLIT_YEARS`` (5),
+    or its ``--split-years``. The setting is process-wide, so every split in the process
+    meets the same ceiling, from Python, over HTTP or over MCP: one MCP server per
+    process.
+    """
+    return _split_ceiling
+
+
+def set_split_ceiling(years: int) -> None:
+    """Set the most years one ``get_data(split_by_year=True)`` call splits into, process-wide.
+
+    A split of more years is refused before its first yearly count, naming the ceiling;
+    below ``SPLIT_CEILING`` the refusal calls it the ceiling set for this process and says
+    that the MCP server starts with 5 by default and that ``--split-years`` raises it, up
+    to 20. No ceiling goes above ``SPLIT_CEILING``. The entry point
+    ``xippios-usda-nass-mcp`` calls this once when it starts the MCP server
+    (``mcp_apply_options``, which core's ``main`` applies); the setting is process-wide,
+    so it holds for the Python API and an HTTP router in the same process too: one MCP
+    server per process.
+
+    Args:
+        years: A whole number of years from 1 to 20 (``SPLIT_CEILING``), e.g. ``5`` (the
+            MCP server's default), ``10``, ``20`` (the Python API's).
+
+    Raises:
+        InvalidRequestError: ``years`` is not a whole number from 1 to 20 (``True`` is
+            not ``1``); the ceiling stays as it was.
+    """
+    global _split_ceiling
+    whole = isinstance(years, int) and not isinstance(years, bool)
+    if not whole or not 1 <= years <= SPLIT_CEILING:
+        raise InvalidRequestError(
+            "the split ceiling, --split-years on the MCP server, must be a whole number of "
+            f"years from 1 to {SPLIT_CEILING}, got {years!r}.",
+            source=SOURCE,
+        )
+    _split_ceiling = years
+
+
+def mcp_add_options(parser: argparse.ArgumentParser) -> None:
+    """Add ``--split-years`` to the MCP server's command line, a hook of core's ``main``.
+
+    ``--split-years YEARS`` is the most years one ``usda_nass_get_data`` call with
+    ``split_by_year`` splits into, a whole number from 1 to ``SPLIT_CEILING`` (20),
+    ``MCP_SPLIT_YEARS`` (5) when not given; ``mcp_apply_options`` sets it. The ceiling is
+    process-wide: one MCP server per process.
+
+    Args:
+        parser: Core's parser (``xippios.core.mcp.build_parser``), which then accepts
+            e.g. ``xippios-usda-nass-mcp --split-years 10``.
+    """
+    parser.add_argument(
+        "--split-years",
+        type=int,
+        default=MCP_SPLIT_YEARS,
+        metavar="YEARS",
+        help=(
+            "most years one usda_nass_get_data call with split_by_year splits into, 1 to "
+            f"{SPLIT_CEILING} (default {MCP_SPLIT_YEARS}); up to two keyed calls a year, so "
+            f"{MCP_SPLIT_YEARS} years take at most {2 * MCP_SPLIT_YEARS + 1} calls"
+        ),
+    )
+
+
+def mcp_apply_options(namespace: argparse.Namespace, server: "MCPServer") -> "MCPServer":
+    """Set the split ceiling from ``--split-years``, a hook of core's ``main``.
+
+    Calls ``set_split_ceiling(namespace.split_years)`` and returns ``server`` unchanged.
+    The ceiling is process-wide: one MCP server per process. A value outside 1 to 20
+    raises ``InvalidRequestError``, which core's ``main`` turns into the parser's error:
+    the message on stderr, exit status 2, nothing served.
+
+    Args:
+        namespace: The parsed command line with ``split_years`` from
+            ``mcp_add_options``, e.g. ``argparse.Namespace(split_years=5)``.
+        server: The server ``mcp.py`` built, returned as it is.
+
+    Returns:
+        ``server`` itself.
+    """
+    set_split_ceiling(namespace.split_years)
+    return server
 
 
 def _meta(endpoint: str, request: dict[str, Any], *, total: int | None = None) -> ResultMeta:
@@ -211,16 +317,24 @@ async def _split_by_year(
     fetched. ``meta.total`` is the yearly counts summed.
 
     Raises:
-        InvalidRequestError: ``years`` holds more than ``SPLIT_CEILING`` years, the most
+        InvalidRequestError: ``years`` holds more than ``split_ceiling()`` years, the most
             one call splits into (conventions §4); raised before the first yearly count.
+            Below ``SPLIT_CEILING`` the refusal calls it the ceiling set for this process
+            and names the MCP server's default and ``--split-years``.
         QueryTooLarge: A year alone is over the limit.
     """
-    if len(years) > SPLIT_CEILING:
+    ceiling = split_ceiling()
+    if len(years) > ceiling:
         first, last = years[0], years[-1]
+        bound = f"split_by_year covers at most {ceiling} years per call"
+        if ceiling < SPLIT_CEILING:
+            bound += (
+                ", the ceiling set for this process (the MCP server starts with "
+                f"{MCP_SPLIT_YEARS} by default; --split-years raises it, up to {SPLIT_CEILING})"
+            )
         raise InvalidRequestError(
-            f"split_by_year covers at most {SPLIT_CEILING} years per call; the years run "
-            f"from {first} to {last}, {len(years)} years. Give a shorter range, e.g. "
-            f"year__GE={last - SPLIT_CEILING + 1} with year__LE={last}.",
+            f"{bound}; the years run from {first} to {last}, {len(years)} years. Give a "
+            f"shorter range, e.g. year__GE={last - ceiling + 1} with year__LE={last}.",
             source=SOURCE,
         )
     rest = {key: value for key, value in filters.items() if not _is_year(key)}
@@ -268,30 +382,31 @@ async def get_data_async(
             drops ``year__GE`` beside ``year__LT``, so a two-sided year range is served
             only by ``split_by_year``.
         split_by_year: ``True`` fetches the years one at a time where one call cannot serve
-            them, splitting one call into at most 20 years. The filters bound the years in
-            one of three forms, checked before any call: ``year`` (``2022``), ``year__GE``
-            with ``year__LE`` (``2020`` and ``2023``), or ``year__GE`` alone, up to the
-            current UTC year. Another year filter (``year__LE`` alone, ``year__GT``,
-            ``year__NE``, ...), a mix or none raises ``InvalidRequestError`` naming the
-            three forms, and a ``year__GE`` or ``year__LE`` past the current UTC year raises
-            it naming that year. ``year`` is counted and fetched once, as without the flag;
-            over the limit it raises ``QueryTooLarge`` naming the year. ``year__GE`` with
-            ``year__LE`` is always split, without a count of the range, which Quick Stats
-            would count as ``year__GE`` alone; more than 20 years raise
-            ``InvalidRequestError`` naming the ceiling before any call. ``year__GE`` alone
-            is counted first and fetched once when the count is within the limit, however
-            far back it starts; over the limit it is split, and more than 20 years raise
-            ``InvalidRequestError`` naming the ceiling after that count, before the split. A
-            split counts each year with ``year=<y>`` in place of the year filters, every
-            year before the first fetch, so a year over 50,000 on its own raises
-            ``QueryTooLarge`` naming it before anything is fetched; it then fetches each
-            year holding records, the records in year order, each year's in upstream's
-            order. A year counting 0 is skipped: it has no records, or none published yet,
-            which Quick Stats does not tell apart; ``meta.vintage`` stays ``None``, since
-            Quick Stats names no release. Cost: up to two keyed calls per year, plus the
-            first count for ``year__GE`` alone, paced at 30 a minute, so 20 years take up to
-            41 calls, about 80 seconds. ``meta.request`` carries ``split_by_year`` beside
-            the filters.
+            them, splitting one call into at most 20 years in Python and over HTTP and 5 by
+            default on the MCP server, whose ``--split-years`` sets 1 to 20. The filters
+            bound the years in one of three forms, checked before any call: ``year``
+            (``2022``), ``year__GE`` with ``year__LE`` (``2020`` and ``2023``), or
+            ``year__GE`` alone, up to the current UTC year. Another year filter
+            (``year__LE`` alone, ``year__GT``, ``year__NE``, ...), a mix or none raises
+            ``InvalidRequestError`` naming the three forms, and a ``year__GE`` or
+            ``year__LE`` past the current UTC year raises it naming that year. ``year`` is
+            counted and fetched once, as without the flag; over the limit it raises
+            ``QueryTooLarge`` naming the year. ``year__GE`` with ``year__LE`` is always
+            split, without a count of the range, which Quick Stats would count as
+            ``year__GE`` alone; more years than the ceiling raise ``InvalidRequestError``
+            naming it before any call. ``year__GE`` alone is counted first and fetched once
+            when the count is within the limit, however far back it starts; over the limit
+            it is split, and more years than the ceiling raise ``InvalidRequestError``
+            naming it after that count, before the split. A split counts each year with
+            ``year=<y>`` in place of the year filters, every year before the first fetch, so
+            a year over 50,000 on its own raises ``QueryTooLarge`` naming it before anything
+            is fetched; it then fetches each year holding records, the records in year
+            order, each year's in upstream's order. A year counting 0 is skipped: it has no
+            records, or none published yet, which Quick Stats does not tell apart;
+            ``meta.vintage`` stays ``None``, since Quick Stats names no release. Cost: up to
+            two keyed calls per year, plus the first count for ``year__GE`` alone, paced at
+            30 a minute, so 5 years take up to 11 calls and 20 years up to 41, about 80
+            seconds. ``meta.request`` carries ``split_by_year`` beside the filters.
             ``False``, the default, never splits.
     """
     checked = validate_filters(filters)

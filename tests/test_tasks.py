@@ -776,7 +776,8 @@ CORN_COUNTY_FILTERS: dict[str, str | int] = {
 THROUGH_THE_LIMIT = (  # QueryTooLarge's hint for a whole query (conventions §8)
     "Narrow the filters, for example by year, state_alpha, agg_level_desc or "
     "statisticcat_desc, or call get_data with split_by_year=True (over MCP, the tool "
-    "usda_nass_get_data) on a bounded year range of at most 20 years."
+    "usda_nass_get_data) on a bounded year range of at most 20 years in Python and over "
+    "HTTP, 5 by default on the MCP server (--split-years)."
 )
 
 
