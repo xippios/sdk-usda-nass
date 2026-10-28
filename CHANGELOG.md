@@ -8,6 +8,48 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `get_census_farms(year, statistic, state=, by_county=)`, the MCP tool
+  `usda_nass_get_census_farms` and its HTTP route: the Census of Agriculture's farm
+  counts (`FarmStatistic.OPERATIONS`) or land in farms (`FarmStatistic.AREA_OPERATED`)
+  for a Census year (2022, 2017), national, for one state, or by county, of one state
+  or of the whole country. Fixed filters, read from upstream with `get_counts` on
+  2026-10-28: `source_desc` `CENSUS`, `group_desc` `FARMS & LAND & ASSETS`,
+  `commodity_desc` `FARM OPERATIONS`, `class_desc` `ALL CLASSES`,
+  `prodn_practice_desc` `ALL PRODUCTION PRACTICES` and `domain_desc` `TOTAL`, so the
+  breakdowns by farm size, sales class, typology, organization and the like are left
+  out (of the 4,114 national rows the 2022 Census has for `FARM OPERATIONS` in that
+  group, 7 remain: 2 for `OPERATIONS`, 5 for `AREA OPERATED`). `unit_desc` tells the
+  rows apart (`OPERATIONS`, `PCT OF FARM OPERATIONS`; `ACRES`, `ACRES / OPERATION`,
+  `ACRES / OPERATION, MEDIAN`, `PCT OF AG LAND`, `PCT OF TOTAL LAND`); rows are sorted
+  by state, county and unit and come as `CensusFarmsRecord`, a projection under
+  upstream column names with `cv_percent` parsed. Like the other slices it skips the
+  count (`meta.total` `None`) and leaves `published_at` empty.
+- `get_livestock_inventory(commodity, year, state=, class_desc=)` and
+  `get_milk_production(year, state=, frequency=)`, two task-shaped slices of `api_GET`,
+  with the MCP tools `usda_nass_get_livestock_inventory` and
+  `usda_nass_get_milk_production` and their HTTP routes. `get_livestock_inventory`
+  returns the survey head counts of cattle, hogs or sheep (`LivestockCommodity`, a
+  `StrEnum` of the three upstream `commodity_desc` values, in `models.py`) on the survey
+  days of a year, state or national, one row per survey day, class and `short_desc`
+  (`statisticcat_desc` `INVENTORY`, `unit_desc` `HEAD`, `domain_desc` `TOTAL`,
+  `freq_desc` `POINT IN TIME`, `source_desc` `SURVEY`; cattle on feed carry
+  `ALL CLASSES` with `prodn_practice_desc` `ON FEED`), sorted by the day (`begin_code`),
+  then `reference_period_desc`, `class_desc` and `short_desc`;
+  `class_desc` keeps one class, `None` returns every class. `get_milk_production` returns
+  the milk production series in pounds, the year and the months and quarters, state or
+  national (`commodity_desc` `MILK`, `class_desc` `ALL CLASSES`, `statisticcat_desc`
+  `PRODUCTION`, `unit_desc` `LB`, `domain_desc` `TOTAL`, `source_desc` `SURVEY`), sorted
+  by frequency, then period; `frequency` keeps `MONTHLY` or `ANNUAL`, `None` returns
+  both. `class_desc` `ALL CLASSES` leaves out the ten manufactured dairy products (dry and
+  condensed milk) that upstream files nationally under the same statistic and unit
+  (recorded 2026-10-28: 147 national records for 2024 without it, 17 with it). Both
+  return projections under upstream column names, `LivestockInventoryRecord` and
+  `MilkProductionRecord`, skip the count and leave `published_at` empty, as the other
+  slices do. Fixtures recorded 2026-10-28: national cattle and Iowa hogs 2024, national
+  and Wisconsin monthly milk 2024, and the two national milk counts. Live smoke tests
+  `test_livestock_inventory_live` and `test_milk_production_live`; the older live
+  assertions on a record's field or on `len(result.data)` bind the value to a local
+  first, so a failure prints the figure or the count, not the records.
 - `get_production_forecasts(commodity, year, statistic, *, state=None)` and
   `get_production(commodity, year, statistic, *, state=None)`, the MCP tools
   `usda_nass_get_production_forecasts` and `usda_nass_get_production` and their HTTP

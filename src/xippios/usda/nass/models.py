@@ -23,10 +23,15 @@ __all__ = [
     "AcreageRecord",
     "ApiGetResponse",
     "AreaStatistic",
+    "CensusFarmsRecord",
     "CountyEstimateRecord",
     "CropProgressRecord",
+    "FarmStatistic",
     "Filters",
     "GetCountsResponse",
+    "LivestockCommodity",
+    "LivestockInventoryRecord",
+    "MilkProductionRecord",
     "PriceReceivedRecord",
     "ProductionRecord",
     "ProductionStatistic",
@@ -192,6 +197,17 @@ class AreaStatistic(StrEnum):
     AREA_HARVESTED = "AREA HARVESTED"
 
 
+class FarmStatistic(StrEnum):
+    """The two Census ``statisticcat_desc`` values of ``FARM OPERATIONS`` the farms slice covers.
+
+    ``OPERATIONS`` is the number of farms, ``AREA OPERATED`` the land in farms, as upstream
+    names them.
+    """
+
+    OPERATIONS = "OPERATIONS"
+    AREA_OPERATED = "AREA OPERATED"
+
+
 class AcreageRecord(_Published):
     """One acreage estimate in acres: a projection of ``QuickStatsRecord``.
 
@@ -215,6 +231,41 @@ class AcreageRecord(_Published):
     state_name: str
     year: int
     freq_desc: str
+    reference_period_desc: str
+    cv_percent: Decimal | None
+    load_time: datetime
+
+
+class CensusFarmsRecord(_Published):
+    """One Census of Agriculture farms figure: a projection of ``QuickStatsRecord``.
+
+    Columns keep their upstream names (ADR-0003), those of ``CountyEstimateRecord``.
+    ``statisticcat_desc`` is ``OPERATIONS`` or ``AREA OPERATED``; ``unit_desc`` tells the
+    figures of one place apart: ``OPERATIONS`` (the number of farms) and
+    ``PCT OF FARM OPERATIONS``, or ``ACRES`` (land in farms), ``ACRES / OPERATION``,
+    ``ACRES / OPERATION, MEDIAN``, ``PCT OF AG LAND`` and ``PCT OF TOTAL LAND``.
+    ``source_desc`` is ``CENSUS``; the ``asd_*`` and ``county_*`` columns are empty above
+    the county level. ``cv_percent`` is the coefficient of variation, parsed; a code
+    upstream prints in its place (``"(L)"``, ``"(H)"``) parses to ``None``.
+    """
+
+    commodity_desc: str
+    class_desc: str
+    util_practice_desc: str
+    prodn_practice_desc: str
+    statisticcat_desc: str
+    unit_desc: str
+    short_desc: str
+    source_desc: str
+    agg_level_desc: str
+    state_alpha: str
+    state_name: str
+    asd_code: str
+    asd_desc: str
+    county_ansi: str
+    county_code: str
+    county_name: str
+    year: int
     reference_period_desc: str
     cv_percent: Decimal | None
     load_time: datetime
@@ -266,6 +317,72 @@ class PriceReceivedRecord(_Published):
     ``MARKETING YEAR`` and ``begin_code``/``end_code`` carry the month numbers, ``00`` for
     the year. ``unit_desc`` is the price unit (``"$ / BU"``) or, in the national series,
     ``"PCT OF PARITY"``.
+    """
+
+    commodity_desc: str
+    class_desc: str
+    util_practice_desc: str
+    statisticcat_desc: str
+    unit_desc: str
+    short_desc: str
+    source_desc: str
+    agg_level_desc: str
+    state_alpha: str
+    state_name: str
+    year: int
+    freq_desc: str
+    reference_period_desc: str
+    begin_code: str
+    end_code: str
+    load_time: datetime
+
+
+class LivestockCommodity(StrEnum):
+    """The three ``commodity_desc`` values the inventory slice covers, as upstream names them."""
+
+    CATTLE = "CATTLE"
+    HOGS = "HOGS"
+    SHEEP = "SHEEP"
+
+
+class LivestockInventoryRecord(_Published):
+    """One livestock inventory in head on a survey day: a projection of ``QuickStatsRecord``.
+
+    Columns keep their upstream names (ADR-0003). ``class_desc`` names the class counted
+    (``"INCL CALVES"``, ``"COWS, BEEF"``, ``"ALL CLASSES"``, ``"MARKET, LT 50 LBS"``);
+    ``prodn_practice_desc`` is ``"ON FEED"`` for cattle on feed and, in the rows recorded,
+    ``"ALL PRODUCTION PRACTICES"`` otherwise. ``reference_period_desc`` names the day
+    (``"FIRST OF JAN"``) and ``begin_code``/``end_code`` carry its month number. ``value``
+    is the head count as published.
+    """
+
+    commodity_desc: str
+    class_desc: str
+    prodn_practice_desc: str
+    util_practice_desc: str
+    statisticcat_desc: str
+    unit_desc: str
+    short_desc: str
+    source_desc: str
+    agg_level_desc: str
+    state_alpha: str
+    state_name: str
+    year: int
+    freq_desc: str
+    reference_period_desc: str
+    begin_code: str
+    end_code: str
+    load_time: datetime
+
+
+class MilkProductionRecord(_Published):
+    """One milk production estimate in pounds: a projection of ``QuickStatsRecord``.
+
+    Columns keep their upstream names (ADR-0003). ``freq_desc`` is ``MONTHLY`` for a
+    month or a quarter and ``ANNUAL`` for the year; ``reference_period_desc`` names the
+    period (``"JAN"``, ``"JAN THRU MAR"``, ``"YEAR"``) and ``begin_code``/``end_code`` carry
+    its first and last month numbers, ``00`` for the year. ``value`` is the quantity as
+    published, in ``unit_desc`` ``"LB"``.
     """
 
     commodity_desc: str
