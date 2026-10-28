@@ -13,11 +13,12 @@ from xippios.core import (
     InvalidRequestError,
     NotFoundError,
     PackagedList,
+    UnknownCode,
     UpstreamModel,
     load_json,
 )
 from xippios.core.http import status_for
-from xippios.core.testing import assert_projection, mcp_call, sent_query
+from xippios.core.testing import assert_projection, mcp_call, mcp_call_text, sent_query
 
 from xippios.usda.nass import api, enums, tasks
 from xippios.usda.nass.errors import QueryTooLarge
@@ -67,7 +68,8 @@ async def test_unknown_columns_are_ignored_upstream(
 
 def test_unknown_filter_keys_are_rejected_before_any_call(respx_mock: respx.MockRouter) -> None:
     with pytest.raises(InvalidRequestError) as info:
-        tasks.get_counts({"comodity_desc": "CORN", "year__GTE": 2012})
+        tasks.get_counts({"comodity_desc": "CORN", "year__GTE": 2012, "state_alpha": "XX"})
+    assert not isinstance(info.value, UnknownCode)  # the keys are checked before the values
     message = str(info.value)
     assert "'comodity_desc' is not a Quick Stats column" in message
     assert "did you mean commodity_desc" in message
@@ -110,12 +112,78 @@ def test_enums_match_the_packaged_lists() -> None:
 def test_enum_members_are_accepted_as_filter_values(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
+    """A member passes the packaged-list check by its value."""
     route = replay_fixture("get_counts", "corn_va_since_2012")
     result = tasks.get_counts(
         {"state_alpha": enums.StateAlpha.VA, "sector_desc": enums.SectorDesc.CROPS}
     )
     assert result.meta.request["state_alpha"] == "VA"
     assert sent_query(route)["sector_desc"] == "CROPS"
+
+
+@pytest.mark.parametrize("task", [tasks.get_counts, tasks.get_data])
+def test_unknown_packaged_value_is_refused_before_any_call(
+    respx_mock: respx.MockRouter, task: Callable[..., object]
+) -> None:
+    """Quick Stats counts no records for a value it does not know, the answer a query
+    without data gets, so the package refuses it with core's ``UnknownCode`` (§5)."""
+    with pytest.raises(UnknownCode) as info:
+        task({"commodity_desc": "CORN", "state_alpha": "XX"})
+    fetched = fetched_as_written("state_alpha")
+    assert str(info.value).startswith(
+        f"'XX' is not a state_alpha in the packaged state_alpha list (fetched {fetched:%Y-%m-%d})."
+    )
+    assert "list_param_values('state_alpha') lists the known values" in str(info.value)
+    assert (info.value.param, info.value.value, info.value.list_name) == (
+        "state_alpha", "XX", "state_alpha",
+    )  # fmt: skip
+    assert info.value.fetched == fetched
+    assert info.value.closest == ()  # no two-letter code is close enough to "XX"
+    assert isinstance(info.value, InvalidRequestError)
+    assert status_for(info.value) == 422
+    assert not respx_mock.calls
+
+
+@pytest.mark.parametrize(
+    ("param", "value", "known"),
+    [
+        ("state_alpha", "va", "VA"),
+        ("sector_desc", "CROP", "CROPS"),
+        ("freq_desc", "WEEK", "WEEKLY"),
+    ],
+)
+def test_unknown_packaged_value_names_the_closest_known_ones(
+    respx_mock: respx.MockRouter, param: str, value: str, known: str
+) -> None:
+    """The comparison is exact, since upstream writes the values upper case; the hint
+    shows the spelling."""
+    with pytest.raises(UnknownCode) as info:
+        tasks.get_data({"commodity_desc": "CORN", param: value})
+    assert info.value.closest[0][0] == known
+    assert f"Did you mean {known}" in str(info.value)
+    assert f"packaged {param} list (fetched {fetched_as_written(param):%Y-%m-%d})" in str(
+        info.value
+    )
+    assert not respx_mock.calls
+
+
+def test_every_packaged_parameter_is_checked(respx_mock: respx.MockRouter) -> None:
+    for param in PACKAGED_PARAMS:
+        with pytest.raises(UnknownCode) as info:
+            tasks.get_counts({param: "NOT A VALUE"})
+        assert (info.value.param, info.value.fetched) == (param, fetched_as_written(param))
+    assert not respx_mock.calls
+
+
+def test_operator_keys_of_packaged_parameters_are_sent_as_given(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    route = replay_fixture("get_counts", "no_match")
+    result = tasks.get_counts({"state_alpha__LIKE": "X", "sector_desc__NE": "NOT A SECTOR"})
+    assert route.called
+    assert (result.data, result.meta.total) == (0, 0)
+    sent = sent_query(route)
+    assert (sent["state_alpha__LIKE"], sent["sector_desc__NE"]) == ("X", "NOT A SECTOR")
 
 
 SMALL_FILTERS: dict[str, str | int] = {
@@ -606,6 +674,10 @@ async def test_mcp_tool_call_end_to_end(replay_fixture: Callable[[str, str], res
     assert payload["meta"]["published_at"] is None
     with pytest.raises(AssertionError, match=r"InvalidRequestError.*comodity_desc"):
         await mcp_call(server, "usda_nass_get_counts", {"filters": {"comodity_desc": "CORN"}})
+    text = await mcp_call_text(server, "usda_nass_get_data", {"filters": {"state_alpha": "XX"}})
+    assert text.startswith(
+        "error: UnknownCode: 'XX' is not a state_alpha in the packaged state_alpha list"
+    )
 
 
 def test_http_route_end_to_end(replay_fixture: Callable[[str, str], respx.Route]) -> None:
@@ -627,3 +699,7 @@ def test_http_route_end_to_end(replay_fixture: Callable[[str, str], respx.Route]
     rejected = client.post("/usda-nass/get_counts", json={"filters": {"comodity_desc": "CORN"}})
     assert rejected.status_code == 422
     assert rejected.json()["title"] == "InvalidRequestError"
+    unknown = client.post("/usda-nass/get_counts", json={"filters": {"state_alpha": "XX"}})
+    assert unknown.status_code == 422
+    assert unknown.json()["title"] == "UnknownCode"
+    assert "packaged state_alpha list" in unknown.json()["detail"]

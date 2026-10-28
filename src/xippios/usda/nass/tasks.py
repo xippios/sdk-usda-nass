@@ -115,7 +115,11 @@ async def get_counts_async(filters: Filters) -> Result[int]:
     Args:
         filters: Quick Stats columns, optionally suffixed with an operator, mapped to
             values. Keys are checked against the column table before anything is sent;
-            an unknown column or operator raises ``InvalidRequestError`` naming it.
+            an unknown column or operator raises ``InvalidRequestError`` naming it. A
+            parameter ``list_param_values`` answers from packaged data (``state_alpha``,
+            ``sector_desc``, ``agg_level_desc``, ...), given without an operator, takes a
+            value of its list only, upper case as upstream writes it; another raises
+            ``UnknownCode`` naming the closest known values, before anything is sent.
             Columns are the What, Where and When dimensions, for example
             ``commodity_desc`` (``"CORN"``), ``statisticcat_desc`` (``"AREA PLANTED"``),
             ``agg_level_desc`` (``"STATE"``, ``"COUNTY"``), ``state_alpha`` (``"VA"``),
@@ -141,8 +145,9 @@ async def get_data_async(filters: Filters) -> Result[list[QuickStatsRecord]]:
 
     Args:
         filters: Quick Stats columns, optionally suffixed with an operator, mapped to
-            values; the same shape as for ``get_counts``. A query that stays well under
-            the limit names the commodity, the statistic, the level and the time, e.g.
+            values; the same shape and the same checks as for ``get_counts``. A query
+            that stays well under the limit names the commodity, the statistic, the
+            level and the time, e.g.
             ``{"commodity_desc": "CORN", "statisticcat_desc": "AREA PLANTED",
             "agg_level_desc": "STATE", "state_alpha": "VA", "year": 2012}``.
     """
