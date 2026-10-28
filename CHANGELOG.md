@@ -18,6 +18,11 @@ All notable changes to this project are documented here. The format follows
   `DOLLARS_PER_BU` beside `BU`, `"$ / ACRE"` is `DOLLARS_PER_ACRE` and
   `"$, CHERRY BASIS"` is `DOLLARS_CHERRY_BASIS`; in `DomainDesc`, a `_SPELLED_OUT` suffix
   marks the two landlord domains upstream also spells with `AND` in place of `&`.
+- A list `list_param_values` fetches live (`commodity_desc`, `short_desc`, ...) is cached
+  in memory for 24 hours in the process, so a repeated lookup sends nothing; its
+  `meta.retrieved_at` is the time the cached answer was fetched (ADR-0015, decision 5).
+  Only `get_param_values` is cached: `get_counts`, `get_data` and the task-shaped
+  functions always ask upstream.
 
 ### Changed
 
@@ -42,6 +47,10 @@ All notable changes to this project are documented here. The format follows
   packaged-list files, `{"param", "endpoint", "fetched", "records"}` with an optional
   `"note"`, converted without a request: values and order unchanged, `fetched` the date
   it was (2026-10-25, read as 00:00 UTC), the derived lists' query under `note`.
+- **BREAKING**: the endpoint wrapper `api.get_param_values` returns
+  `ParamValues(values, retrieved_at)`, read through `AsyncClient.get_answer`, where it
+  returned the list alone: `retrieved_at` is a cached answer's stored time, else the time
+  the answer arrived. The refresh script writes that time as a packaged list's `fetched`.
 - **BREAKING**: the endpoint wrapper `api_GET` is `api_get`, imported from
   `xippios.usda.nass.api.api_get`, its fixtures under `tests/fixtures/api_get/`
   (conventions 1.22 §2 and §10). A wrapper's module and function carry the upstream
