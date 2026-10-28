@@ -1,8 +1,4 @@
-"""The configured ``xippios.core`` client for USDA NASS Quick Stats.
-
-One ``AsyncClient`` for the whole package: task functions share its rate limiter and
-cache, and the same instance serves the sync facades and the MCP server.
-"""
+"""The package's one configured ``AsyncClient`` and its error mapping (conventions §6)."""
 
 from typing import Any
 
@@ -21,7 +17,7 @@ from xippios.usda.nass._version import __version__
 SOURCE = "usda-nass"
 BASE_URL = "https://quickstats.nass.usda.gov/api"
 API_KEY_ENV = "NASS_API_KEY"  # pragma: allowlist secret (a variable name, not a key)
-# A self-imposed pace: upstream documents no limit (ADR-0010 decision 1).
+# A self-imposed pace: upstream documents no per-second or per-minute limit (ADR-0010 decision 1).
 RATE_LIMIT = RateLimit(per_minute=30, burst=1)
 
 _NO_MATCH = "bad request - invalid query"

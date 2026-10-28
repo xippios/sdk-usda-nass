@@ -1,10 +1,6 @@
-"""Endpoint wrappers for USDA NASS Quick Stats.
+"""Endpoint wrappers, layer 1: one async function per upstream operation (conventions §2).
 
-Layer 1 of ADR-0001: one module per upstream operation, named after it. A wrapper
-takes the parameters as upstream names them (snake_cased), calls
-``xippios.usda.nass._client.client`` and returns models from ``models.py`` that
-mirror the payload. No composition and no defaults beyond upstream's own. The reference
-is the snapshot in ``docs/upstream/``.
+``/add-endpoint`` adds them.
 """
 
 from xippios.usda.nass.api.api_GET import api_GET
