@@ -133,6 +133,20 @@ async def test_upstream_counts_no_records_for_an_unknown_packaged_value(
     assert sent_query(route)["state_alpha"] == "XX"
 
 
+def test_a_packaged_value_in_lower_case_passes_and_is_sent_as_given(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """Quick Stats folds case, recorded on 2026-10-28: ``state_alpha=va`` with the filters
+    of ``EXAMPLE_FILTERS`` counts 22,347, where ``VA`` counted 22,345 on 2026-10-22, so
+    the packaged-list check accepts ``va`` and sends it unchanged."""
+    route = replay_fixture("get_counts", "corn_va_since_2012_lowercase")
+    filters = {**EXAMPLE_FILTERS, "state_alpha": "va"}
+    result = tasks.get_counts(filters)
+    assert (result.data, result.meta.total) == (22347, 22347)
+    assert result.meta.request == filters
+    assert sent_query(route)["state_alpha"] == "va"
+
+
 @pytest.mark.parametrize("task", [tasks.get_counts, tasks.get_data])
 def test_unknown_packaged_value_is_refused_before_any_call(
     respx_mock: respx.MockRouter, task: Callable[..., object]
