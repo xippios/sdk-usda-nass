@@ -45,6 +45,7 @@ def test_get_counts_replays_the_documented_example(
     route = replay_fixture("get_counts", "corn_va_since_2012")
     result = tasks.get_counts(EXAMPLE_FILTERS)
     assert result.data == 22345
+    assert result.meta.total == 22345
     assert result.meta.source == "usda-nass"
     assert result.meta.endpoint == "get_counts"
     assert result.meta.request == EXAMPLE_FILTERS
@@ -134,6 +135,9 @@ def test_get_data_parses_every_column(replay_fixture: Callable[[str, str], respx
     assert result.meta.endpoint == "api_GET"
     assert result.meta.request == SMALL_FILTERS
     assert len(result.data) == 2
+    # The count get_counts reported, as recorded for EXAMPLE_FILTERS: upstream's statement,
+    # never len(data) (conventions §4, ADR-0012).
+    assert result.meta.total == 22345
     record = result.data[0]
     assert record.commodity_desc == "CORN"
     assert record.year == 2012
@@ -166,6 +170,7 @@ def test_get_data_returns_empty_without_fetching_when_nothing_matches(
     fetched = replay_fixture("api_get", "no_match")
     result = tasks.get_data({"commodity_desc": "CORN", "year": 1800, "state_alpha": "VA"})
     assert result.data == []
+    assert result.meta.total == 0
     assert not fetched.called
 
 
@@ -539,6 +544,7 @@ def test_slices_skip_the_count_and_leave_published_at_empty(
         "CORN", 2024, state=enums.StateAlpha.IA, stage=enums.ProgressStage.PCT_PLANTED
     )
     assert not counted.called
+    assert result.meta.total is None
     assert result.meta.published_at is None
     assert result.meta.vintage is None
     assert all(row.load_time.tzinfo is None for row in result.data)
@@ -551,6 +557,7 @@ def test_get_data_keeps_the_count_and_leaves_published_at_empty(
     replay_fixture("api_get", "corn_va_2012_area_planted")
     result = tasks.get_data(SMALL_FILTERS)
     assert counted.called
+    assert result.meta.total == 22345
     assert result.meta.published_at is None
 
 

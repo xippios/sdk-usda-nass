@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `meta.total` on `get_data`: the count `get_counts` reported for the filters, `0` on
+  the empty result it returns without a second call, never `len(data)`; `get_counts`
+  carries its count there too, beside `data` (conventions §4, ADR-0012). The task-shaped
+  functions skip the count and leave `total` `None`.
+
 ### Changed
 
 - Adopted xippios-core 0.3.0, sdk-template v0.3.0 and conventions 1.22 (conventions §15).
