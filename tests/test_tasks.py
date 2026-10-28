@@ -963,8 +963,8 @@ def test_split_refuses_an_unbounded_year_range_before_any_call(
     assert not isinstance(info.value, QueryTooLarge | UnknownCode)
     assert str(info.value).startswith(
         "split_by_year needs the years bounded in one of three forms: year (one year, "
-        "e.g. 2022), year__GE with year__LE (e.g. 2020 and 2023), or year__GE alone (up "
-        "to the current UTC year); year filters given: "
+        "e.g. 2022), year__GE with year__LE (e.g. 2020 and 2023, neither past the current "
+        "UTC year), or year__GE alone (up to the current UTC year); year filters given: "
     )
     assert str(info.value).endswith(f"given: {', '.join(sorted(years)) or 'none'}.")
     assert status_for(info.value) == 422
@@ -975,7 +975,6 @@ def test_split_refuses_an_unbounded_year_range_before_any_call(
     ("years", "text"),
     [
         ({"year__GE": 2024, "year__LE": 2023}, "the years run from 2024 to 2023"),
-        ({"year__GE": datetime.now(UTC).year + 1}, f"run from {datetime.now(UTC).year + 1} to"),
         ({"year": "2O22"}, "year='2O22' is not a year"),
     ],
 )
@@ -984,6 +983,36 @@ def test_split_refuses_a_range_without_a_year_before_any_call(
 ) -> None:
     with pytest.raises(InvalidRequestError, match=text):
         tasks.get_data({"commodity_desc": "CORN", **years}, split_by_year=True)
+    assert not respx_mock.calls
+
+
+@pytest.mark.parametrize(
+    ("first", "last", "named"),
+    [
+        (-1, 1, "year__LE"),  # ends past the current year
+        (1, 2, "year__LE"),  # wholly past it: the end is named
+        (1, -1, "year__GE"),  # starts past it, and past its end
+        (1, None, "year__GE"),  # year__GE alone, past the current year
+    ],
+)
+def test_split_refuses_a_bound_past_the_current_utc_year_before_any_call(
+    respx_mock: respx.MockRouter, first: int, last: int | None, named: str
+) -> None:
+    """A year Quick Stats has not published counts 0, as a year without records does, so
+    the range must end by the current UTC year (Johannes, 2026-10-28). Offsets from the
+    current year, read at call time."""
+    now = datetime.now(UTC).year
+    years: dict[str, str | int] = {"year__GE": now + first}
+    if last is not None:
+        years["year__LE"] = now + last
+    with pytest.raises(InvalidRequestError) as info:
+        tasks.get_data({"commodity_desc": "CORN", **years}, split_by_year=True)
+    assert not isinstance(info.value, QueryTooLarge | UnknownCode)
+    assert str(info.value) == (
+        f"split_by_year: {named}={years[named]} is past the current UTC year, {now}; the "
+        f"range must end by {now}."
+    )
+    assert status_for(info.value) == 422
     assert not respx_mock.calls
 
 

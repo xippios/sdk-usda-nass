@@ -133,8 +133,8 @@ async def get_counts_async(filters: Filters) -> Result[int]:
             counts corn records for Virginia from 2012 on. Quick Stats keeps one bound on
             ``year`` per query (recorded 2026-10-28): it counts ``year__GE`` with
             ``year__LE`` as ``year__GE`` alone, in either order, and drops ``year__GE``
-            beside ``year__LT``, so a two-sided year range is served only by
-            ``get_data`` with ``split_by_year``.
+            beside ``year__LT``; ``get_data`` with ``split_by_year`` fetches a two-sided
+            year range year by year and splits an over-limit ``year__GE`` range.
     """
     checked = validate_filters(filters)
     response = await api.get_counts(checked)
@@ -142,8 +142,8 @@ async def get_counts_async(filters: Filters) -> Result[int]:
 
 
 _BOUNDED_FORMS = (
-    "year (one year, e.g. 2022), year__GE with year__LE (e.g. 2020 and 2023), or "
-    "year__GE alone (up to the current UTC year)"
+    "year (one year, e.g. 2022), year__GE with year__LE (e.g. 2020 and 2023, neither past "
+    "the current UTC year), or year__GE alone (up to the current UTC year)"
 )
 
 
@@ -167,15 +167,17 @@ def _years(filters: Mapping[str, str | int]) -> range:
 
     Raises:
         InvalidRequestError: The year filters are none of the three bounded forms, a
-            bound is not a whole year, or the range holds no year.
+            bound is not a whole year, a ``year__GE`` or ``year__LE`` is past the current
+            UTC year, or the range holds no year.
     """
+    now = datetime.now(UTC).year
     keys = sorted(key for key in filters if _is_year(key))
     if keys == ["year"]:
         first = last = _year(filters, "year")
     elif keys == ["year__GE", "year__LE"]:
         first, last = _year(filters, "year__GE"), _year(filters, "year__LE")
     elif keys == ["year__GE"]:
-        first, last = _year(filters, "year__GE"), datetime.now(UTC).year
+        first, last = _year(filters, "year__GE"), now
     else:
         given = ", ".join(keys) if keys else "none"
         raise InvalidRequestError(
@@ -183,6 +185,13 @@ def _years(filters: Mapping[str, str | int]) -> range:
             f"year filters given: {given}.",
             source=SOURCE,
         )
+    for key in ("year__LE", "year__GE"):
+        if key in keys and (bound := _year(filters, key)) > now:
+            raise InvalidRequestError(
+                f"split_by_year: {key}={bound} is past the current UTC year, {now}; the "
+                f"range must end by {now}.",
+                source=SOURCE,
+            )
     if first > last:
         raise InvalidRequestError(
             f"split_by_year: the years run from {first} to {last}, a range without a year.",
@@ -254,7 +263,7 @@ async def get_data_async(
             statistic, the level and the time, e.g.
             ``{"commodity_desc": "CORN", "statisticcat_desc": "AREA PLANTED",
             "agg_level_desc": "STATE", "state_alpha": "VA", "year": 2012}``. Quick Stats
-            keeps one bound on ``year`` per query (recorded 2026-10-28): it reads
+            keeps one bound on ``year`` per query (recorded 2026-10-28): it counts
             ``year__GE`` with ``year__LE`` as ``year__GE`` alone, in either order, and
             drops ``year__GE`` beside ``year__LT``, so a two-sided year range is served
             only by ``split_by_year``.
@@ -262,10 +271,11 @@ async def get_data_async(
             them, splitting one call into at most 20 years. The filters bound the years in
             one of three forms, checked before any call: ``year`` (``2022``), ``year__GE``
             with ``year__LE`` (``2020`` and ``2023``), or ``year__GE`` alone, up to the
-            current UTC year; another year filter (``year__LE`` alone, ``year__GT``,
+            current UTC year. Another year filter (``year__LE`` alone, ``year__GT``,
             ``year__NE``, ...), a mix or none raises ``InvalidRequestError`` naming the
-            three forms. ``year`` is counted and fetched once, as without the flag; over the
-            limit it raises ``QueryTooLarge`` naming the year. ``year__GE`` with
+            three forms, and a ``year__GE`` or ``year__LE`` past the current UTC year raises
+            it naming that year. ``year`` is counted and fetched once, as without the flag;
+            over the limit it raises ``QueryTooLarge`` naming the year. ``year__GE`` with
             ``year__LE`` is always split, without a count of the range, which Quick Stats
             would count as ``year__GE`` alone; more than 20 years raise
             ``InvalidRequestError`` naming the ceiling before any call. ``year__GE`` alone
@@ -276,9 +286,12 @@ async def get_data_async(
             year before the first fetch, so a year over 50,000 on its own raises
             ``QueryTooLarge`` naming it before anything is fetched; it then fetches each
             year holding records, the records in year order, each year's in upstream's
-            order. Cost: up to two keyed calls per year, plus the first count for
-            ``year__GE`` alone, paced at 30 a minute, so 20 years take up to 41 calls, about
-            80 seconds. ``meta.request`` carries ``split_by_year`` beside the filters.
+            order. A year counting 0 is skipped: it has no records, or none published yet,
+            which Quick Stats does not tell apart; ``meta.vintage`` stays ``None``, since
+            Quick Stats names no release. Cost: up to two keyed calls per year, plus the
+            first count for ``year__GE`` alone, paced at 30 a minute, so 20 years take up to
+            41 calls, about 80 seconds. ``meta.request`` carries ``split_by_year`` beside
+            the filters.
             ``False``, the default, never splits.
     """
     checked = validate_filters(filters)
