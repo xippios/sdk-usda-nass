@@ -66,6 +66,22 @@ All notable changes to this project are documented here. The format follows
   utilisation, class and unit, the final figure by state, utilisation, class, unit and
   source. Like the other task-shaped functions they skip the count (`meta.total` is
   `None`) and leave `published_at` empty.
+- `get_grain_stocks(commodity, year, state=)`, with the MCP tool
+  `usda_nass_get_grain_stocks` and its HTTP route: the NASS Grain Stocks estimates of a
+  commodity in a year, in bushels, state or national (`statisticcat_desc` `STOCKS`,
+  `unit_desc` `BU`, `domain_desc` `TOTAL`, `freq_desc` `POINT IN TIME`, `source_desc`
+  `SURVEY`), every stocks day (`FIRST OF MAR`, `FIRST OF JUN`, `FIRST OF SEP`,
+  `FIRST OF DEC`) with the on-farm, off-farm and total rows together, sorted by day
+  (`begin_code`, then `reference_period_desc`), then `util_practice_desc`, then
+  `class_desc`. The position comes as upstream spells it for the commodity, in
+  `util_practice_desc`: for corn `GRAIN` (the total), `ON FARM, GRAIN` and
+  `OFF FARM, GRAIN`; for soybeans and wheat `ALL UTILIZATION PRACTICES` (the total),
+  `ON FARM` and `OFF FARM`; wheat's durum comes as rows of its own (`class_desc`
+  `SPRING, DURUM`). Nothing is mapped and there is no position parameter (ADR-0003). It
+  returns `GrainStocksRecord`, a projection of `QuickStatsRecord` under upstream column
+  names, without `cv_percent`, which the stocks rows leave empty; like the other
+  task-shaped functions it skips the count (`meta.total` `None`) and leaves
+  `meta.published_at` empty.
 - Live smoke tests for `get_crop_condition`, `get_county_production` and
   `get_acreage_forecasts` (`test_crop_condition_live`, `test_county_production_live`,
   `test_acreage_forecasts_live`), so every task has one (conventions §10);

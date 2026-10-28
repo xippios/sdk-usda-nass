@@ -54,6 +54,7 @@ from xippios.usda.nass.models import (
     CountyEstimateRecord,
     CropProgressRecord,
     FarmStatistic,
+    GrainStocksRecord,
     LivestockCommodity,
     LivestockInventoryRecord,
     MilkProductionRecord,
@@ -1001,6 +1002,148 @@ async def test_upstream_files_dairy_products_beside_milk_production_in_lb(
         assert sent_query(route) == recorded_query(fixture)
 
 
+# --- get_grain_stocks, decision 9 (c) (Johannes, 2026-10-26 and 2026-10-28) ---
+
+STOCKS_FIXED: dict[str, str] = {  # confirmed with get_counts on 2026-10-28: nothing dropped
+    "statisticcat_desc": "STOCKS",
+    "unit_desc": "BU",
+    "domain_desc": "TOTAL",
+    "freq_desc": "POINT IN TIME",
+    "source_desc": "SURVEY",
+}
+STOCKS_DAYS = ["FIRST OF MAR", "FIRST OF JUN", "FIRST OF SEP", "FIRST OF DEC"]
+STOCKS_CASES = [  # (case, commodity, state, records, positions, classes), recorded 2026-10-28
+    (
+        "corn_stocks_us_2024", "CORN", None, 12,
+        {"GRAIN", "ON FARM, GRAIN", "OFF FARM, GRAIN"}, {"ALL CLASSES"},
+    ),
+    (
+        "soybeans_stocks_ia_2024", "SOYBEANS", enums.StateAlpha.IA, 12,
+        {"ALL UTILIZATION PRACTICES", "ON FARM", "OFF FARM"}, {"ALL CLASSES"},
+    ),
+    (
+        "wheat_stocks_us_2024", "WHEAT", None, 24,
+        {"ALL UTILIZATION PRACTICES", "ON FARM", "OFF FARM"}, {"ALL CLASSES", "SPRING, DURUM"},
+    ),
+]  # fmt: skip
+
+
+def stocks_order(row: GrainStocksRecord) -> tuple[str, str, str, str]:
+    return (row.begin_code, row.reference_period_desc, row.util_practice_desc, row.class_desc)
+
+
+@pytest.mark.parametrize(
+    ("case", "commodity", "state", "records", "positions", "classes"), STOCKS_CASES
+)
+def test_grain_stocks_slice(
+    replay_fixture: ReplayFixture,
+    fixtures_dir: Path,
+    case: str,
+    commodity: str,
+    state: enums.StateAlpha | None,
+    records: int,
+    positions: set[str],
+    classes: set[str],
+) -> None:
+    counted = replay_fixture("get_counts", "corn_progress_planted_ia_2024")
+    fetched = replay_fixture("api_get", case)
+    result = tasks.get_grain_stocks(commodity, 2024, state=state)
+    level = {"agg_level_desc": "NATIONAL" if state is None else "STATE"}
+    if state is not None:
+        level["state_alpha"] = state.value
+    assert result.meta.request == {
+        "commodity_desc": commodity,
+        **STOCKS_FIXED,
+        "year": 2024,
+        **level,
+    }
+    sent = sent_query(fetched)
+    assert sent == recorded_query(load_fixture(fixtures_dir / "api_get" / f"{case}.json"))
+    assert {key: sent[key] for key in STOCKS_FIXED} == STOCKS_FIXED
+    assert (sent["commodity_desc"], sent["year"], sent["format"]) == (commodity, "2024", "JSON")
+    assert {key: sent[key] for key in level} == level
+    assert ("state_alpha" in sent) == (state is not None)
+    assert not counted.called
+    assert (result.meta.endpoint, result.meta.total) == ("api_GET", None)
+    assert result.meta.published_at is None
+    assert result.meta.vintage is None
+    assert len(result.data) == records
+    assert all(isinstance(row, GrainStocksRecord) for row in result.data)
+    assert [stocks_order(row) for row in result.data] == sorted(map(stocks_order, result.data))
+    per_day = records // len(STOCKS_DAYS)
+    assert [row.reference_period_desc for row in result.data[::per_day]] == STOCKS_DAYS
+    assert [row.begin_code for row in result.data[::per_day]] == ["03", "06", "09", "12"]
+    assert {row.util_practice_desc for row in result.data} == positions
+    assert {row.class_desc for row in result.data} == classes
+    assert {row.commodity_desc for row in result.data} == {commodity}
+    recorded = recorded_chunk(fixtures_dir, case)
+    assert len(recorded) == records
+    for column, value in STOCKS_FIXED.items():  # the projection leaves domain_desc out
+        assert {getattr(row, column) for row in recorded} == {value}, column
+        if column in GrainStocksRecord.model_fields:
+            assert {getattr(row, column) for row in result.data} == {value}, column
+    assert {row.state_alpha for row in result.data} == {"US" if state is None else state.value}
+    assert {row.prodn_practice_desc for row in result.data} == {"ALL PRODUCTION PRACTICES"}
+    assert all(row.value_number is not None for row in result.data)
+    assert all(row.load_time.tzinfo is None for row in result.data)
+
+
+def test_grain_stocks_corn_national_positions_add_up(replay_fixture: ReplayFixture) -> None:
+    replay_fixture("api_get", "corn_stocks_us_2024")
+    result = tasks.get_grain_stocks("CORN", 2024)
+    march = result.data[:3]
+    assert [(row.util_practice_desc, row.value, row.value_number) for row in march] == [
+        ("GRAIN", "8,352,378,000", Decimal("8352378000")),
+        ("OFF FARM, GRAIN", "3,273,378,000", Decimal("3273378000")),
+        ("ON FARM, GRAIN", "5,079,000,000", Decimal("5079000000")),
+    ]
+    assert march[0].short_desc == "CORN, GRAIN - STOCKS, MEASURED IN BU"
+    assert {row.state_name for row in result.data} == {"US TOTAL"}
+    for day in range(0, 12, 3):  # GRAIN is the total of the two positions on every day
+        total, off_farm, on_farm = (row.value_number for row in result.data[day : day + 3])
+        assert total == (off_farm or 0) + (on_farm or 0)
+    december = result.data[9]
+    assert (december.reference_period_desc, december.value_number) == (
+        "FIRST OF DEC", Decimal("12075407000"),
+    )  # fmt: skip
+
+
+def test_grain_stocks_soybeans_state(replay_fixture: ReplayFixture) -> None:
+    replay_fixture("api_get", "soybeans_stocks_ia_2024")
+    result = tasks.get_grain_stocks("SOYBEANS", 2024, state=enums.StateAlpha.IA)
+    assert {row.state_name for row in result.data} == {"IOWA"}
+    assert {row.agg_level_desc for row in result.data} == {"STATE"}
+    assert [(row.util_practice_desc, row.value_number) for row in result.data[:3]] == [
+        ("ALL UTILIZATION PRACTICES", Decimal("313023000")),
+        ("OFF FARM", Decimal("168023000")),
+        ("ON FARM", Decimal("145000000")),
+    ]
+    assert result.data[0].short_desc == "SOYBEANS - STOCKS, MEASURED IN BU"
+
+
+def test_grain_stocks_wheat_carries_durum_as_rows_of_its_own(
+    replay_fixture: ReplayFixture,
+) -> None:
+    replay_fixture("api_get", "wheat_stocks_us_2024")
+    result = tasks.get_grain_stocks("WHEAT", 2024)
+    march = result.data[:6]
+    assert [(row.util_practice_desc, row.class_desc, row.value_number) for row in march] == [
+        ("ALL UTILIZATION PRACTICES", "ALL CLASSES", Decimal("1088709000")),
+        ("ALL UTILIZATION PRACTICES", "SPRING, DURUM", Decimal("36377000")),
+        ("OFF FARM", "ALL CLASSES", Decimal("816779000")),
+        ("OFF FARM", "SPRING, DURUM", Decimal("17577000")),
+        ("ON FARM", "ALL CLASSES", Decimal("271930000")),
+        ("ON FARM", "SPRING, DURUM", Decimal("18800000")),
+    ]
+    durum = [row for row in result.data if row.class_desc == "SPRING, DURUM"]
+    assert len(durum) == 12
+    assert {row.short_desc for row in durum} == {
+        "WHEAT, SPRING, DURUM - STOCKS, MEASURED IN BU",
+        "WHEAT, SPRING, DURUM, OFF FARM - STOCKS, MEASURED IN BU",
+        "WHEAT, SPRING, DURUM, ON FARM - STOCKS, MEASURED IN BU",
+    }
+
+
 @pytest.mark.parametrize(
     "model",
     [
@@ -1012,6 +1155,7 @@ async def test_upstream_files_dairy_products_beside_milk_production_in_lb(
         LivestockInventoryRecord,
         MilkProductionRecord,
         ProductionRecord,
+        GrainStocksRecord,
     ],
 )
 def test_projections_are_faithful(model: type[UpstreamModel]) -> None:
@@ -1573,6 +1717,53 @@ def test_livestock_routes_end_to_end_over_http(replay_fixture: ReplayFixture) ->
         "/usda-nass/get_livestock_inventory", params={"commodity": "GOATS", "year": 2024}
     )
     assert refused.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_grain_stocks_over_mcp(replay_fixture: ReplayFixture) -> None:
+    fetched = replay_fixture("api_get", "wheat_stocks_us_2024")
+    payload = await mcp_call(
+        server, "usda_nass_get_grain_stocks", {"commodity": "WHEAT", "year": 2024}
+    )
+    assert sent_query(fetched)["statisticcat_desc"] == "STOCKS"
+    rows = payload["data"]
+    assert len(rows) == 24  # whole, under the default cap
+    first = rows[0]
+    assert (first["reference_period_desc"], first["util_practice_desc"], first["class_desc"]) == (
+        "FIRST OF MAR", "ALL UTILIZATION PRACTICES", "ALL CLASSES",
+    )  # fmt: skip
+    assert (first["value"], first["value_number"]) == ("1,088,709,000", 1088709000)
+    assert "cv_percent" not in first
+    assert {row["class_desc"] for row in rows} == {"ALL CLASSES", "SPRING, DURUM"}
+    meta = payload["meta"]
+    assert (meta["endpoint"], meta["total"], meta["published_at"]) == ("api_GET", None, None)
+    assert meta["request"]["freq_desc"] == "POINT IN TIME"
+
+
+def test_grain_stocks_over_http(replay_fixture: ReplayFixture) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from xippios.usda.nass.http import router
+
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+    fetched = replay_fixture("api_get", "soybeans_stocks_ia_2024")
+    response = client.get(
+        "/usda-nass/get_grain_stocks", params={"commodity": "SOYBEANS", "year": 2024, "state": "IA"}
+    )
+    assert response.status_code == 200, response.text
+    assert sent_query(fetched)["state_alpha"] == "IA"
+    body = response.json()
+    assert len(body["data"]) == 12
+    assert body["data"][0]["util_practice_desc"] == "ALL UTILIZATION PRACTICES"
+    assert body["data"][0]["value_number"] == 313023000
+    assert {row["util_practice_desc"] for row in body["data"]} == {
+        "ALL UTILIZATION PRACTICES", "ON FARM", "OFF FARM",
+    }  # fmt: skip
+    assert (body["meta"]["endpoint"], body["meta"]["total"]) == ("api_GET", None)
+    assert body["meta"]["request"]["agg_level_desc"] == "STATE"
 
 
 # --- get_data(split_by_year=True), decision 8 (Johannes, 2026-10-26 and 2026-10-28) ---
