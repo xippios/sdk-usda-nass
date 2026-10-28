@@ -996,6 +996,38 @@ def test_split_of_one_year_over_the_limit_refuses_after_the_first_count(
     assert not fetched.called
 
 
+def test_split_counts_a_year_past_the_current_one_without_refusing_it(
+    replay_fixture: ReplayFixture, respx_mock: respx.MockRouter
+) -> None:
+    """The ``year`` form keeps no future-year refusal (Johannes, 2026-10-28): with the flag,
+    next year is counted as without it. ``get_counts/no_match`` (a count of 0, recorded for
+    ``year=1800``) answers it, moved with ``url=``: an empty result, nothing fetched."""
+    next_year = datetime.now(UTC).year + 1
+    counted = replay_fixture(
+        "get_counts",
+        "no_match",
+        url=f"{BASE_URL}/get_counts/?year={next_year}",
+        match_params=["year"],
+    )
+    fetched = replay_fixture("api_get", "no_match")
+    filters: dict[str, str | int] = {
+        "commodity_desc": "CORN",
+        "state_alpha": "VA",
+        "year": next_year,
+    }
+    result = tasks.get_data(filters, split_by_year=True)
+    assert (result.data, result.meta.total) == ([], 0)
+    assert result.meta.request == {**filters, "split_by_year": True}
+    assert sent_query(counted) == {
+        "commodity_desc": "CORN",
+        "state_alpha": "VA",
+        "year": str(next_year),
+        "key": REDACTED,
+    }
+    assert counted.call_count == len(respx_mock.calls) == 1  # one count, no fetch
+    assert not fetched.called
+
+
 @pytest.mark.parametrize(
     "years",
     [
