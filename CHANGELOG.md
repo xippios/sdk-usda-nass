@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-28
+
+0.2.0 ships on xippios-core 0.3.0 and sdk-template v0.3.0 as its floor, under
+conventions 1.22. It adds six task-shaped functions (`get_production_forecasts`,
+`get_production`, `get_livestock_inventory`, `get_milk_production`, `get_census_farms`
+and `get_grain_stocks`), a split by year for `get_data` (`split_by_year`), three more
+packaged lists (`statisticcat_desc`, `unit_desc` and `domain_desc`), a 24-hour memory
+cache for the lists `list_param_values` fetches live, and a refreshed upstream snapshot.
+The entries marked **BREAKING** change what 0.1.0 offered.
+
 ### Added
 
 - `get_census_farms(year, statistic, state=, by_county=)`, the MCP tool
@@ -117,7 +127,6 @@ All notable changes to this project are documented here. The format follows
   the empty result it returns without a second call, never `len(data)`; `get_counts`
   carries its count there too, beside `data` (conventions §4, ADR-0012). The task-shaped
   functions skip the count and leave `total` `None`.
-
 - `statisticcat_desc` (278 values), `unit_desc` (373) and `domain_desc` (616) ship as
   packaged lists (fetched 2026-10-28), with the `StrEnum` classes `StatisticcatDesc`,
   `UnitDesc` and `DomainDesc` in `xippios.usda.nass.enums`; `list_param_values` answers
@@ -149,18 +158,14 @@ All notable changes to this project are documented here. The format follows
   canonical spelling. A key with an operator (`state_alpha__LIKE`, `sector_desc__NE`) is
   checked against the columns and operators and its value sent as given. Unknown columns
   and operators still raise `InvalidRequestError` first, with the same text.
-- The packaged lists are refreshed (fetched 2026-10-28): no value changed, moved or
-  disappeared in the six lists packaged before and the two derived ones. Each file's
-  `fetched` is the full UTC time of its fetch (`2026-10-28T15:01:38Z`), so
-  `meta.retrieved_at` of a packaged answer is that time, where it read 00:00 UTC of
-  2026-10-25; the `enums.py` docstrings name 2026-10-28, and `reference/README.md` lists
-  the eleven files with their fetch times.
-- The packaged lists are refreshed once more before the release, all eleven fetched
-  2026-10-28T21:37:56Z to 21:38:24Z: no value was added, removed or moved in any of
-  them, so only each file's `fetched` and its row in `reference/README.md` change, and
-  `meta.retrieved_at` of a packaged answer is the new time; `enums.py` and `columns.csv`
-  are unchanged, and the `columns.csv` row names the snapshot it was rebuilt from,
-  2026-10-28T13:44:34Z, where it named the one of 2026-10-22.
+- The packaged lists are refreshed, all eleven fetched 2026-10-28T21:37:56Z to
+  21:38:24Z: no value was added, removed or moved since 0.1.0's lists of 2026-10-25, in
+  the six lists packaged before and the two derived ones. Each file's `fetched` is the
+  full UTC time of its fetch, so `meta.retrieved_at` of a packaged answer is that time,
+  not 00:00 UTC of 2026-10-25, the date 0.1.0's lists carried; the `enums.py`
+  docstrings name 2026-10-28. `reference/README.md` lists each list with its fetch time,
+  and `columns.csv`, unchanged, with the upstream snapshot it is rebuilt from,
+  2026-10-28T13:44:34Z, where its row named the snapshot of 2026-10-22.
 - `list_param_values` answers `statisticcat_desc`, `unit_desc` and `domain_desc` from
   the package, no longer live. The live path's replay test uses a new
   `get_param_values/commodity_desc` fixture (recorded 2026-10-28); the
@@ -197,9 +202,9 @@ All notable changes to this project are documented here. The format follows
   status, size and sha256), and the column-definitions table, which has merged cells, is
   kept as HTML. Upstream's content is unchanged since the snapshot of 2026-10-22.
   `scripts/refresh_reference.py` reads that HTML table before it writes any file, and
-  reproduces `columns.csv` from it byte for byte. `columns.csv` itself was not rebuilt
-  with the snapshot; its provenance row in the reference README, which named the
-  snapshot of 2026-10-22, moved to this snapshot's time at the refresh of 2026-10-28.
+  reproduces `columns.csv` from it byte for byte; the refresh of the packaged lists
+  rebuilt it from this snapshot, so its provenance row in the reference README names
+  this snapshot's time.
 - The README's "Upstream terms and attribution" displays the notice the NASS API Terms of
   Service ask every service that uses the API to display.
 
