@@ -1,0 +1,841 @@
+{
+  "param": "statisticcat_desc",
+  "endpoint": "get_param_values",
+  "fetched": "2026-10-28T15:01:47Z",
+  "records": [
+    {
+      "statisticcat_desc": "ACCESSIBILITY"
+    },
+    {
+      "statisticcat_desc": "ACCESSIBILITY, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "ACCESSIBILITY, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "ACTIVE GINS"
+    },
+    {
+      "statisticcat_desc": "ACTIVITY"
+    },
+    {
+      "statisticcat_desc": "ACTIVITY, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "ACTIVITY, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "ADDED & REPLACED"
+    },
+    {
+      "statisticcat_desc": "AGE, AVG"
+    },
+    {
+      "statisticcat_desc": "APPLICATIONS"
+    },
+    {
+      "statisticcat_desc": "AREA"
+    },
+    {
+      "statisticcat_desc": "AREA BEARING"
+    },
+    {
+      "statisticcat_desc": "AREA BEARING & NON-BEARING"
+    },
+    {
+      "statisticcat_desc": "AREA CERTIFIED"
+    },
+    {
+      "statisticcat_desc": "AREA CROPLAND"
+    },
+    {
+      "statisticcat_desc": "AREA EQUIPPED FOR IRRIGATION"
+    },
+    {
+      "statisticcat_desc": "AREA FILLED"
+    },
+    {
+      "statisticcat_desc": "AREA FLOODED"
+    },
+    {
+      "statisticcat_desc": "AREA GRAZED"
+    },
+    {
+      "statisticcat_desc": "AREA GROWN"
+    },
+    {
+      "statisticcat_desc": "AREA HARVESTED"
+    },
+    {
+      "statisticcat_desc": "AREA IN PRODUCTION"
+    },
+    {
+      "statisticcat_desc": "AREA IN PRODUCTION PREVIOUS CENSUS YEAR"
+    },
+    {
+      "statisticcat_desc": "AREA IRRIGATED"
+    },
+    {
+      "statisticcat_desc": "AREA IRRIGATED PREVIOUS CENSUS YEAR"
+    },
+    {
+      "statisticcat_desc": "AREA NON-BEARING"
+    },
+    {
+      "statisticcat_desc": "AREA NOT HARVESTED"
+    },
+    {
+      "statisticcat_desc": "AREA OF WATER"
+    },
+    {
+      "statisticcat_desc": "AREA OPERATED"
+    },
+    {
+      "statisticcat_desc": "AREA PLANTED"
+    },
+    {
+      "statisticcat_desc": "AREA PLANTED, NET"
+    },
+    {
+      "statisticcat_desc": "AREA POLLINATED, PAID BASIS"
+    },
+    {
+      "statisticcat_desc": "AREA REMAINING TO BE HARVESTED"
+    },
+    {
+      "statisticcat_desc": "AREA REMAINING TO BE PLANTED"
+    },
+    {
+      "statisticcat_desc": "AREA RENTED"
+    },
+    {
+      "statisticcat_desc": "ASSET VALUE"
+    },
+    {
+      "statisticcat_desc": "AVAILABILITY"
+    },
+    {
+      "statisticcat_desc": "AVAILABILITY, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "AVAILABILITY, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "AVERAGE PRICE"
+    },
+    {
+      "statisticcat_desc": "BEING MOLTED"
+    },
+    {
+      "statisticcat_desc": "BLOOM DATE"
+    },
+    {
+      "statisticcat_desc": "BOLL COUNT"
+    },
+    {
+      "statisticcat_desc": "BRED"
+    },
+    {
+      "statisticcat_desc": "BROKEN"
+    },
+    {
+      "statisticcat_desc": "CAGES"
+    },
+    {
+      "statisticcat_desc": "CALF CROP"
+    },
+    {
+      "statisticcat_desc": "CAPACITY"
+    },
+    {
+      "statisticcat_desc": "CAPTURED"
+    },
+    {
+      "statisticcat_desc": "CLIPPED"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, ANTE-MORTEM"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, POST-MORTEM"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, POST-MORTEM, AIRSACCULITIS"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, POST-MORTEM, ALL CAUSES"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, POST-MORTEM, BRUISES"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, POST-MORTEM, CADAVER"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, POST-MORTEM, CONTAMINATION"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, POST-MORTEM, LEUKOSIS"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, POST-MORTEM, OTHER REASONS"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, POST-MORTEM, OVERSCALD"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, POST-MORTEM, SEPTICAEMIA"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, POST-MORTEM, SYNOVITIS"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, POST-MORTEM, TUBERCULOSIS"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, POST-MORTEM, TUMORS"
+    },
+    {
+      "statisticcat_desc": "CONDEMNED, POST-MORTEM, UNKNOWN CAUSES"
+    },
+    {
+      "statisticcat_desc": "CONDITION"
+    },
+    {
+      "statisticcat_desc": "CONDITION, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "CONDITION, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "CONDUCT BUSINESS"
+    },
+    {
+      "statisticcat_desc": "COVER"
+    },
+    {
+      "statisticcat_desc": "COVER, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "CRUSHED"
+    },
+    {
+      "statisticcat_desc": "DAMAGE"
+    },
+    {
+      "statisticcat_desc": "DAMAGE, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "DAMAGE, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "DAYS SUITABLE"
+    },
+    {
+      "statisticcat_desc": "DAYS SUITABLE, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "DEBT"
+    },
+    {
+      "statisticcat_desc": "DELIVERED VALUE"
+    },
+    {
+      "statisticcat_desc": "DEPTH TO BOWLS"
+    },
+    {
+      "statisticcat_desc": "DEPTH TO WATER"
+    },
+    {
+      "statisticcat_desc": "DEPTH, AVG"
+    },
+    {
+      "statisticcat_desc": "DEPTH, AVG, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "DEVICES"
+    },
+    {
+      "statisticcat_desc": "DISAPPEARANCE"
+    },
+    {
+      "statisticcat_desc": "DISAPPEARANCE, OTHER"
+    },
+    {
+      "statisticcat_desc": "DISTRIBUTION"
+    },
+    {
+      "statisticcat_desc": "EAR COUNT"
+    },
+    {
+      "statisticcat_desc": "EGGS IN INCUBATORS"
+    },
+    {
+      "statisticcat_desc": "EGGS SET"
+    },
+    {
+      "statisticcat_desc": "END DATE, AVG"
+    },
+    {
+      "statisticcat_desc": "END DATE, MAX"
+    },
+    {
+      "statisticcat_desc": "ENGINE SIZE"
+    },
+    {
+      "statisticcat_desc": "EXPENSE"
+    },
+    {
+      "statisticcat_desc": "FACILITIES"
+    },
+    {
+      "statisticcat_desc": "FAMILIES"
+    },
+    {
+      "statisticcat_desc": "FARM OPERATIONS SERVICED"
+    },
+    {
+      "statisticcat_desc": "FARM USE"
+    },
+    {
+      "statisticcat_desc": "FARROWED"
+    },
+    {
+      "statisticcat_desc": "FAT TEST"
+    },
+    {
+      "statisticcat_desc": "FEEDLOTS"
+    },
+    {
+      "statisticcat_desc": "FRUIT SIZE"
+    },
+    {
+      "statisticcat_desc": "FRUIT SIZE, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "FRUIT SIZE, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "GAIN"
+    },
+    {
+      "statisticcat_desc": "GINNED BALES"
+    },
+    {
+      "statisticcat_desc": "GROSS INCOME"
+    },
+    {
+      "statisticcat_desc": "GROUP ITEM WEIGHT, MONTHLY"
+    },
+    {
+      "statisticcat_desc": "HARVEST LOSS"
+    },
+    {
+      "statisticcat_desc": "HATCHED"
+    },
+    {
+      "statisticcat_desc": "HEAD COUNT"
+    },
+    {
+      "statisticcat_desc": "HEIGHT, AVG"
+    },
+    {
+      "statisticcat_desc": "HEIGHT, AVG, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "HEIGHT, AVG, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "HOURS OF OPERATION"
+    },
+    {
+      "statisticcat_desc": "HOUSEHOLD USE"
+    },
+    {
+      "statisticcat_desc": "INDEX FOR PRICE PAID, 1910 - 1914"
+    },
+    {
+      "statisticcat_desc": "INDEX FOR PRICE PAID, 1964 - 1968 OVERALL DERIVED"
+    },
+    {
+      "statisticcat_desc": "INDEX FOR PRICE PAID, 1990 - 1992"
+    },
+    {
+      "statisticcat_desc": "INDEX FOR PRICE PAID, 2011"
+    },
+    {
+      "statisticcat_desc": "INDEX FOR PRICE RECEIVED, 1910 - 1914"
+    },
+    {
+      "statisticcat_desc": "INDEX FOR PRICE RECEIVED, 1990 - 1992"
+    },
+    {
+      "statisticcat_desc": "INDEX FOR PRICE RECEIVED, 2011"
+    },
+    {
+      "statisticcat_desc": "INFESTATION"
+    },
+    {
+      "statisticcat_desc": "INFESTATION, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "INVENTORY"
+    },
+    {
+      "statisticcat_desc": "INVENTORY, AVG"
+    },
+    {
+      "statisticcat_desc": "INVENTORY, MAX"
+    },
+    {
+      "statisticcat_desc": "INVENTORY, PEAK"
+    },
+    {
+      "statisticcat_desc": "KID CROP"
+    },
+    {
+      "statisticcat_desc": "LAMB CROP"
+    },
+    {
+      "statisticcat_desc": "LAMBING RATE"
+    },
+    {
+      "statisticcat_desc": "LANDLORDS"
+    },
+    {
+      "statisticcat_desc": "LENGTH OF SEASON, AVG"
+    },
+    {
+      "statisticcat_desc": "LITTER RATE"
+    },
+    {
+      "statisticcat_desc": "LOSS"
+    },
+    {
+      "statisticcat_desc": "LOSS, COLONY COLLAPSE DISORDER"
+    },
+    {
+      "statisticcat_desc": "LOSS, DEADOUT"
+    },
+    {
+      "statisticcat_desc": "LOSS, DEATH"
+    },
+    {
+      "statisticcat_desc": "LOSS, DEATH & RENDERED"
+    },
+    {
+      "statisticcat_desc": "LOSS, DEATH, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "LOSS, DEATH, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "MILKFAT"
+    },
+    {
+      "statisticcat_desc": "MILL SALE"
+    },
+    {
+      "statisticcat_desc": "MILLED"
+    },
+    {
+      "statisticcat_desc": "MILLING CAPACITY"
+    },
+    {
+      "statisticcat_desc": "MOISTURE"
+    },
+    {
+      "statisticcat_desc": "MOISTURE CONTENT"
+    },
+    {
+      "statisticcat_desc": "MOISTURE, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "MOISTURE, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "MOLT COMPLETED"
+    },
+    {
+      "statisticcat_desc": "MOVEMENT"
+    },
+    {
+      "statisticcat_desc": "MOVEMENT, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "MOVEMENT, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "NET INCOME"
+    },
+    {
+      "statisticcat_desc": "NET WEIGHT"
+    },
+    {
+      "statisticcat_desc": "NUT SET"
+    },
+    {
+      "statisticcat_desc": "NUT SET, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "NUT SET, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "OCEAN HARVESTED"
+    },
+    {
+      "statisticcat_desc": "OPERATING PRESSURE"
+    },
+    {
+      "statisticcat_desc": "OPERATIONS"
+    },
+    {
+      "statisticcat_desc": "OPERATORS"
+    },
+    {
+      "statisticcat_desc": "ORGANIZATIONS"
+    },
+    {
+      "statisticcat_desc": "OTHER SALE"
+    },
+    {
+      "statisticcat_desc": "PARTNERS, AVG"
+    },
+    {
+      "statisticcat_desc": "PENS"
+    },
+    {
+      "statisticcat_desc": "PERSONS IN HOUSEHOLD"
+    },
+    {
+      "statisticcat_desc": "PEST MGMT"
+    },
+    {
+      "statisticcat_desc": "PIG CROP"
+    },
+    {
+      "statisticcat_desc": "PLACEMENTS"
+    },
+    {
+      "statisticcat_desc": "PLACEMENTS, INTENDED"
+    },
+    {
+      "statisticcat_desc": "PLACEMENTS, NET"
+    },
+    {
+      "statisticcat_desc": "PLANT POPULATION"
+    },
+    {
+      "statisticcat_desc": "POD COUNT"
+    },
+    {
+      "statisticcat_desc": "POLLINATION"
+    },
+    {
+      "statisticcat_desc": "PONDS"
+    },
+    {
+      "statisticcat_desc": "PONDS & TANKS"
+    },
+    {
+      "statisticcat_desc": "PRIA FEE"
+    },
+    {
+      "statisticcat_desc": "PRICE PAID"
+    },
+    {
+      "statisticcat_desc": "PRICE REACTION"
+    },
+    {
+      "statisticcat_desc": "PRICE REACTION, DECREASE"
+    },
+    {
+      "statisticcat_desc": "PRICE REACTION, INCREASE"
+    },
+    {
+      "statisticcat_desc": "PRICE REACTION, NO CHANGE"
+    },
+    {
+      "statisticcat_desc": "PRICE RECEIVED"
+    },
+    {
+      "statisticcat_desc": "PRICE RECEIVED AFTER REPORT"
+    },
+    {
+      "statisticcat_desc": "PRICE RECEIVED PRIOR TO CLOSING"
+    },
+    {
+      "statisticcat_desc": "PRICE RECEIVED, 10 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "PRICE RECEIVED, 10 YEAR AVG FOR PARITY PURPOSES"
+    },
+    {
+      "statisticcat_desc": "PRICE RECEIVED, 3 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "PRICE RECEIVED, ADJUSTED BASE"
+    },
+    {
+      "statisticcat_desc": "PRICE RECEIVED, MEDIAN"
+    },
+    {
+      "statisticcat_desc": "PRICE RECEIVED, PARITY"
+    },
+    {
+      "statisticcat_desc": "PRICE RECEIVED, PREMIUM"
+    },
+    {
+      "statisticcat_desc": "PRICE RECEIVED, SEASONALLY ADJUSTED"
+    },
+    {
+      "statisticcat_desc": "PROCESSED IN LAB"
+    },
+    {
+      "statisticcat_desc": "PRODUCERS"
+    },
+    {
+      "statisticcat_desc": "PRODUCTION"
+    },
+    {
+      "statisticcat_desc": "PRODUCTION NOT SOLD"
+    },
+    {
+      "statisticcat_desc": "PROGRESS"
+    },
+    {
+      "statisticcat_desc": "PROGRESS, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "PROGRESS, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "PUMPING CAPACITY"
+    },
+    {
+      "statisticcat_desc": "PUMPING LIFT"
+    },
+    {
+      "statisticcat_desc": "PUMPS"
+    },
+    {
+      "statisticcat_desc": "RACEWAYS"
+    },
+    {
+      "statisticcat_desc": "RATE OF LAY"
+    },
+    {
+      "statisticcat_desc": "RATIO"
+    },
+    {
+      "statisticcat_desc": "RECEIPTS"
+    },
+    {
+      "statisticcat_desc": "RECEIVING"
+    },
+    {
+      "statisticcat_desc": "RECEIVING, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "RECEIVING, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "RELATIVE WEIGHT"
+    },
+    {
+      "statisticcat_desc": "RELATIVE WEIGHT, 5 YEAR MOVING AVERAGE"
+    },
+    {
+      "statisticcat_desc": "REMOVAL FOR PROCESSING"
+    },
+    {
+      "statisticcat_desc": "REMOVAL FOR PROCESSING, EDIBLE USE"
+    },
+    {
+      "statisticcat_desc": "REMOVAL FOR PROCESSING, INEDIBLE USE"
+    },
+    {
+      "statisticcat_desc": "REPAYMENTS"
+    },
+    {
+      "statisticcat_desc": "ROW WIDTH"
+    },
+    {
+      "statisticcat_desc": "SALES"
+    },
+    {
+      "statisticcat_desc": "SALES & DISTRIBUTION"
+    },
+    {
+      "statisticcat_desc": "SALES FOR SLAUGHTER"
+    },
+    {
+      "statisticcat_desc": "SALES IN CONVENTIONAL MARKETS"
+    },
+    {
+      "statisticcat_desc": "SALES IN ORGANIC MARKETS"
+    },
+    {
+      "statisticcat_desc": "SAMPLES"
+    },
+    {
+      "statisticcat_desc": "SAVINGS"
+    },
+    {
+      "statisticcat_desc": "SEASONAL ADJUSTMENT FACTOR FOR PRICE RECEIVED"
+    },
+    {
+      "statisticcat_desc": "SEED FOR PLANTING"
+    },
+    {
+      "statisticcat_desc": "SHIPMENTS"
+    },
+    {
+      "statisticcat_desc": "SHIPMENTS IN"
+    },
+    {
+      "statisticcat_desc": "SHORN"
+    },
+    {
+      "statisticcat_desc": "SHRINK"
+    },
+    {
+      "statisticcat_desc": "SLAUGHTERED"
+    },
+    {
+      "statisticcat_desc": "SOURCE"
+    },
+    {
+      "statisticcat_desc": "SOURCE, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "SOURCE, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "SPINDLES"
+    },
+    {
+      "statisticcat_desc": "START DATE"
+    },
+    {
+      "statisticcat_desc": "START DATE, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "START DATE, AVG"
+    },
+    {
+      "statisticcat_desc": "START DATE, MIN"
+    },
+    {
+      "statisticcat_desc": "START DATE, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "STOCKS"
+    },
+    {
+      "statisticcat_desc": "STOCKS, CURRENT YEAR"
+    },
+    {
+      "statisticcat_desc": "STOCKS, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "SUCROSE"
+    },
+    {
+      "statisticcat_desc": "SUPPLIES"
+    },
+    {
+      "statisticcat_desc": "SUPPLIES, 5 YEAR AVG"
+    },
+    {
+      "statisticcat_desc": "SUPPLIES, PREVIOUS YEAR"
+    },
+    {
+      "statisticcat_desc": "TANKS"
+    },
+    {
+      "statisticcat_desc": "TAPS"
+    },
+    {
+      "statisticcat_desc": "TENANTS"
+    },
+    {
+      "statisticcat_desc": "TIME OPERATED"
+    },
+    {
+      "statisticcat_desc": "TIME WORKED"
+    },
+    {
+      "statisticcat_desc": "TIME WORKED, BASE"
+    },
+    {
+      "statisticcat_desc": "TOTAL AREA"
+    },
+    {
+      "statisticcat_desc": "TREATED"
+    },
+    {
+      "statisticcat_desc": "USAGE"
+    },
+    {
+      "statisticcat_desc": "VALUE"
+    },
+    {
+      "statisticcat_desc": "VALUE OF POLLINATION"
+    },
+    {
+      "statisticcat_desc": "VOLUME"
+    },
+    {
+      "statisticcat_desc": "VOLUME HANDLED"
+    },
+    {
+      "statisticcat_desc": "WAGE RATE"
+    },
+    {
+      "statisticcat_desc": "WAGE RATE, BASE"
+    },
+    {
+      "statisticcat_desc": "WAREHOUSES"
+    },
+    {
+      "statisticcat_desc": "WATER APPLIED"
+    },
+    {
+      "statisticcat_desc": "WATER DELIVERED"
+    },
+    {
+      "statisticcat_desc": "WATER RECEIVED"
+    },
+    {
+      "statisticcat_desc": "WELL DEPTH"
+    },
+    {
+      "statisticcat_desc": "WELLS"
+    },
+    {
+      "statisticcat_desc": "WORKERS"
+    },
+    {
+      "statisticcat_desc": "WORKERS, AVG"
+    },
+    {
+      "statisticcat_desc": "WORKERS, PEAK"
+    },
+    {
+      "statisticcat_desc": "YEARS ON ANY OPERATION, AVG"
+    },
+    {
+      "statisticcat_desc": "YEARS ON PRESENT OPERATION, AVG"
+    },
+    {
+      "statisticcat_desc": "YEARS RENTED TO TENANT, AVG"
+    },
+    {
+      "statisticcat_desc": "YIELD"
+    },
+    {
+      "statisticcat_desc": "YIELD, MEDIAN"
+    }
+  ]
+}

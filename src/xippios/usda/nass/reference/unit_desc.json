@@ -1,0 +1,1126 @@
+{
+  "param": "unit_desc",
+  "endpoint": "get_param_values",
+  "fetched": "2026-10-28T15:01:49Z",
+  "records": [
+    {
+      "unit_desc": "$"
+    },
+    {
+      "unit_desc": "$ / 1,000 EGGS"
+    },
+    {
+      "unit_desc": "$ / 1,000 HEAD"
+    },
+    {
+      "unit_desc": "$ / 10,000 SQ FT IRRIGATED"
+    },
+    {
+      "unit_desc": "$ / 100 HEAD"
+    },
+    {
+      "unit_desc": "$ / 50 LB"
+    },
+    {
+      "unit_desc": "$ / 80000 KERNELS"
+    },
+    {
+      "unit_desc": "$ / ACRE"
+    },
+    {
+      "unit_desc": "$ / ACRE FOOT"
+    },
+    {
+      "unit_desc": "$ / ACRE IRRIGATED"
+    },
+    {
+      "unit_desc": "$ / AFFECTED ACRE"
+    },
+    {
+      "unit_desc": "$ / BARREL"
+    },
+    {
+      "unit_desc": "$ / BASE HOUR"
+    },
+    {
+      "unit_desc": "$ / BASKET"
+    },
+    {
+      "unit_desc": "$ / BASKET, WHOLESALE BASIS"
+    },
+    {
+      "unit_desc": "$ / BLOOM"
+    },
+    {
+      "unit_desc": "$ / BLOOM, WHOLESALE BASIS"
+    },
+    {
+      "unit_desc": "$ / BOX"
+    },
+    {
+      "unit_desc": "$ / BOX, FOB"
+    },
+    {
+      "unit_desc": "$ / BOX, ON TREE EQUIV"
+    },
+    {
+      "unit_desc": "$ / BOX, PHD EQUIV"
+    },
+    {
+      "unit_desc": "$ / BU"
+    },
+    {
+      "unit_desc": "$ / BUNCH"
+    },
+    {
+      "unit_desc": "$ / BUNCH, WHOLESALE BASIS"
+    },
+    {
+      "unit_desc": "$ / COLONY"
+    },
+    {
+      "unit_desc": "$ / CONTAINER"
+    },
+    {
+      "unit_desc": "$ / CWT"
+    },
+    {
+      "unit_desc": "$ / DIGESTER"
+    },
+    {
+      "unit_desc": "$ / DOZEN"
+    },
+    {
+      "unit_desc": "$ / EGG"
+    },
+    {
+      "unit_desc": "$ / FLAT"
+    },
+    {
+      "unit_desc": "$ / FLAT, WHOLESALE BASIS"
+    },
+    {
+      "unit_desc": "$ / FOOT"
+    },
+    {
+      "unit_desc": "$ / GALLON"
+    },
+    {
+      "unit_desc": "$ / HEAD"
+    },
+    {
+      "unit_desc": "$ / HOUR"
+    },
+    {
+      "unit_desc": "$ / ITEM"
+    },
+    {
+      "unit_desc": "$ / LB"
+    },
+    {
+      "unit_desc": "$ / LB, 38 PCT MOISTURE BASIS"
+    },
+    {
+      "unit_desc": "$ / LB, 39 PCT MOISTURE BASIS"
+    },
+    {
+      "unit_desc": "$ / LB, CHERRY BASIS"
+    },
+    {
+      "unit_desc": "$ / LB, GREEN BASIS"
+    },
+    {
+      "unit_desc": "$ / MONTH"
+    },
+    {
+      "unit_desc": "$ / OPERATION"
+    },
+    {
+      "unit_desc": "$ / OUNCE"
+    },
+    {
+      "unit_desc": "$ / PELT"
+    },
+    {
+      "unit_desc": "$ / POT"
+    },
+    {
+      "unit_desc": "$ / POT, WHOLESALE BASIS"
+    },
+    {
+      "unit_desc": "$ / SPIKE"
+    },
+    {
+      "unit_desc": "$ / SPIKE, WHOLESALE BASIS"
+    },
+    {
+      "unit_desc": "$ / SQ FT"
+    },
+    {
+      "unit_desc": "$ / STEM"
+    },
+    {
+      "unit_desc": "$ / STEM, WHOLESALE BASIS"
+    },
+    {
+      "unit_desc": "$ / TON"
+    },
+    {
+      "unit_desc": "$ / TON, DRY BASIS"
+    },
+    {
+      "unit_desc": "$ / TON, FRESH BASIS"
+    },
+    {
+      "unit_desc": "$ / TURBINE"
+    },
+    {
+      "unit_desc": "$ / UNIT"
+    },
+    {
+      "unit_desc": "$, CHERRY BASIS"
+    },
+    {
+      "unit_desc": "$, PHD EQUIV"
+    },
+    {
+      "unit_desc": "$, WHOLESALE BASIS"
+    },
+    {
+      "unit_desc": "480 LB BALES"
+    },
+    {
+      "unit_desc": "ACRE FEET"
+    },
+    {
+      "unit_desc": "ACRE FEET / ACRE"
+    },
+    {
+      "unit_desc": "ACRES"
+    },
+    {
+      "unit_desc": "ACRES / OPERATION"
+    },
+    {
+      "unit_desc": "ACRES / OPERATION, MEDIAN"
+    },
+    {
+      "unit_desc": "ACRES / ORGANIZATION"
+    },
+    {
+      "unit_desc": "ACRES / POND"
+    },
+    {
+      "unit_desc": "ACRES WHERE TAPS SET"
+    },
+    {
+      "unit_desc": "AFFECTED ACRES"
+    },
+    {
+      "unit_desc": "BALES"
+    },
+    {
+      "unit_desc": "BALES / ACRE"
+    },
+    {
+      "unit_desc": "BARRELS"
+    },
+    {
+      "unit_desc": "BARRELS / ACRE"
+    },
+    {
+      "unit_desc": "BASKETS"
+    },
+    {
+      "unit_desc": "BLOOMS"
+    },
+    {
+      "unit_desc": "BLOSSOMS"
+    },
+    {
+      "unit_desc": "BOLLS / 40 FEET OF ROW"
+    },
+    {
+      "unit_desc": "BOXES"
+    },
+    {
+      "unit_desc": "BOXES / ACRE"
+    },
+    {
+      "unit_desc": "BU"
+    },
+    {
+      "unit_desc": "BU / ACRE"
+    },
+    {
+      "unit_desc": "BU / CWT"
+    },
+    {
+      "unit_desc": "BU / NET PLANTED ACRE"
+    },
+    {
+      "unit_desc": "BU / OPERATION"
+    },
+    {
+      "unit_desc": "BU / PLANTED ACRE"
+    },
+    {
+      "unit_desc": "BUNCHES"
+    },
+    {
+      "unit_desc": "CENTS / BLOOM"
+    },
+    {
+      "unit_desc": "CENTS / BLOOM, WHOLESALE BASIS"
+    },
+    {
+      "unit_desc": "CENTS / BU"
+    },
+    {
+      "unit_desc": "CENTS / LB"
+    },
+    {
+      "unit_desc": "CENTS / SPIKE"
+    },
+    {
+      "unit_desc": "CENTS / SPIKE, WHOLESALE BASIS"
+    },
+    {
+      "unit_desc": "CENTS / STEM"
+    },
+    {
+      "unit_desc": "CENTS / STEM, WHOLESALE BASIS"
+    },
+    {
+      "unit_desc": "COLONIES"
+    },
+    {
+      "unit_desc": "COUNT"
+    },
+    {
+      "unit_desc": "CU FT"
+    },
+    {
+      "unit_desc": "CU FT / CAGE"
+    },
+    {
+      "unit_desc": "CU FT / DIGESTER"
+    },
+    {
+      "unit_desc": "CU FT / PEN"
+    },
+    {
+      "unit_desc": "CUERDAS"
+    },
+    {
+      "unit_desc": "CUERDAS / OPERATION"
+    },
+    {
+      "unit_desc": "CWT"
+    },
+    {
+      "unit_desc": "CWT / 24 HRS"
+    },
+    {
+      "unit_desc": "CWT / ACRE"
+    },
+    {
+      "unit_desc": "CWT / NET PLANTED ACRE"
+    },
+    {
+      "unit_desc": "CWT, FINISHED BASIS"
+    },
+    {
+      "unit_desc": "DATE"
+    },
+    {
+      "unit_desc": "DAYS"
+    },
+    {
+      "unit_desc": "DAYS / MONTH"
+    },
+    {
+      "unit_desc": "DAYS / WEEK"
+    },
+    {
+      "unit_desc": "DOZEN"
+    },
+    {
+      "unit_desc": "EARS / ACRE"
+    },
+    {
+      "unit_desc": "EGGS"
+    },
+    {
+      "unit_desc": "EGGS / 100 LAYER"
+    },
+    {
+      "unit_desc": "EGGS / LAYER"
+    },
+    {
+      "unit_desc": "FARM ACRE FEET"
+    },
+    {
+      "unit_desc": "FARM ACRES"
+    },
+    {
+      "unit_desc": "FARM SQ FT"
+    },
+    {
+      "unit_desc": "FEET"
+    },
+    {
+      "unit_desc": "FLATS"
+    },
+    {
+      "unit_desc": "GALLONS"
+    },
+    {
+      "unit_desc": "GALLONS / BOX"
+    },
+    {
+      "unit_desc": "GALLONS / GALLON"
+    },
+    {
+      "unit_desc": "GALLONS / TANK"
+    },
+    {
+      "unit_desc": "GALLONS / TAP"
+    },
+    {
+      "unit_desc": "GPM"
+    },
+    {
+      "unit_desc": "GRAMS / HEAD / APPLICATION, AVG"
+    },
+    {
+      "unit_desc": "GRAMS / HEAD / YEAR, AVG"
+    },
+    {
+      "unit_desc": "HEAD"
+    },
+    {
+      "unit_desc": "HEAD / LB"
+    },
+    {
+      "unit_desc": "HEAD / SQ FT"
+    },
+    {
+      "unit_desc": "HEADS"
+    },
+    {
+      "unit_desc": "HILLS / ACRE"
+    },
+    {
+      "unit_desc": "HOURS"
+    },
+    {
+      "unit_desc": "HOURS / OPERATION"
+    },
+    {
+      "unit_desc": "HOURS / WEEK"
+    },
+    {
+      "unit_desc": "HOURS / YEAR"
+    },
+    {
+      "unit_desc": "HOUSEHOLDS"
+    },
+    {
+      "unit_desc": "HP"
+    },
+    {
+      "unit_desc": "HUNDREDS"
+    },
+    {
+      "unit_desc": "INCHES"
+    },
+    {
+      "unit_desc": "INCHES / ROW"
+    },
+    {
+      "unit_desc": "INDEX"
+    },
+    {
+      "unit_desc": "JULIAN DATE"
+    },
+    {
+      "unit_desc": "KILOWATTS / TURBINE"
+    },
+    {
+      "unit_desc": "LAMBS / 100 EWES GE 1 YEAR"
+    },
+    {
+      "unit_desc": "LB"
+    },
+    {
+      "unit_desc": "LB / 1,000 BU / APPLICATION, AVG"
+    },
+    {
+      "unit_desc": "LB / 1,000 BU / YEAR, AVG"
+    },
+    {
+      "unit_desc": "LB / 1,000 HEAD"
+    },
+    {
+      "unit_desc": "LB / ACRE"
+    },
+    {
+      "unit_desc": "LB / ACRE / APPLICATION, 10TH PERCENTILE"
+    },
+    {
+      "unit_desc": "LB / ACRE / APPLICATION, 90TH PERCENTILE"
+    },
+    {
+      "unit_desc": "LB / ACRE / APPLICATION, AVG"
+    },
+    {
+      "unit_desc": "LB / ACRE / APPLICATION, CV PCT"
+    },
+    {
+      "unit_desc": "LB / ACRE / APPLICATION, MEDIAN"
+    },
+    {
+      "unit_desc": "LB / ACRE / YEAR, 10TH PERCENTILE"
+    },
+    {
+      "unit_desc": "LB / ACRE / YEAR, 90TH PERCENTILE"
+    },
+    {
+      "unit_desc": "LB / ACRE / YEAR, AVG"
+    },
+    {
+      "unit_desc": "LB / ACRE / YEAR, CV PCT"
+    },
+    {
+      "unit_desc": "LB / ACRE / YEAR, MEDIAN"
+    },
+    {
+      "unit_desc": "LB / ACRE, CHERRY BASIS"
+    },
+    {
+      "unit_desc": "LB / BALE, AVG"
+    },
+    {
+      "unit_desc": "LB / COLONY"
+    },
+    {
+      "unit_desc": "LB / DOZEN EGGS"
+    },
+    {
+      "unit_desc": "LB / HEAD"
+    },
+    {
+      "unit_desc": "LB / HEAD, DRESSED BASIS"
+    },
+    {
+      "unit_desc": "LB / HEAD, LIVE BASIS"
+    },
+    {
+      "unit_desc": "LB / LB"
+    },
+    {
+      "unit_desc": "LB / NET PLANTED ACRE"
+    },
+    {
+      "unit_desc": "LB / SQ FT"
+    },
+    {
+      "unit_desc": "LB, CHERRY BASIS"
+    },
+    {
+      "unit_desc": "LB, DRESSED BASIS"
+    },
+    {
+      "unit_desc": "LB, GREEN BASIS"
+    },
+    {
+      "unit_desc": "LB, IN SHELL BASIS"
+    },
+    {
+      "unit_desc": "LB, LIVE BASIS"
+    },
+    {
+      "unit_desc": "LB, NET TRADING WEIGHT BASIS"
+    },
+    {
+      "unit_desc": "LB, NET WEIGHT"
+    },
+    {
+      "unit_desc": "LB, PARCHMENT BASIS"
+    },
+    {
+      "unit_desc": "LB, RAW BASIS"
+    },
+    {
+      "unit_desc": "LBS / ACRE"
+    },
+    {
+      "unit_desc": "LBS / BOX"
+    },
+    {
+      "unit_desc": "LEAVES"
+    },
+    {
+      "unit_desc": "LOGS"
+    },
+    {
+      "unit_desc": "NUMBER"
+    },
+    {
+      "unit_desc": "NUMBER / OPERATION"
+    },
+    {
+      "unit_desc": "NUMBER, 10TH PERCENTILE"
+    },
+    {
+      "unit_desc": "NUMBER, 90TH PERCENTILE"
+    },
+    {
+      "unit_desc": "NUMBER, AVG"
+    },
+    {
+      "unit_desc": "NUMBER, CV PCT"
+    },
+    {
+      "unit_desc": "NUMBER, MEDIAN"
+    },
+    {
+      "unit_desc": "OPERATIONS"
+    },
+    {
+      "unit_desc": "OPERATIONS / ORGANIZATION"
+    },
+    {
+      "unit_desc": "OPERATORS"
+    },
+    {
+      "unit_desc": "ORGANIZATIONS"
+    },
+    {
+      "unit_desc": "PCT"
+    },
+    {
+      "unit_desc": "PCT 2 TO 4 INCHES"
+    },
+    {
+      "unit_desc": "PCT ABOVE NORMAL"
+    },
+    {
+      "unit_desc": "PCT ACTIVE"
+    },
+    {
+      "unit_desc": "PCT ADEQUATE"
+    },
+    {
+      "unit_desc": "PCT BELOW NORMAL"
+    },
+    {
+      "unit_desc": "PCT BLOOMING"
+    },
+    {
+      "unit_desc": "PCT BOLLS OPENING"
+    },
+    {
+      "unit_desc": "PCT BOOTED"
+    },
+    {
+      "unit_desc": "PCT BREAKING DORMANCY"
+    },
+    {
+      "unit_desc": "PCT BT SIZE GROUP"
+    },
+    {
+      "unit_desc": "PCT BY COLOR"
+    },
+    {
+      "unit_desc": "PCT BY DISTANCE"
+    },
+    {
+      "unit_desc": "PCT BY ECONOMIC CLASS"
+    },
+    {
+      "unit_desc": "PCT BY GRADE"
+    },
+    {
+      "unit_desc": "PCT BY METHOD"
+    },
+    {
+      "unit_desc": "PCT BY OUTLET"
+    },
+    {
+      "unit_desc": "PCT BY PRACTICE"
+    },
+    {
+      "unit_desc": "PCT BY SIZE GROUP"
+    },
+    {
+      "unit_desc": "PCT BY TYPE"
+    },
+    {
+      "unit_desc": "PCT BY YEARS"
+    },
+    {
+      "unit_desc": "PCT CALVED"
+    },
+    {
+      "unit_desc": "PCT CLOSED MIDDLES (ROWS FILLED)"
+    },
+    {
+      "unit_desc": "PCT COLORING"
+    },
+    {
+      "unit_desc": "PCT COMPLETE"
+    },
+    {
+      "unit_desc": "PCT CUT"
+    },
+    {
+      "unit_desc": "PCT DEFOLIATED"
+    },
+    {
+      "unit_desc": "PCT DENTED"
+    },
+    {
+      "unit_desc": "PCT DIFFICULT"
+    },
+    {
+      "unit_desc": "PCT DORMANT"
+    },
+    {
+      "unit_desc": "PCT DOUGH"
+    },
+    {
+      "unit_desc": "PCT DROPPING LEAVES"
+    },
+    {
+      "unit_desc": "PCT DUG"
+    },
+    {
+      "unit_desc": "PCT EMERGED"
+    },
+    {
+      "unit_desc": "PCT EXCELLENT"
+    },
+    {
+      "unit_desc": "PCT FAIR"
+    },
+    {
+      "unit_desc": "PCT FAVORABLE"
+    },
+    {
+      "unit_desc": "PCT FINISHED"
+    },
+    {
+      "unit_desc": "PCT FROM PASTURES"
+    },
+    {
+      "unit_desc": "PCT FRUIT SET"
+    },
+    {
+      "unit_desc": "PCT FULL BLOOM"
+    },
+    {
+      "unit_desc": "PCT FULLY PODDED"
+    },
+    {
+      "unit_desc": "PCT GOOD"
+    },
+    {
+      "unit_desc": "PCT GREEN TIP"
+    },
+    {
+      "unit_desc": "PCT GT 4 INCHES"
+    },
+    {
+      "unit_desc": "PCT HARVESTED"
+    },
+    {
+      "unit_desc": "PCT HEADED"
+    },
+    {
+      "unit_desc": "PCT HEAVY"
+    },
+    {
+      "unit_desc": "PCT INACCESSIBLE"
+    },
+    {
+      "unit_desc": "PCT JOINTING"
+    },
+    {
+      "unit_desc": "PCT LAMBED"
+    },
+    {
+      "unit_desc": "PCT LIGHT"
+    },
+    {
+      "unit_desc": "PCT LT 2 INCHES"
+    },
+    {
+      "unit_desc": "PCT MATURE"
+    },
+    {
+      "unit_desc": "PCT MILK"
+    },
+    {
+      "unit_desc": "PCT MODERATE"
+    },
+    {
+      "unit_desc": "PCT NONE"
+    },
+    {
+      "unit_desc": "PCT NORMAL"
+    },
+    {
+      "unit_desc": "PCT NOT READY FOR STRIPPING"
+    },
+    {
+      "unit_desc": "PCT OF AG LAND"
+    },
+    {
+      "unit_desc": "PCT OF APPLICATIONS"
+    },
+    {
+      "unit_desc": "PCT OF AREA BEARING & NON-BEARING"
+    },
+    {
+      "unit_desc": "PCT OF AREA BEARING, 10TH PERCENTILE"
+    },
+    {
+      "unit_desc": "PCT OF AREA BEARING, 90TH PERCENTILE"
+    },
+    {
+      "unit_desc": "PCT OF AREA BEARING, AVG"
+    },
+    {
+      "unit_desc": "PCT OF AREA BEARING, CV PCT"
+    },
+    {
+      "unit_desc": "PCT OF AREA BEARING, MEDIAN"
+    },
+    {
+      "unit_desc": "PCT OF AREA NON-BEARING, AVG"
+    },
+    {
+      "unit_desc": "PCT OF AREA PLANTED"
+    },
+    {
+      "unit_desc": "PCT OF AREA PLANTED, 10TH PERCENTILE"
+    },
+    {
+      "unit_desc": "PCT OF AREA PLANTED, 90TH PERCENTILE"
+    },
+    {
+      "unit_desc": "PCT OF AREA PLANTED, AVG"
+    },
+    {
+      "unit_desc": "PCT OF AREA PLANTED, CV PCT"
+    },
+    {
+      "unit_desc": "PCT OF AREA PLANTED, MEDIAN"
+    },
+    {
+      "unit_desc": "PCT OF COLONIES"
+    },
+    {
+      "unit_desc": "PCT OF COMMERCIAL"
+    },
+    {
+      "unit_desc": "PCT OF COMMODITY TOTALS"
+    },
+    {
+      "unit_desc": "PCT OF CROP & ANIMAL WORKERS"
+    },
+    {
+      "unit_desc": "PCT OF EXPENSE"
+    },
+    {
+      "unit_desc": "PCT OF FARM OPERATIONS"
+    },
+    {
+      "unit_desc": "PCT OF FARM SALES"
+    },
+    {
+      "unit_desc": "PCT OF FUEL EXPENSES"
+    },
+    {
+      "unit_desc": "PCT OF HEMP PRODUCERS"
+    },
+    {
+      "unit_desc": "PCT OF HIRED & AG SERVICE WORKERS"
+    },
+    {
+      "unit_desc": "PCT OF HIRED WORKERS"
+    },
+    {
+      "unit_desc": "PCT OF INVENTORY"
+    },
+    {
+      "unit_desc": "PCT OF LB CERTIFIED & POST-MORTEM CONDEMNED"
+    },
+    {
+      "unit_desc": "PCT OF MKTG YEAR"
+    },
+    {
+      "unit_desc": "PCT OF OPERATING EXPENSES"
+    },
+    {
+      "unit_desc": "PCT OF OPERATIONS"
+    },
+    {
+      "unit_desc": "PCT OF OPERATIONS (NO RESPONSE)"
+    },
+    {
+      "unit_desc": "PCT OF OPERATIONS (NO)"
+    },
+    {
+      "unit_desc": "PCT OF OPERATIONS (YES)"
+    },
+    {
+      "unit_desc": "PCT OF OPERATIONS BY METHOD"
+    },
+    {
+      "unit_desc": "PCT OF ORGANIC SALES"
+    },
+    {
+      "unit_desc": "PCT OF PARITY"
+    },
+    {
+      "unit_desc": "PCT OF PLANTED"
+    },
+    {
+      "unit_desc": "PCT OF POULTS PLACED"
+    },
+    {
+      "unit_desc": "PCT OF PRODUCTION"
+    },
+    {
+      "unit_desc": "PCT OF PRODUCTION EXPENSES"
+    },
+    {
+      "unit_desc": "PCT OF RETAIL & WHOLESALE"
+    },
+    {
+      "unit_desc": "PCT OF SLAUGHTER"
+    },
+    {
+      "unit_desc": "PCT OF TOTAL EXPENSES"
+    },
+    {
+      "unit_desc": "PCT OF TOTAL LAND"
+    },
+    {
+      "unit_desc": "PCT OF TOTAL STOCKS"
+    },
+    {
+      "unit_desc": "PCT OF VOLUME HANDLED, AVG"
+    },
+    {
+      "unit_desc": "PCT PASTURED"
+    },
+    {
+      "unit_desc": "PCT PEGGING"
+    },
+    {
+      "unit_desc": "PCT PETAL FALL"
+    },
+    {
+      "unit_desc": "PCT PINK"
+    },
+    {
+      "unit_desc": "PCT PLANTED"
+    },
+    {
+      "unit_desc": "PCT POOR"
+    },
+    {
+      "unit_desc": "PCT RAY FLOWERS DRIED OR DROPPED"
+    },
+    {
+      "unit_desc": "PCT READILY ACCESSIBLE"
+    },
+    {
+      "unit_desc": "PCT READY FOR STRIPPING"
+    },
+    {
+      "unit_desc": "PCT SEEDBED PREPARED"
+    },
+    {
+      "unit_desc": "PCT SETTING BOLLS"
+    },
+    {
+      "unit_desc": "PCT SETTING PODS"
+    },
+    {
+      "unit_desc": "PCT SEVERE"
+    },
+    {
+      "unit_desc": "PCT SHORN"
+    },
+    {
+      "unit_desc": "PCT SHORT"
+    },
+    {
+      "unit_desc": "PCT SILKING"
+    },
+    {
+      "unit_desc": "PCT SQUARING"
+    },
+    {
+      "unit_desc": "PCT STRIPPED"
+    },
+    {
+      "unit_desc": "PCT SURPLUS"
+    },
+    {
+      "unit_desc": "PCT THINNED"
+    },
+    {
+      "unit_desc": "PCT TOO COLD"
+    },
+    {
+      "unit_desc": "PCT TOO WARM"
+    },
+    {
+      "unit_desc": "PCT TOPPED"
+    },
+    {
+      "unit_desc": "PCT TRANSPLANTED"
+    },
+    {
+      "unit_desc": "PCT TURNING BROWN"
+    },
+    {
+      "unit_desc": "PCT TURNING YELLOW"
+    },
+    {
+      "unit_desc": "PCT VERY POOR"
+    },
+    {
+      "unit_desc": "PCT VERY SHORT"
+    },
+    {
+      "unit_desc": "PCT VINES DRY"
+    },
+    {
+      "unit_desc": "PELTS"
+    },
+    {
+      "unit_desc": "PERSONS"
+    },
+    {
+      "unit_desc": "PIGS / LITTER"
+    },
+    {
+      "unit_desc": "PLANTS"
+    },
+    {
+      "unit_desc": "PLANTS / ACRE"
+    },
+    {
+      "unit_desc": "PODS / 18 SQ FT"
+    },
+    {
+      "unit_desc": "POINTS / LB"
+    },
+    {
+      "unit_desc": "POTS"
+    },
+    {
+      "unit_desc": "PRODUCERS"
+    },
+    {
+      "unit_desc": "PSI"
+    },
+    {
+      "unit_desc": "QUARTS"
+    },
+    {
+      "unit_desc": "REACTIONS SINCE 1984"
+    },
+    {
+      "unit_desc": "REACTIONS SINCE 1985"
+    },
+    {
+      "unit_desc": "REACTIONS SINCE 1987"
+    },
+    {
+      "unit_desc": "REACTIONS SINCE 1989"
+    },
+    {
+      "unit_desc": "RUNNING BALES"
+    },
+    {
+      "unit_desc": "SPIKES"
+    },
+    {
+      "unit_desc": "SQ FT"
+    },
+    {
+      "unit_desc": "SQUARE FEET"
+    },
+    {
+      "unit_desc": "STEMS"
+    },
+    {
+      "unit_desc": "STRANDS"
+    },
+    {
+      "unit_desc": "THOUSANDS"
+    },
+    {
+      "unit_desc": "TON"
+    },
+    {
+      "unit_desc": "TON / TON"
+    },
+    {
+      "unit_desc": "TONS"
+    },
+    {
+      "unit_desc": "TONS / ACRE"
+    },
+    {
+      "unit_desc": "TONS / ACRE, DRY BASIS"
+    },
+    {
+      "unit_desc": "TONS / ACRE, FRESH BASIS"
+    },
+    {
+      "unit_desc": "TONS / ACRE, IN SHELL BASIS"
+    },
+    {
+      "unit_desc": "TONS / NET PLANTED ACRE"
+    },
+    {
+      "unit_desc": "TONS, DRY BASIS"
+    },
+    {
+      "unit_desc": "TONS, FRESH BASIS"
+    },
+    {
+      "unit_desc": "TONS, GREEN BASIS"
+    },
+    {
+      "unit_desc": "TONS, IN SHELL BASIS"
+    },
+    {
+      "unit_desc": "TREES"
+    },
+    {
+      "unit_desc": "VINES"
+    },
+    {
+      "unit_desc": "WATTS / OPERATION"
+    },
+    {
+      "unit_desc": "WELLS / ORGANIZATION"
+    },
+    {
+      "unit_desc": "YEARS"
+    },
+    {
+      "unit_desc": "YYYYMMDD"
+    }
+  ]
+}

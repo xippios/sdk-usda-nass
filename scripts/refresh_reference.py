@@ -83,6 +83,38 @@ _ENUM_NAMES = {
     "condition_categories": "ConditionCategory",
 }
 
+# Member names render_enums cannot derive, named by hand (ADR-0008; Johannes, 2026-10-28);
+# exactly these twelve, every other member keeps its derived name.
+# unit_desc: "$" has nothing to derive a name from, and each "$ / X" here derives the name
+# of the unit "X" that unit_desc lists as well ("$ / BU" and "BU" are both BU), so the
+# dollar values are DOLLARS and DOLLARS_PER_<X as the renderer names X>. A rule in core
+# reading "$" as DOLLARS and "/" as PER is queued as row 175.
+# domain_desc: upstream lists two landlord domains spelled both with "&" and with "AND",
+# which derive one name since "&" reads as AND; the "&" spellings keep the derived name,
+# the spelled-out ones take _SPELLED_OUT.
+_MEMBER_NAMES: dict[str, dict[str, str]] = {
+    "unit_desc": {
+        "$": "DOLLARS",
+        "$ / BU": "DOLLARS_PER_BU",
+        "$ / CWT": "DOLLARS_PER_CWT",
+        "$ / DOZEN": "DOLLARS_PER_DOZEN",
+        "$ / HEAD": "DOLLARS_PER_HEAD",
+        "$ / LB": "DOLLARS_PER_LB",
+        "$ / LB, CHERRY BASIS": "DOLLARS_PER_LB_CHERRY_BASIS",
+        "$ / LB, GREEN BASIS": "DOLLARS_PER_LB_GREEN_BASIS",
+        "$ / SQ FT": "DOLLARS_PER_SQ_FT",
+        "$ / TON": "DOLLARS_PER_TON",
+    },
+    "domain_desc": {
+        "LANDLORDS, COMBINED, VALUE OF LAND AND BUILDINGS": (
+            "LANDLORDS_COMBINED_VALUE_OF_LAND_AND_BUILDINGS_SPELLED_OUT"
+        ),
+        "LANDLORDS, NON-OPERATING, VALUE OF LAND AND BUILDINGS": (
+            "LANDLORDS_NON_OPERATING_VALUE_OF_LAND_AND_BUILDINGS_SPELLED_OUT"
+        ),
+    },
+}
+
 
 def write(name: str, packaged: PackagedList) -> None:
     """Write ``reference/<name>.json``: the list as ``PackagedList.write`` writes it."""
@@ -129,7 +161,13 @@ def render() -> None:
         packaged = read(name)
         lists[name] = [record[packaged.param] for record in packaged.records]
         fetched[name] = f"{packaged.fetched:%Y-%m-%d}"
-    module = render_enums(lists, fetched=fetched, class_names=_ENUM_NAMES, generator=GENERATOR)
+    module = render_enums(
+        lists,
+        fetched=fetched,
+        class_names=_ENUM_NAMES,
+        member_names=_MEMBER_NAMES,
+        generator=GENERATOR,
+    )
     ENUMS.write_text(module, encoding="utf-8")
     sys.stdout.flush()
     for command in (["format"], ["check", "--fix"]):
