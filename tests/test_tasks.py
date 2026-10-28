@@ -28,6 +28,7 @@ from xippios.core.testing import (
     load_fixture,
     mcp_call,
     mcp_call_text,
+    recorded_query,
     sent_query,
     sent_urls,
 )
@@ -755,7 +756,16 @@ IA_FILTERS: dict[str, str | int] = {"state_alpha": "IA", "year__GE": 2023, "year
 IA_SINCE_FILTERS: dict[str, str | int] = {"state_alpha": "IA", "year__GE": 2023}
 IA_COUNTS = {2023: 8635, 2024: 12799}  # get_counts/ia_2023_2024_<year>, recorded 2026-10-28
 IA_CHUNKS = {2023: "corn_price_received_ia_2023", 2024: "corn_progress_planted_ia_2024"}
-THIS_YEAR = datetime.now(UTC).year
+PRICES_FILTERS: dict[str, str | int] = {  # the filters of api_get/corn_price_received_ia_2023
+    "commodity_desc": "CORN",
+    "statisticcat_desc": "PRICE RECEIVED",
+    "domain_desc": "TOTAL",
+    "agg_level_desc": "STATE",
+    "state_alpha": "IA",
+    "year__GE": 2023,
+    "year__LE": 2024,
+}
+PRICES_COUNTS = {2023: 13, 2024: 13}  # get_counts/corn_price_received_ia_<year>, 2026-10-28
 CORN_COUNTY_FILTERS: dict[str, str | int] = {
     "commodity_desc": "CORN",
     "agg_level_desc": "COUNTY",
@@ -808,6 +818,47 @@ def mount_ia_split(replay_fixture: ReplayFixture) -> dict[str, respx.Route]:
     return routes
 
 
+def mount_real_split(replay_fixture: ReplayFixture) -> dict[str, respx.Route]:
+    """Mount the real split of ``PRICES_FILTERS``: each year's count and answer, recorded
+    for the very query the split sends (``get_counts/corn_price_received_ia_<year>`` and
+    ``api_get/corn_price_received_ia_2024``, recorded 2026-10-28;
+    ``api_get/corn_price_received_ia_2023``, recorded 2026-10-22), whole, not sliced."""
+    routes: dict[str, respx.Route] = {}
+    for year in PRICES_COUNTS:
+        case = f"corn_price_received_ia_{year}"
+        routes[f"count_{year}"] = replay_fixture("get_counts", case, match_params=["year"])
+        routes[f"fetch_{year}"] = replay_fixture("api_get", case, match_params=["year"])
+    return routes
+
+
+def test_split_by_year_is_real_end_to_end(
+    replay_fixture: ReplayFixture, respx_mock: respx.MockRouter, fixtures_dir: Path
+) -> None:
+    """The split's data path on recorded answers only: every query it sends is the one
+    recorded, and the result is the two years' answers whole, in year order."""
+    routes = mount_real_split(replay_fixture)
+    result = tasks.get_data(PRICES_FILTERS, split_by_year=True)
+    assert sent_in_order(respx_mock) == [
+        ("/api/get_counts/", "2023"),
+        ("/api/get_counts/", "2024"),
+        ("/api/api_GET/", "2023"),
+        ("/api/api_GET/", "2024"),
+    ]
+    for year in PRICES_COUNTS:
+        for kind, endpoint in (("count", "get_counts"), ("fetch", "api_get")):
+            fixture = load_fixture(fixtures_dir / endpoint / f"corn_price_received_ia_{year}.json")
+            assert sent_query(routes[f"{kind}_{year}"]) == recorded_query(fixture)
+    chunks = {
+        year: recorded_chunk(fixtures_dir, f"corn_price_received_ia_{year}")
+        for year in PRICES_COUNTS
+    }
+    assert len(result.data) == result.meta.total == sum(PRICES_COUNTS.values()) == 26
+    assert result.data == chunks[2023] + chunks[2024]  # year order, each in upstream's order
+    assert [row.year for row in result.data] == [2023] * 13 + [2024] * 13
+    assert result.meta.endpoint == "api_GET"
+    assert result.meta.request == {**PRICES_FILTERS, "split_by_year": True}
+
+
 def test_get_data_splits_a_two_sided_year_range_by_year(
     replay_fixture: ReplayFixture, respx_mock: respx.MockRouter, fixtures_dir: Path
 ) -> None:
@@ -833,10 +884,9 @@ def test_get_data_splits_a_two_sided_year_range_by_year(
         ("/api/api_GET/", "2024"),
     ]
     for year in IA_COUNTS:
-        for route in (routes[f"count_{year}"], routes[f"fetch_{year}"]):
-            sent = sent_query(route)
-            assert (sent["state_alpha"], sent["year"]) == ("IA", str(year))
-            assert not {"year__GE", "year__LE"} & set(sent)
+        sent = {"state_alpha": "IA", "year": str(year), "key": REDACTED}
+        assert sent_query(routes[f"count_{year}"]) == sent
+        assert sent_query(routes[f"fetch_{year}"]) == {**sent, "format": "JSON"}
 
 
 def test_split_of_year_ge_alone_keeps_the_first_count(
@@ -856,7 +906,7 @@ def test_split_of_year_ge_alone_keeps_the_first_count(
     )
     later = replay_fixture("get_counts", "no_match")
     result = tasks.get_data(IA_SINCE_FILTERS, split_by_year=True)
-    years = range(2023, THIS_YEAR + 1)
+    years = range(2023, datetime.now(UTC).year + 1)
     assert sent_in_order(respx_mock) == [
         ("/api/get_counts/", None),
         *(("/api/get_counts/", str(year)) for year in years),
@@ -1067,7 +1117,7 @@ def test_split_fetches_a_fitting_year_ge_range_whole_however_far_back(
     """The ceiling binds a split, not the filters: ``year__GE`` 25 years back with a count
     within the limit is fetched whole. ``get_counts/corn_va_since_2012`` (22,345) stands
     in for the count, and ``api_get/corn_va_2012_area_planted`` replays a slice."""
-    start = THIS_YEAR - 25
+    start = datetime.now(UTC).year - 25
     counted = replay_fixture(
         "get_counts",
         "corn_va_since_2012",
@@ -1104,7 +1154,8 @@ def test_split_of_year_ge_alone_refuses_more_than_twenty_years_after_the_first_c
     """Over the limit, ``year__GE`` alone 21 or 26 years back would split into more years
     than the ceiling: refused after the first count, before any yearly count or fetch.
     ``get_counts/corn_county_2020_2021`` (85,535) stands in for the count."""
-    start = THIS_YEAR - back
+    now = datetime.now(UTC).year
+    start = now - back
     counted = replay_fixture(
         "get_counts",
         "corn_county_2020_2021",
@@ -1115,7 +1166,7 @@ def test_split_of_year_ge_alone_refuses_more_than_twenty_years_after_the_first_c
     with pytest.raises(InvalidRequestError) as info:
         tasks.get_data({"commodity_desc": "CORN", "year__GE": start}, split_by_year=True)
     assert not isinstance(info.value, QueryTooLarge | UnknownCode)
-    assert str(info.value) == ceiling_message(start, THIS_YEAR)
+    assert str(info.value) == ceiling_message(start, now)
     assert counted.call_count == 1
     assert sent_in_order(respx_mock) == [("/api/get_counts/", None)]
     assert not fetched.called
@@ -1141,7 +1192,8 @@ def test_split_accepts_twenty_years_from_year_ge_on(
     """Over the limit, ``year__GE`` alone 19 years back splits into 20 years: the first
     count, ``get_counts/corn_county_2020_2021`` moved, then ``get_counts/no_match`` (a
     count of 0) for every year, and nothing fetched."""
-    start = THIS_YEAR - 19
+    now = datetime.now(UTC).year
+    start = now - 19
     first = replay_fixture(
         "get_counts",
         "corn_county_2020_2021",
@@ -1153,7 +1205,7 @@ def test_split_accepts_twenty_years_from_year_ge_on(
     result = tasks.get_data({"commodity_desc": "CORN", "year__GE": start}, split_by_year=True)
     assert first.call_count == 1
     sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
-    assert sent == [str(year) for year in range(start, THIS_YEAR + 1)]
+    assert sent == [str(year) for year in range(start, now + 1)]
     assert len(sent) == 20
     assert (result.data, result.meta.total) == ([], 0)
     assert not fetched.called
@@ -1196,18 +1248,21 @@ async def test_upstream_counts_year_ge_with_year_le_as_year_ge_alone(
     """Characterisation at layer 1, recorded 2026-10-28: Quick Stats counts
     ``year__GE=2023&year__LE=2024`` for Iowa as ``year__GE=2023`` alone, 31,461, more
     than 2023 and 2024 count together; ``split_by_year``'s docstring says so."""
-    replay_fixture("get_counts", "ia_2023_2024", match_params=["year__LE"])
+    ranged = replay_fixture("get_counts", "ia_2023_2024", match_params=["year__LE"])
     replay_fixture("get_counts", "ia_since_2023", match_params=["year__GE"])
     for year in IA_COUNTS:
         replay_fixture("get_counts", f"ia_2023_2024_{year}", match_params=["year"])
-    ranged = (await api.get_counts(IA_FILTERS)).count
+    counted = (await api.get_counts(IA_FILTERS)).count
     since = (await api.get_counts({"state_alpha": "IA", "year__GE": 2023})).count
     yearly = [
         (await api.get_counts({"state_alpha": "IA", "year": year})).count for year in IA_COUNTS
     ]
-    assert ranged == since == 31461
+    assert sent_urls(ranged) == [
+        f"{BASE_URL}/get_counts/?state_alpha=IA&year__GE=2023&year__LE=2024&key={REDACTED}"
+    ]
+    assert counted == since == 31461
     assert yearly == [IA_COUNTS[2023], IA_COUNTS[2024]]
-    assert sum(yearly) < ranged
+    assert sum(yearly) < counted
 
 
 @pytest.mark.anyio
@@ -1251,14 +1306,14 @@ async def test_upstream_counts_year_ge_with_year_lt_as_more_than_year_ge_alone(
 
 @pytest.mark.anyio
 async def test_split_by_year_over_mcp(replay_fixture: ReplayFixture) -> None:
-    mount_ia_split(replay_fixture)
+    mount_real_split(replay_fixture)
     payload = await mcp_call(
-        server, "usda_nass_get_data", {"filters": IA_FILTERS, "split_by_year": True}
+        server, "usda_nass_get_data", {"filters": PRICES_FILTERS, "split_by_year": True}
     )
-    assert [row["year"] for row in payload["data"]] == [2023] * 13 + [2024] * 11
-    assert payload["meta"]["total"] == 21434
-    assert payload["meta"]["request"] == {**IA_FILTERS, "split_by_year": True}
-    assert "note" not in payload  # 24 rows, under the default cap
+    assert [row["year"] for row in payload["data"]] == [2023] * 13 + [2024] * 13
+    assert payload["meta"]["total"] == 26
+    assert payload["meta"]["request"] == {**PRICES_FILTERS, "split_by_year": True}
+    assert "note" not in payload  # 26 rows, under the default cap
     text = await mcp_call_text(
         server, "usda_nass_get_data", {"filters": {"year__GT": 2020}, "split_by_year": True}
     )
@@ -1274,15 +1329,15 @@ def test_split_by_year_over_http(replay_fixture: ReplayFixture) -> None:
     app = FastAPI()
     app.include_router(router)
     client = TestClient(app)
-    mount_ia_split(replay_fixture)
+    mount_real_split(replay_fixture)
     response = client.post(
-        "/usda-nass/get_data", json={"filters": IA_FILTERS, "split_by_year": True}
+        "/usda-nass/get_data", json={"filters": PRICES_FILTERS, "split_by_year": True}
     )
-    assert response.status_code == 200, response.text
+    assert response.status_code == 200
     body = response.json()
-    assert [row["year"] for row in body["data"]] == [2023] * 13 + [2024] * 11
-    assert body["meta"]["total"] == 21434
-    assert body["meta"]["request"] == {**IA_FILTERS, "split_by_year": True}
+    assert [row["year"] for row in body["data"]] == [2023] * 13 + [2024] * 13
+    assert body["meta"]["total"] == 26
+    assert body["meta"]["request"] == {**PRICES_FILTERS, "split_by_year": True}
     refused = client.post(
         "/usda-nass/get_data", json={"filters": {"year__LE": 2021}, "split_by_year": True}
     )
