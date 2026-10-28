@@ -28,6 +28,8 @@ src/xippios/usda/nass/
   _version.py      __version__ from distribution metadata
   _client.py       the one configured AsyncClient (base URL, key, rate limit, and a memory
                    cache for the get_param_values lookups alone, 24 hours)
+  errors.py        the package's own error classes and limits (conventions §5):
+                   QueryTooLarge, RECORD_LIMIT, SPLIT_CEILING, MCP_SPLIT_YEARS
   models.py        pydantic models mirroring upstream payloads (UpstreamModel)
   api/             endpoint wrappers, one module per upstream operation
   tasks.py         task functions; __all__ is what the adapters register, but BULK_TASKS,
@@ -50,6 +52,8 @@ tests/
                    README status table, the template tag, the core bound
   test_tasks.py    per-task replay tests
   test_live.py     @pytest.mark.live smoke tests, one per task
+  test_refresh_reference.py   the refresh script's column-table parser against the
+                   snapshot in docs/upstream/, offline
 docs/upstream/     documentation snapshot and FETCHED.md
 .github/workflows/ ci.yml (the required ci check, with the CHANGELOG and fixture-size steps),
                    publish.yml (the release train: tag, build, PyPI), live.yml (nightly live
@@ -72,7 +76,9 @@ between it and the package (`src/xippios/usda/`). The import path is
 ```bash
 uv run pytest -m live --tb=short   # needs XIPPIOS_LIVE_TESTS=1 and NASS_API_KEY
 
-uv run xippios-usda-nass-mcp   # stdio; add --http for streamable HTTP
+uv run xippios-usda-nass-mcp   # stdio; add --http for streamable HTTP, and
+                               # --split-years YEARS for the split ceiling on the MCP
+                               # server (5 years by default, 1 to 20)
 ```
 
 The offline run sends the key's placeholder, with `NASS_API_KEY` set to it because
