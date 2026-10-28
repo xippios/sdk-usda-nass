@@ -50,6 +50,22 @@ All notable changes to this project are documented here. The format follows
   `test_livestock_inventory_live` and `test_milk_production_live`; the older live
   assertions on a record's field or on `len(result.data)` bind the value to a local
   first, so a failure prints the figure or the count, not the records.
+- `get_production_forecasts(commodity, year, statistic, *, state=None)` and
+  `get_production(commodity, year, statistic, *, state=None)`, the MCP tools
+  `usda_nass_get_production_forecasts` and `usda_nass_get_production` and their HTTP
+  routes: a crop's in-season production or yield forecasts, oldest first, and its final
+  figure, state or national, as rows of the new projection `ProductionRecord`.
+  `statistic` is the new `ProductionStatistic` (`PRODUCTION`, `YIELD`), a
+  `statisticcat_desc` value; both send `domain_desc` `TOTAL`, `prodn_practice_desc`
+  `ALL PRODUCTION PRACTICES` and `freq_desc` `ANNUAL`, the forecasts
+  `reference_period_desc__LIKE` `FORECAST` (upstream's `__LIKE` counts what
+  `reference_period_desc__NE` `YEAR` counts on these filters, recorded 2026-10-28), the
+  final figure `reference_period_desc` `YEAR`. Utilisations, classes and units are rows
+  under upstream's columns: grain and silage, wheat's classes, and the value of
+  production in `$` beside the quantity. The forecasts are sorted by `load_time`, then
+  utilisation, class and unit, the final figure by state, utilisation, class, unit and
+  source. Like the other task-shaped functions they skip the count (`meta.total` is
+  `None`) and leave `published_at` empty.
 - Live smoke tests for `get_crop_condition`, `get_county_production` and
   `get_acreage_forecasts` (`test_crop_condition_live`, `test_county_production_live`,
   `test_acreage_forecasts_live`), so every task has one (conventions §10);

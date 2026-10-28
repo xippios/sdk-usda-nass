@@ -153,6 +153,55 @@ async def test_acreage_forecasts_live() -> None:
     assert all(earlier <= later for earlier, later in pairwise(order))
 
 
+async def test_production_forecasts_live() -> None:
+    from xippios.usda.nass.models import ProductionRecord, ProductionStatistic
+
+    result = await tasks.get_production_forecasts_async(
+        "CORN", 2023, ProductionStatistic.PRODUCTION
+    )
+    assert result.meta.endpoint == "api_GET"
+    assert result.meta.total is None
+    count = len(result.data)
+    assert count >= 4  # the August to November forecasts at least
+    assert all(isinstance(row, ProductionRecord) for row in result.data)
+    assert {row.state_alpha for row in result.data} == {"US"}
+    assert {row.statisticcat_desc for row in result.data} == {"PRODUCTION"}
+    assert {row.prodn_practice_desc for row in result.data} == {"ALL PRODUCTION PRACTICES"}
+    assert {row.freq_desc for row in result.data} == {"ANNUAL"}
+    forecasts = sum("FORECAST" in row.reference_period_desc for row in result.data)
+    assert forecasts == count
+    order = [
+        (row.load_time, row.util_practice_desc, row.class_desc, row.unit_desc)
+        for row in result.data
+    ]
+    assert all(earlier <= later for earlier, later in pairwise(order))
+
+
+async def test_production_live() -> None:
+    from xippios.usda.nass.enums import StateAlpha
+    from xippios.usda.nass.models import ProductionRecord, ProductionStatistic
+
+    result = await tasks.get_production_async(
+        "CORN", 2023, ProductionStatistic.YIELD, state=StateAlpha.IA
+    )
+    assert result.meta.endpoint == "api_GET"
+    assert result.meta.total is None
+    count = len(result.data)
+    assert count >= 2  # grain and silage
+    assert all(isinstance(row, ProductionRecord) for row in result.data)
+    assert {row.state_alpha for row in result.data} == {"IA"}
+    assert {row.statisticcat_desc for row in result.data} == {"YIELD"}
+    assert {row.prodn_practice_desc for row in result.data} == {"ALL PRODUCTION PRACTICES"}
+    assert {row.reference_period_desc for row in result.data} == {"YEAR"}
+    utilisations = {row.util_practice_desc for row in result.data}
+    assert utilisations >= {"GRAIN", "SILAGE"}
+    order = [
+        (row.state_alpha, row.util_practice_desc, row.class_desc, row.unit_desc, row.source_desc)
+        for row in result.data
+    ]
+    assert all(earlier <= later for earlier, later in pairwise(order))
+
+
 async def test_prices_received_live() -> None:
     from xippios.usda.nass.enums import StateAlpha
 

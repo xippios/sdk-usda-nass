@@ -58,6 +58,8 @@ from xippios.usda.nass.models import (
     LivestockInventoryRecord,
     MilkProductionRecord,
     PriceReceivedRecord,
+    ProductionRecord,
+    ProductionStatistic,
     QuickStatsRecord,
 )
 from xippios.usda.nass.params import DERIVED_LISTS, PACKAGE, PACKAGED_PARAMS, columns
@@ -1009,6 +1011,7 @@ async def test_upstream_files_dairy_products_beside_milk_production_in_lb(
         CensusFarmsRecord,
         LivestockInventoryRecord,
         MilkProductionRecord,
+        ProductionRecord,
     ],
 )
 def test_projections_are_faithful(model: type[UpstreamModel]) -> None:
@@ -1088,6 +1091,220 @@ def test_acreage_forecasts_national(replay_fixture: Callable[[str, str], respx.R
         "YEAR - MAR ACREAGE", "YEAR - JUN ACREAGE",
     ]  # fmt: skip
     assert result.data[0].value_number == Decimal("91996000")
+
+
+# --- get_production_forecasts and get_production, decision 9 (b) (Johannes, 2026-10-28) ---
+
+CORN_US_2023: dict[str, str | int] = {
+    "commodity_desc": "CORN",
+    "statisticcat_desc": "PRODUCTION",
+    "domain_desc": "TOTAL",
+    "prodn_practice_desc": "ALL PRODUCTION PRACTICES",
+    "freq_desc": "ANNUAL",
+    "year": 2023,
+    "agg_level_desc": "NATIONAL",
+}
+FORECASTS = {"reference_period_desc__LIKE": "FORECAST"}
+FINAL = {"reference_period_desc": "YEAR"}
+CORN_IA_2023_YIELD: dict[str, str | int] = {
+    **CORN_US_2023,
+    "statisticcat_desc": "YIELD",
+    "agg_level_desc": "STATE",
+    "state_alpha": "IA",
+}
+
+
+def assert_slice_meta(result: Result[list[ProductionRecord]]) -> None:
+    assert result.meta.endpoint == "api_GET"
+    assert result.meta.total is None
+    assert result.meta.published_at is None
+    assert result.meta.vintage is None
+
+
+def test_production_forecasts_national(replay_fixture: ReplayFixture, fixtures_dir: Path) -> None:
+    case = "corn_production_forecasts_us_2023"
+    counted = replay_fixture("get_counts", "corn_progress_planted_ia_2024")
+    fetched = replay_fixture("api_get", case)
+    result = tasks.get_production_forecasts("CORN", 2023, ProductionStatistic.PRODUCTION)
+    assert result.meta.request == {**CORN_US_2023, **FORECASTS}
+    assert sent_query(fetched)["reference_period_desc__LIKE"] == "FORECAST"
+    assert_sent_as_recorded(fetched, fixtures_dir, case)
+    assert not counted.called
+    assert_slice_meta(result)
+    assert [row.reference_period_desc for row in result.data] == [
+        "YEAR - AUG FORECAST", "YEAR - SEP FORECAST", "YEAR - OCT FORECAST",
+        "YEAR - NOV FORECAST",
+    ]  # fmt: skip
+    assert [row.value_number for row in result.data] == [
+        Decimal("15110787000"), Decimal("15133911000"), Decimal("15064420000"),
+        Decimal("15234285000"),
+    ]  # fmt: skip
+    assert result.data[0].value == "15,110,787,000"
+    assert {
+        (row.state_alpha, row.util_practice_desc, row.class_desc, row.unit_desc)
+        for row in result.data
+    } == {("US", "GRAIN", "ALL CLASSES", "BU")}
+    loads = [row.load_time for row in result.data]
+    assert loads == sorted(loads)
+    assert loads[0] == datetime(2023, 8, 11, 12, 0)
+
+
+def test_production_final_national_carries_silage_and_value_rows(
+    replay_fixture: ReplayFixture, fixtures_dir: Path
+) -> None:
+    case = "corn_production_us_2023"
+    fetched = replay_fixture("api_get", case)
+    result = tasks.get_production("CORN", 2023, ProductionStatistic.PRODUCTION)
+    assert result.meta.request == {**CORN_US_2023, **FINAL}
+    assert "reference_period_desc__LIKE" not in result.meta.request
+    assert_sent_as_recorded(fetched, fixtures_dir, case)
+    assert_slice_meta(result)
+    assert {row.reference_period_desc for row in result.data} == {"YEAR"}
+    assert [(row.util_practice_desc, row.unit_desc, row.value_number) for row in result.data] == [
+        ("GRAIN", "$", Decimal("70085591000")),
+        ("GRAIN", "BU", Decimal("15340520000")),
+        ("SILAGE", "TONS", Decimal("129854000")),
+    ]
+    assert [row.short_desc for row in result.data] == [
+        "CORN, GRAIN - PRODUCTION, MEASURED IN $",
+        "CORN, GRAIN - PRODUCTION, MEASURED IN BU",
+        "CORN, SILAGE - PRODUCTION, MEASURED IN TONS",
+    ]
+    assert {row.state_alpha for row in result.data} == {"US"}
+
+
+def test_yield_forecasts_state(replay_fixture: ReplayFixture, fixtures_dir: Path) -> None:
+    case = "corn_yield_forecasts_ia_2023"
+    fetched = replay_fixture("api_get", case)
+    result = tasks.get_production_forecasts(
+        "CORN", 2023, ProductionStatistic.YIELD, state=enums.StateAlpha.IA
+    )
+    assert result.meta.request == {**CORN_IA_2023_YIELD, **FORECASTS}
+    assert sent_query(fetched)["state_alpha"] == "IA"
+    assert_sent_as_recorded(fetched, fixtures_dir, case)
+    assert_slice_meta(result)
+    assert [(row.reference_period_desc, row.value_number) for row in result.data] == [
+        ("YEAR - AUG FORECAST", Decimal("203")),
+        ("YEAR - SEP FORECAST", Decimal("200")),
+        ("YEAR - OCT FORECAST", Decimal("199")),
+        ("YEAR - NOV FORECAST", Decimal("200")),
+    ]
+    assert {(row.state_alpha, row.statisticcat_desc, row.unit_desc) for row in result.data} == {
+        ("IA", "YIELD", "BU / ACRE")
+    }
+    assert "YEAR" not in {row.reference_period_desc for row in result.data}
+
+
+def test_yield_final_state_splits_grain_and_silage(
+    replay_fixture: ReplayFixture, fixtures_dir: Path
+) -> None:
+    case = "corn_yield_ia_2023"
+    fetched = replay_fixture("api_get", case)
+    result = tasks.get_production(
+        "CORN", 2023, ProductionStatistic.YIELD, state=enums.StateAlpha.IA
+    )
+    assert result.meta.request == {**CORN_IA_2023_YIELD, **FINAL}
+    assert_sent_as_recorded(fetched, fixtures_dir, case)
+    assert_slice_meta(result)
+    assert [
+        (row.util_practice_desc, row.unit_desc, row.reference_period_desc, row.value_number)
+        for row in result.data
+    ] == [
+        ("GRAIN", "BU / ACRE", "YEAR", Decimal("201")),
+        ("SILAGE", "TONS / ACRE", "YEAR", Decimal("20")),
+    ]
+    assert all(row.cv_percent is None for row in result.data)
+    assert all(row.load_time.tzinfo is None for row in result.data)
+
+
+def test_production_forecasts_carry_wheat_classes_as_rows(
+    replay_fixture: ReplayFixture, fixtures_dir: Path
+) -> None:
+    case = "wheat_production_forecasts_us_2023"
+    fetched = replay_fixture("api_get", case)
+    result = tasks.get_production_forecasts("WHEAT", 2023, ProductionStatistic.PRODUCTION)
+    assert result.meta.request == {**CORN_US_2023, "commodity_desc": "WHEAT", **FORECASTS}
+    assert_sent_as_recorded(fetched, fixtures_dir, case)
+    assert_slice_meta(result)
+    assert len(result.data) == 32
+    assert all(row.reference_period_desc.endswith("FORECAST") for row in result.data)
+    reports = [row.reference_period_desc for row in result.data]
+    months = ("MAY", "JUN", "JUL", "AUG")
+    assert [reports.count(f"YEAR - {month} FORECAST") for month in months] == [5, 5, 11, 11]
+    # May and June forecast winter wheat alone; July adds all wheat and the spring classes.
+    may = [
+        row.class_desc for row in result.data if row.reference_period_desc.startswith("YEAR - MAY")
+    ]
+    assert may == [
+        "WINTER", "WINTER, RED, HARD", "WINTER, RED, SOFT", "WINTER, WHITE, HARD",
+        "WINTER, WHITE, SOFT",
+    ]  # fmt: skip
+    july = [row for row in result.data if row.reference_period_desc == "YEAR - JUL FORECAST"]
+    assert [row.class_desc for row in july][:4] == [
+        "ALL CLASSES", "SPRING, (EXCL DURUM)", "SPRING, DURUM", "SPRING, RED, HARD",
+    ]  # fmt: skip
+    assert (july[0].short_desc, july[0].value_number) == (
+        "WHEAT - PRODUCTION, MEASURED IN BU", Decimal("1739077000"),
+    )  # fmt: skip
+    assert {(row.util_practice_desc, row.unit_desc) for row in result.data} == {
+        ("ALL UTILIZATION PRACTICES", "BU")
+    }
+    order = [
+        (row.load_time, row.util_practice_desc, row.class_desc, row.unit_desc)
+        for row in result.data
+    ]
+    assert order == sorted(order)
+
+
+@pytest.mark.anyio
+async def test_production_tool_call_end_to_end(replay_fixture: ReplayFixture) -> None:
+    fetched = replay_fixture("api_get", "corn_yield_forecasts_ia_2023")
+    payload = await mcp_call(
+        server,
+        "usda_nass_get_production_forecasts",
+        {"commodity": "CORN", "year": 2023, "statistic": "YIELD", "state": "IA"},
+    )
+    assert sent_query(fetched)["statisticcat_desc"] == "YIELD"
+    assert len(payload["data"]) == 4
+    first = payload["data"][0]
+    assert (first["reference_period_desc"], first["value"], first["value_number"]) == (
+        "YEAR - AUG FORECAST", "203", 203,
+    )  # fmt: skip
+    assert payload["meta"]["endpoint"] == "api_GET"
+    assert payload["meta"]["total"] is None
+    assert payload["meta"]["published_at"] is None
+    text = await mcp_call_text(
+        server, "usda_nass_get_production", {"commodity": "CORN", "year": 2023, "statistic": "AREA"}
+    )
+    assert text.startswith("error: InvalidRequestError: statistic:")
+
+
+def test_production_route_end_to_end(replay_fixture: ReplayFixture) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from xippios.usda.nass.http import router
+
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+    fetched = replay_fixture("api_get", "corn_production_us_2023")
+    response = client.get(
+        "/usda-nass/get_production",
+        params={"commodity": "CORN", "year": 2023, "statistic": "PRODUCTION"},
+    )
+    assert response.status_code == 200, response.text
+    assert sent_query(fetched)["reference_period_desc"] == "YEAR"
+    body = response.json()
+    assert [(row["unit_desc"], row["value_number"]) for row in body["data"]] == [
+        ("$", 70085591000), ("BU", 15340520000), ("TONS", 129854000),
+    ]  # fmt: skip
+    assert body["meta"]["request"]["agg_level_desc"] == "NATIONAL"
+    refused = client.get(
+        "/usda-nass/get_production",
+        params={"commodity": "CORN", "year": 2023, "statistic": "AREA PLANTED"},
+    )
+    assert refused.status_code == 422
 
 
 @pytest.mark.anyio
