@@ -34,7 +34,7 @@ Fetched is the UTC time of that fetch, or the snapshot's `Fetched` time for a re
 | `domain_desc.json` | `GET /api/get_param_values?param=domain_desc` | 2026-10-28T21:38:18Z |
 | `progress_stages.json` | distinct `unit_desc` of `GET /api/api_GET` with statisticcat_desc=PROGRESS, agg_level_desc=NATIONAL, freq_desc=WEEKLY, year=2025 | 2026-10-28T21:38:21Z |
 | `condition_categories.json` | distinct `unit_desc` of `GET /api/api_GET` with statisticcat_desc=CONDITION, agg_level_desc=NATIONAL, freq_desc=WEEKLY, year=2025 | 2026-10-28T21:38:24Z |
-| `columns.csv` | `docs/upstream/param_define.md` (snapshot of https://quickstats.nass.usda.gov/param_define) | 2026-10-22 |
+| `columns.csv` | `docs/upstream/param_define.md` (snapshot of https://quickstats.nass.usda.gov/param_define) | 2026-10-28T13:44:34Z |
 
 The two derived lists come from the year before the fetch; each file records the query
 under `note`.

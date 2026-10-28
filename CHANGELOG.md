@@ -85,7 +85,8 @@ All notable changes to this project are documented here. The format follows
   2026-10-28T21:37:56Z to 21:38:24Z: no value was added, removed or moved in any of
   them, so only each file's `fetched` and its row in `reference/README.md` change, and
   `meta.retrieved_at` of a packaged answer is the new time; `enums.py` and `columns.csv`
-  are unchanged.
+  are unchanged, and the `columns.csv` row names the snapshot it was rebuilt from,
+  2026-10-28T13:44:34Z, where it named the one of 2026-10-22.
 - `list_param_values` answers `statisticcat_desc`, `unit_desc` and `domain_desc` from
   the package, no longer live. The live path's replay test uses a new
   `get_param_values/commodity_desc` fixture (recorded 2026-10-28); the
