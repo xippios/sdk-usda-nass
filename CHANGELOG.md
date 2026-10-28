@@ -30,8 +30,8 @@ All notable changes to this project are documented here. The format follows
   slices do. Fixtures recorded 2026-10-28: national cattle and Iowa hogs 2024, national
   and Wisconsin monthly milk 2024, and the two national milk counts. Live smoke tests
   `test_livestock_inventory_live` and `test_milk_production_live`; the older live
-  assertions on a record's field bind the field to a local first, so a failure prints
-  the figure, not the record.
+  assertions on a record's field or on `len(result.data)` bind the value to a local
+  first, so a failure prints the figure or the count, not the records.
 - Live smoke tests for `get_crop_condition`, `get_county_production` and
   `get_acreage_forecasts` (`test_crop_condition_live`, `test_county_production_live`,
   `test_acreage_forecasts_live`), so every task has one (conventions §10);

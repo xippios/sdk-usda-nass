@@ -132,7 +132,8 @@ async def test_acreage_live() -> None:
     result = await tasks.get_acreage_async(
         "CORN", 2023, AreaStatistic.AREA_PLANTED, state=StateAlpha.IA
     )
-    assert len(result.data) == 1
+    count = len(result.data)  # bound first, so a failure prints a number, not the records
+    assert count == 1
     figure = result.data[0].value_number  # bound first, so a failure prints no record
     assert figure == Decimal("13100000")
 
@@ -156,7 +157,8 @@ async def test_prices_received_live() -> None:
     from xippios.usda.nass.enums import StateAlpha
 
     result = await tasks.get_prices_received_async("CORN", 2023, state=StateAlpha.IA)
-    assert len(result.data) >= 12
+    count = len(result.data)  # bound first, so a failure prints a number, not the records
+    assert count >= 12
     assert any(row.reference_period_desc == "JAN" for row in result.data)
 
 
