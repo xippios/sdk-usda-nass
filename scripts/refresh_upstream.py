@@ -1,6 +1,9 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = ["markdownify==1.2.3"]
+#
+# [tool.uv]
+# exclude-newer = "2026-10-28T00:00:00Z"
 # ///
 """Refresh the upstream documentation snapshot in ``docs/upstream/`` (``/refresh-upstream``).
 
