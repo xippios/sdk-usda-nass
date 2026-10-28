@@ -158,3 +158,44 @@ async def test_prices_received_live() -> None:
     result = await tasks.get_prices_received_async("CORN", 2023, state=StateAlpha.IA)
     assert len(result.data) >= 12
     assert any(row.reference_period_desc == "JAN" for row in result.data)
+
+
+async def test_livestock_inventory_live() -> None:
+    from xippios.usda.nass.enums import StateAlpha
+    from xippios.usda.nass.models import LivestockCommodity, LivestockInventoryRecord
+
+    result = await tasks.get_livestock_inventory_async(
+        LivestockCommodity.HOGS, 2024, state=StateAlpha.IA
+    )
+    assert result.meta.endpoint == "api_GET"
+    count = len(result.data)
+    assert count >= 4  # the four quarterly survey days of the whole herd at least
+    assert all(isinstance(row, LivestockInventoryRecord) for row in result.data)
+    assert {row.commodity_desc for row in result.data} == {"HOGS"}
+    assert {row.state_alpha for row in result.data} == {"IA"}
+    assert {(row.statisticcat_desc, row.unit_desc) for row in result.data} == {
+        ("INVENTORY", "HEAD")
+    }
+    assert {(row.freq_desc, row.source_desc) for row in result.data} == {
+        ("POINT IN TIME", "SURVEY")
+    }
+    classes = {row.class_desc for row in result.data}
+    assert "ALL CLASSES" in classes
+    order = [(row.begin_code, row.reference_period_desc, row.class_desc) for row in result.data]
+    assert all(earlier <= later for earlier, later in pairwise(order))
+
+
+async def test_milk_production_live() -> None:
+    from xippios.usda.nass.models import MilkProductionRecord
+
+    result = await tasks.get_milk_production_async(2024)
+    assert result.meta.endpoint == "api_GET"
+    count = len(result.data)
+    assert count >= 13  # the year and the twelve months at least
+    assert all(isinstance(row, MilkProductionRecord) for row in result.data)
+    assert {row.short_desc for row in result.data} == {"MILK - PRODUCTION, MEASURED IN LB"}
+    assert {row.state_alpha for row in result.data} == {"US"}
+    assert {row.freq_desc for row in result.data} == {"ANNUAL", "MONTHLY"}
+    assert all(row.value_number is not None and row.value_number > 0 for row in result.data)
+    order = [(row.freq_desc, row.begin_code, row.end_code) for row in result.data]
+    assert all(earlier <= later for earlier, later in pairwise(order))
