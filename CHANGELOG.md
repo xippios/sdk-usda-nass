@@ -8,6 +8,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Live smoke tests for `get_crop_condition`, `get_county_production` and
+  `get_acreage_forecasts` (`test_crop_condition_live`, `test_county_production_live`,
+  `test_acreage_forecasts_live`), so every task has one (conventions §10);
+  `test_list_param_values_live` asks for `commodity_desc`, a list fetched live, where it
+  asked for the packaged `sector_desc`, which spent no call.
 - `get_data(filters, split_by_year=True)`, and `split_by_year` on the MCP tool
   `usda_nass_get_data` and the HTTP route: the years are fetched one at a time where one
   call cannot serve them. The filters bound the years as `year`, `year__GE` with
@@ -76,6 +81,18 @@ All notable changes to this project are documented here. The format follows
   (conventions 1.22 §2 and §10). A wrapper's module and function carry the upstream
   operation name in snake case, here from the path: `/api/api_GET/` is `api_get`. The
   request URL and `meta.endpoint` (`"api_GET"`) are unchanged, and so are the tasks.
+- The upstream snapshot is refreshed (2026-10-28) through `scripts/refresh_upstream.py`,
+  the template's capture script filled for the api and param_define pages, with
+  `markdownify==1.2.3` pinned in it and in the dev group; `docs/upstream/FETCHED.md`
+  follows conventions §3 (the UTC time with `Z`, the attribution, one row per page with
+  status, size and sha256), and the column-definitions table, which has merged cells, is
+  kept as HTML. Upstream's content is unchanged since the snapshot of 2026-10-22.
+  `scripts/refresh_reference.py` reads that HTML table before it writes any file, and
+  reproduces `columns.csv` from it byte for byte. `columns.csv` itself is not rebuilt
+  here: its provenance row in the reference README (snapshot of 2026-10-22) moves at the
+  next `/refresh-reference-data` run.
+- The README's "Upstream terms and attribution" displays the notice the NASS API Terms of
+  Service ask every service that uses the API to display.
 
 ### Removed
 
