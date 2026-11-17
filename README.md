@@ -71,7 +71,7 @@ weekly[-1].week_ending, weekly[-1].value_number  # datetime.date(2024, 6, 9), De
 ```
 
 They return projections of the Quick Stats record under upstream column names, never a
-renamed or computed field (ADR-0003); `value` stays the published string and
+renamed or computed field (sdk-core ADR-0003); `value` stays the published string and
 `value_number` its parsed form. `meta.published_at` stays empty: Quick Stats publishes
 no release time and each row's `load_time` carries no zone, so nothing is read into it.
 The task-shaped functions skip the count check, their fixed filters keep them small; an

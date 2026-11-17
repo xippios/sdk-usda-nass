@@ -14,7 +14,7 @@ follows, sdk-core's conventions among them, are listed under
 | API base URL | `https://quickstats.nass.usda.gov/api` |
 | Documentation | https://quickstats.nass.usda.gov/api, snapshotted in `docs/upstream/` |
 | Credentials | `NASS_API_KEY` from the environment, sent as the `key` query parameter |
-| Rate limit | 30 requests per minute, burst 1; a self-imposed pace, upstream documents none (ADR-0010); enforced client-side in `_client.py` |
+| Rate limit | 30 requests per minute, burst 1; a self-imposed pace, upstream documents none (sdk-core ADR-0010); enforced client-side in `_client.py` |
 | Write tools | no, this package is read-only |
 
 The snapshot listed in `docs/upstream/FETCHED.md` is the reference for names, parameters and
@@ -74,14 +74,14 @@ CHANGELOG.md       the releases, each section assembled from the fragments
                    tests), organization.yml (the organization's checks from xippios/.github:
                    conventions, a review of a pull request against the documents the README
                    lists, and adr-index, which runs scripts/adr_index.py --check),
-                   siblings.yml (the sibling proof of ADR-0006: this wheel beside the
+                   siblings.yml (the sibling proof of sdk-core ADR-0006: this wheel beside the
                    siblings under xippios.usda, a visible check the ruleset does not require)
 .github/scripts/   check-siblings.sh, which siblings.yml runs; the template's, as is the workflow
 .claude/commands/  add-endpoint, record-fixture, refresh-upstream, refresh-reference-data, release-prep
 ```
 
-The import path is `xippios.usda.nass` (ADR-0006); `src/xippios/` is a namespace
-package, and so is `src/xippios/usda/`, the provider level.
+The import path is `xippios.usda.nass` (sdk-core ADR-0006); `src/xippios/` is a
+namespace package, and so is `src/xippios/usda/`, the provider level.
 Where the API's operation ids repeat across its services, `api/` keeps one module per service
 instead, named after the service, and this Layout says so (conventions §2).
 
@@ -102,9 +102,9 @@ uv run xippios-usda-nass-mcp   # stdio; add --http for streamable HTTP, and
 ```
 
 `uv run pytest` is offline: core's plugin refuses the network and skips the rate limiter's
-waits in every test not marked `live` (conventions §10, ADR-0013). A test that asserts a
-limiter wait or a quota pause is marked `rate_limited`, one that must reach the network
-`network`.
+waits in every test not marked `live` (conventions §10, sdk-core ADR-0013). A test that
+asserts a limiter wait or a quota pause is marked `rate_limited`, one that must reach the
+network `network`.
 It sends the key's placeholder, with `NASS_API_KEY` set to it because
 `pyproject.toml` names that variable under `xippios_placeholder_key_envs`; the package
 keeps no placeholder fixture of its own.
@@ -119,17 +119,18 @@ and counts, never on a raw payload.
 
 ## Code rules
 
-- Three layers (ADR-0001, conventions §2): endpoint wrappers in `api/`, task functions in
-  `tasks.py`, adapters in `mcp.py` and `http.py`. The adapters register `tasks.__all__` and
-  call only tasks, the tasks call only wrappers and reference data, and a wrapper returns
-  models.
+- Three layers (sdk-core ADR-0001, conventions §2): endpoint wrappers in `api/`, task
+  functions in `tasks.py`, adapters in `mcp.py` and `http.py`. The adapters register
+  `tasks.__all__` and call only tasks, the tasks call only wrappers and reference data, and
+  a wrapper returns models.
 - Upstream's documented error shapes go into `classify` in `_client.py`, once, and an error
   class of the package's own into `errors.py`; a wrapper never inspects a status code
   (conventions §5, §6).
 - A change brings its tests, written before the code, and passes the offline checks above;
   its changelog entry is a fragment under `changelog/`, one file holding its bullet, as
   `changelog/README.md` lays it out (conventions §12). Commit subjects follow Conventional
-  Commits (conventions §13).
+  Commits (conventions §13): the rule binds a pull request's own commits, not the commit
+  that lands the pull request on `main`, whose subject GitHub writes.
 - `ruff` leaves `docs/` and `.claude/` alone (`pyproject.toml`), so the upstream snapshot
   keeps its bytes: never reformat it.
 - A convention that seems wrong is followed anyway and said in the pull request; changing
@@ -144,14 +145,14 @@ and counts, never on a raw payload.
   `_SECRET`.
 - Never write a key, a token or another credential into a file or a commit.
 - Never put logic in `mcp.py` or `http.py`, and never add a route or a tool by hand: the
-  adapters register `tasks.__all__` (ADR-0001).
-- Never rename or re-map an upstream concept to another source's (ADR-0003).
+  adapters register `tasks.__all__` (sdk-core ADR-0001).
+- Never rename or re-map an upstream concept to another source's (sdk-core ADR-0003).
 - Never return a documented personal identifier in a task's projection, echo one in
-  `meta.request`, or commit one in a fixture (ADR-0017).
+  `meta.request`, or commit one in a fixture (sdk-core ADR-0017).
 - Never edit `docs/upstream/` by hand: `/refresh-upstream` fetches it, and the pull request
   shows its diff (conventions §3).
 - Never add `src/xippios/__init__.py`, nor an `__init__.py` at a level between it and the
-  package (ADR-0006).
+  package (sdk-core ADR-0006).
 - Never push a tag by hand: a release's tag comes from `publish.yml` alone (conventions §12).
 
 ## Template updates
