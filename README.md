@@ -113,6 +113,12 @@ is the most years one `usda_nass_get_data` call with `split_by_year` splits into
 
 ## Status
 
+<!-- Core's family check (tests/test_family.py) reads this table: keep the "## Status"
+heading and the "Task function" column. Each row's Task function cell starts with the
+task's name in backticks, alone or as its call (`get_data(code, year)`); several tasks in
+one row are backticked names separated by commas; prose may follow. The tables list
+exactly tasks.__all__, and tasks_write.__all__ where the package has write tasks. -->
+
 | Upstream operation | Task function | MCP tool | Status |
 | --- | --- | --- | --- |
 | `get_counts` | `tasks.get_counts(filters)` | `usda_nass_get_counts` | alpha |
@@ -147,6 +153,15 @@ The NASS API Terms of Service ask every service that uses the API to display thi
 
 > This product uses the NASS API but is not endorsed or certified by NASS.
 
+## Documents
+
+- sdk-core: [docs/conventions.md](https://github.com/xippios/sdk-core/blob/main/docs/conventions.md) — the conventions every xippios source package follows: its layout, names, results, tests and releases.
+- sdk-core: [docs/adr.md](https://github.com/xippios/sdk-core/blob/main/docs/adr.md) — the index of the family's architecture decisions, which the conventions cite.
+- sdk-core: [docs/definition-of-done.md](https://github.com/xippios/sdk-core/blob/main/docs/definition-of-done.md) — what a change satisfies before its pull request is opened.
+- sdk-core: [docs/review-checklist.md](https://github.com/xippios/sdk-core/blob/main/docs/review-checklist.md) — what the review of a pull request checks, in order.
+- sdk-usda-nass: [docs/adr.md](https://github.com/xippios/sdk-usda-nass/blob/main/docs/adr.md) — the index of this package's own decisions, generated from the records in `docs/adr/`.
+- sdk-usda-nass: [docs/upstream/FETCHED.md](https://github.com/xippios/sdk-usda-nass/blob/main/docs/upstream/FETCHED.md) — the snapshot of the upstream documentation, the reference for names, parameters and semantics.
+
 ## Licence
 
-Apache-2.0. See [LICENSE](LICENSE).
+Apache-2.0. See [LICENSE](https://github.com/xippios/sdk-usda-nass/blob/main/LICENSE).
