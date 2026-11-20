@@ -4,6 +4,7 @@
 """
 
 import argparse
+import json
 import re
 import sys
 from collections.abc import Callable, Iterator
@@ -16,6 +17,8 @@ import httpx
 import pytest
 import respx
 from xippios.core import (
+    Answer,
+    EnvVar,
     InvalidRequestError,
     MemoryCache,
     NotFoundError,
@@ -23,6 +26,7 @@ from xippios.core import (
     Result,
     UnknownCode,
     UpstreamModel,
+    ValidationError,
     load_json,
 )
 from xippios.core.client import cache_key
@@ -233,6 +237,10 @@ def test_unknown_packaged_value_is_refused_before_any_call(
         "list_param_values('state_alpha') lists the known values (over MCP, the tool "
         "usda_nass_list_param_values)."
     ) in str(info.value)
+    # Core's closing sentence names no maintainers' command, which an agent cannot run
+    # (https://github.com/xippios/sdk-core/issues/111).
+    assert str(info.value).endswith("If upstream added it since, the packaged list is out of date.")
+    assert "/refresh-reference-data" not in str(info.value)
     assert (info.value.param, info.value.value, info.value.list_name) == (
         "state_alpha", "XX", "state_alpha",
     )  # fmt: skip
@@ -255,11 +263,14 @@ def test_unknown_packaged_value_names_the_closest_known_ones(
     respx_mock: respx.MockRouter, param: str, value: str, known: str
 ) -> None:
     """The hint names the closest known values in their canonical spelling, upper case
-    as upstream writes them, whatever the case given."""
+    as upstream writes them, whatever the case given, each once, as core words it from
+    ``closest`` (https://github.com/xippios/sdk-core/issues/111)."""
     with pytest.raises(UnknownCode) as info:
         tasks.get_data({"commodity_desc": "CORN", param: value})
     assert info.value.closest[0][0] == known
-    assert f"Did you mean {known}" in str(info.value)
+    named = ", ".join(str(code) for code, _ in info.value.closest)
+    assert f"Did you mean {named}?" in str(info.value)
+    assert "list_param_values" not in str(info.value)
     assert f"packaged {param} list (fetched {fetched_as_written(param):%Y-%m-%d})" in str(
         info.value
     )
@@ -391,14 +402,19 @@ EXAMPLE_RECORD = {
 async def test_get_param_values_replays_the_documented_example(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
-    """Layer 1 is unaffected by packaging: the wrapper asks upstream, through the cache."""
+    """Layer 1 is unaffected by packaging: the wrapper asks upstream, through the cache,
+    and returns core's ``Answer`` of the values (https://github.com/xippios/sdk-core/issues/123)."""
     route = replay_fixture("get_param_values", "sector_desc")
     before = datetime.now(UTC)
-    values, retrieved_at = await api.get_param_values("sector_desc")
+    answer = await api.get_param_values("sector_desc")
     after = datetime.now(UTC)
-    assert values == ["ANIMALS & PRODUCTS", "CROPS", "DEMOGRAPHICS", "ECONOMICS", "ENVIRONMENTAL"]
+    assert isinstance(answer, Answer)
+    assert answer.payload == [
+        "ANIMALS & PRODUCTS", "CROPS", "DEMOGRAPHICS", "ECONOMICS", "ENVIRONMENTAL",
+    ]  # fmt: skip
     assert sent_query(route)["param"] == "sector_desc"
-    assert_time_between(retrieved_at, before, after)
+    assert_time_between(answer.retrieved_at, before, after)
+    assert not hasattr(api, "ParamValues"), "core's Answer replaces the package's own pair"
 
 
 def test_list_param_values_goes_live_for_an_unpackaged_parameter(
@@ -431,11 +447,12 @@ def test_a_list_fetched_live_is_cached_and_carries_its_stored_time(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
     """A second lookup sends nothing and carries the time the cache stored the first
-    answer, not a clock reading of its own (ADR-0015, decision 5; conventions §4).
+    answer, not a clock reading of its own (sdk-core ADR-0037, decision 5; conventions §4).
 
-    The plugin empties every ``MemoryCache`` around each test (ADR-0013), so the hit is
-    proved inside this one. The first call, a miss, carries the time its answer arrived,
-    which core reads just after storing it; both times lie in the first call's bracket.
+    The plugin empties every ``MemoryCache`` around each test (sdk-core ADR-0035), so the
+    hit is proved inside this one. The first call, a miss, carries the time its answer
+    arrived, the one reading of the clock that the cache stores with it, so the miss and
+    the hit report one time (https://github.com/xippios/sdk-core/issues/79).
     """
     assert isinstance(config.cache, MemoryCache)
     assert config.cache.ttl == 24 * 60 * 60
@@ -448,12 +465,33 @@ def test_a_list_fetched_live_is_cached_and_carries_its_stored_time(
     assert second.data == first.data
     assert len(second.data) > 200
     stored = stored_at("commodity_desc")
-    assert second.meta.retrieved_at == stored
+    assert second.meta.retrieved_at == stored == first.meta.retrieved_at
     assert_time_between(stored, before, after)
-    assert_time_between(first.meta.retrieved_at, before, after)
-    unstamped = {"retrieved_at"}
-    assert second.meta.model_dump(exclude=unstamped) == first.meta.model_dump(exclude=unstamped)
+    assert second.meta == first.meta
     assert second.meta.published_at is None
+
+
+def test_a_live_list_that_does_not_parse_is_not_cached(
+    respx_mock: respx.MockRouter, fixtures_dir: Path
+) -> None:
+    """NOT RECORDED: the recorded ``commodity_desc`` answer, changed in memory so that
+    the parameter's list is a text, a form upstream was not seen to send (conventions
+    §10). The lookup raises ``ValidationError`` and the cache keeps nothing, so the next
+    lookup asks upstream again rather than answering the failure for 24 hours: core's
+    cache stores an answer only once ``get_answer`` parsed it
+    (https://github.com/xippios/sdk-core/issues/122)."""
+    recorded = load_fixture(fixtures_dir / "get_param_values" / "commodity_desc.json")
+    body = json.loads(recorded.response.body)
+    body["commodity_desc"] = "CORN"
+    route = respx_mock.get(f"{BASE_URL}/get_param_values/").mock(
+        return_value=httpx.Response(recorded.response.status, json=body)
+    )
+    for _ in range(2):
+        with pytest.raises(ValidationError, match="get_param_values"):
+            tasks.list_param_values("commodity_desc")
+    assert route.call_count == 2
+    assert isinstance(config.cache, MemoryCache)
+    assert len(config.cache) == 0
 
 
 def test_counts_are_never_cached(replay_fixture: Callable[[str, str], respx.Route]) -> None:
@@ -1496,6 +1534,107 @@ def test_http_route_end_to_end(replay_fixture: Callable[[str, str], respx.Route]
     assert "packaged state_alpha list" in unknown.json()["detail"]
 
 
+def test_a_route_answers_a_refused_argument_as_problem_details(
+    respx_mock: respx.MockRouter,
+) -> None:
+    """A value outside a parameter's enum, a stage that is no ``ProgressStage``, is refused
+    before the task runs as problem details, the detail worded as the MCP adapter words
+    it and echoing no input, where FastAPI's own 422 listed its error details
+    (https://github.com/xippios/sdk-core/issues/66)."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from xippios.usda.nass.http import router
+
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+    refused = client.get(
+        "/usda-nass/get_crop_progress",
+        params={"commodity": "CORN", "year": 2024, "stage": "PCT SOWN"},
+    )
+    assert refused.status_code == 422
+    body = refused.json()
+    assert body["title"] == "InvalidRequestError"
+    assert body["detail"].startswith("stage: ")
+    assert "PCT SOWN" not in body["detail"]
+    assert not respx_mock.calls
+
+
+@pytest.mark.anyio
+async def test_a_tool_error_answer_is_flagged_and_an_undeclared_argument_refused(
+    respx_mock: respx.MockRouter,
+) -> None:
+    """Over an in-process MCP client, a tool's error answer sets ``isError`` beside the
+    family's text (https://github.com/xippios/sdk-core/issues/168), and an argument the
+    tool does not declare is refused before it runs, naming the ones it takes, where it
+    was dropped and the tool ran without it (https://github.com/xippios/sdk-core/issues/84).
+    ``sector_desc`` is packaged, so nothing would be sent either way."""
+    from mcp.client import Client
+    from mcp.types import TextContent
+
+    async with Client(server) as client:
+        refused = await client.call_tool(
+            "usda_nass_get_counts", {"filters": {"comodity_desc": "CORN"}}
+        )
+        undeclared = await client.call_tool(
+            "usda_nass_list_param_values", {"param": "sector_desc", "parameter": "unit_desc"}
+        )
+        answered = await client.call_tool("usda_nass_list_param_values", {"param": "sector_desc"})
+    texts = []
+    for result in (refused, undeclared, answered):
+        content = result.content[0]
+        assert isinstance(content, TextContent)
+        texts.append(content.text)
+    assert refused.is_error
+    assert texts[0].startswith("error: InvalidRequestError: 'comodity_desc' is not a Quick")
+    assert undeclared.is_error
+    assert texts[1] == (
+        "error: InvalidRequestError: parameter: Not an argument of this tool; it takes param"
+    )
+    assert not answered.is_error
+    assert "CROPS" in json.loads(texts[2])["data"]
+    assert not respx_mock.calls
+
+
+def test_the_package_contract_for_a_host() -> None:
+    """``mcp.build()`` is the tool set a host serves as the entry point does: every task,
+    the caps, the text and the ``--split-years`` hooks, with the variables the package
+    reads in ``ENV_VARS`` (conventions §8; sdk-core ADR-0026, amendment 2026-11-18,
+    points c and d; https://github.com/xippios/sdk-core/issues/245)."""
+    from xippios.core.mcp import ToolSet
+
+    from xippios.usda.nass import _client
+    from xippios.usda.nass import mcp as entry
+
+    assert entry.ENV_VARS is _client.ENV_VARS
+    key = EnvVar("NASS_API_KEY", secret=True, required=True)
+    assert (key,) == _client.ENV_VARS
+    tools = entry.build()
+    assert isinstance(tools, ToolSet)
+    assert [task.__name__ for task in tools.tasks] == list(tasks.__all__)
+    assert dict(tools.caps) == dict(tasks.MCP_CAPS)
+    assert tools.instructions == entry.INSTRUCTIONS
+    assert tools.read_only
+    assert not tools.loopback_only
+    assert tools.option_defaults().split_years == MCP_SPLIT_YEARS
+
+
+@pytest.mark.usefixtures("restore_split_ceiling")
+def test_a_host_applies_the_options_as_the_entry_point_does() -> None:
+    """A host builds the server from the tool set and applies the defaults of its hooks,
+    so its server splits into 5 years at most, as ``xippios-usda-nass-mcp`` does."""
+    from xippios.core.mcp import build_server
+
+    from xippios.usda.nass import mcp as entry
+
+    tools = entry.build()
+    assert tools.apply_options is not None
+    hosted = build_server(tools)
+    assert tools.apply_options(tools.option_defaults(), hosted) is hosted
+    assert tasks.split_ceiling() == MCP_SPLIT_YEARS
+
+
 # --- get_census_farms, decision 9 (d) (Johannes, 2026-10-28) ---
 
 CENSUS_FILTERS: dict[str, str | int] = {  # get_census_farms' fixed filters, counted 2026-10-28
@@ -2497,6 +2636,22 @@ def test_the_entry_point_applies_split_years_or_exits_with_status_2(
     assert capsys.readouterr().err.endswith(f"error: {SPLIT_REFUSAL.format(21)}\n")
     assert len(served) == 2, "nothing served after a refusal"
     assert tasks.split_ceiling() == 3
+
+
+@pytest.mark.usefixtures("restore_split_ceiling")
+def test_the_entry_point_names_itself_in_its_usage_and_errors(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Core's ``main`` names the entry point that runs, where it named the source's slug,
+    ``usda-nass`` (https://github.com/xippios/sdk-core/issues/167)."""
+    monkeypatch.setattr(server, "run", lambda **kwargs: None)
+    monkeypatch.setattr(sys, "argv", ["/opt/venv/bin/xippios-usda-nass-mcp", "--split-years", "25"])
+    with pytest.raises(SystemExit) as exit_info:
+        run()
+    assert exit_info.value.code == 2
+    err = capsys.readouterr().err
+    assert err.startswith("usage: xippios-usda-nass-mcp ")
+    assert err.splitlines()[-1] == f"xippios-usda-nass-mcp: error: {SPLIT_REFUSAL.format(25)}"
 
 
 @pytest.mark.anyio
