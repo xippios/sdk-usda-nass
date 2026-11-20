@@ -3,8 +3,8 @@
 The client keeps one bounded memory cache, for the list lookups alone: a
 ``get_param_values`` answer is kept for 24 hours in the process, and a lookup within them
 sends nothing; ``api_GET`` and ``get_counts`` are never cached. A cached answer's
-``retrieved_at`` is the time it was stored, which ``get_answer`` reads (ADR-0015,
-decision 5; conventions §4).
+``retrieved_at`` is the time it was stored, which ``get_answer`` reads, and an answer is
+stored only once ``get_answer`` parsed it (sdk-core ADR-0037, decision 5; conventions §4).
 """
 
 from typing import Any
@@ -13,6 +13,7 @@ import httpx
 from xippios.core import (
     AsyncClient,
     ClientConfig,
+    EnvVar,
     MemoryCache,
     NotFoundError,
     QueryKeyAuth,
@@ -25,7 +26,12 @@ from xippios.usda.nass._version import __version__
 SOURCE = "usda-nass"
 BASE_URL = "https://quickstats.nass.usda.gov/api"
 API_KEY_ENV = "NASS_API_KEY"  # pragma: allowlist secret (a variable name, not a key)
-# A self-imposed pace: upstream documents no per-second or per-minute limit (ADR-0010 decision 1).
+ENV_VARS: tuple[EnvVar, ...] = (EnvVar(API_KEY_ENV, secret=True, required=True),)
+"""The variables the package reads, for a host (conventions §7; sdk-core ADR-0026, amendment
+2026-11-18, point c). An ``EnvVar`` names a variable and reads none; a variable the source reads
+beside these joins the list."""
+# A self-imposed pace: upstream documents no per-second or per-minute limit (sdk-core ADR-0033
+# decision 1).
 RATE_LIMIT = RateLimit(per_minute=30, burst=1)
 
 _NO_MATCH = "bad request - invalid query"
@@ -44,7 +50,7 @@ def _payload(response: httpx.Response) -> Any:
 
 
 def classify(response: httpx.Response) -> XippiosError | None:
-    """Quick Stats' documented and observed error shapes, mapped once (ADR-0008).
+    """Quick Stats' documented and observed error shapes, mapped once (sdk-core ADR-0031).
 
     Observed on 2026-10-22 beyond ``docs/upstream/api.md``: a query over the 50,000-record
     maximum answers HTTP 413 ``{"error": ["exceeds limit=50000"]}``; filters that match no
@@ -94,6 +100,7 @@ client = AsyncClient(config, auth=auth)
 __all__ = [
     "API_KEY_ENV",
     "BASE_URL",
+    "ENV_VARS",
     "RATE_LIMIT",
     "SOURCE",
     "auth",

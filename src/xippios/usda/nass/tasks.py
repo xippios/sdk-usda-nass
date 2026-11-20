@@ -469,14 +469,14 @@ async def list_param_values_async(param: str) -> Result[list[str]]:
         packaged = PackagedList.load(PACKAGE, param)
         meta = packaged.meta(SOURCE, request={"param": param})
         return Result(data=[record[param] for record in packaged.records], meta=meta)
-    values, retrieved_at = await api.get_param_values(param)
+    answer = await api.get_param_values(param)
     meta = ResultMeta(
         source=SOURCE,
         endpoint="get_param_values",
         request={"param": param},
-        retrieved_at=retrieved_at,
+        retrieved_at=answer.retrieved_at,
     )
-    return Result(data=values, meta=meta)
+    return Result(data=answer.payload, meta=meta)
 
 
 async def _weekly_series(
