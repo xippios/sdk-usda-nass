@@ -168,6 +168,26 @@ def test_only_refuses_a_list_it_does_not_package_before_any_request(
         script.refresh(["state_alfa", "unit_desc", "commodity_desc"])
 
 
+def test_only_refuses_to_keep_a_list_that_is_not_packaged_before_any_request(
+    reference_copy: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``--only`` keeps every other list's file, so each must be packaged: with
+    ``sector_desc.json`` absent, ``--only state_alpha`` stops before its keyed request and
+    writes nothing, where it fetched, wrote ``state_alpha.json`` and then stopped in the
+    render (finding 3 of the review of https://github.com/xippios/sdk-usda-nass/pull/72)."""
+    (reference_copy / "sector_desc.json").unlink()
+    before = files(reference_copy)
+
+    def refused(*args: object) -> PackagedList:
+        raise AssertionError("a request sent before the kept lists were checked")
+
+    monkeypatch.setattr(script, "fetch_param", refused)
+    monkeypatch.setattr(script, "fetch_derived", refused)
+    with pytest.raises(SystemExit, match=r"^sector_desc is not packaged yet: run without --only$"):
+        script.refresh(["state_alpha"])
+    assert files(reference_copy) == before
+
+
 def test_only_fetches_the_named_lists_and_keeps_every_other_file(
     reference_copy: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

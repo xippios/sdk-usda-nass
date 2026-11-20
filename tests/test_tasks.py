@@ -2642,8 +2642,9 @@ def test_the_entry_point_applies_split_years_or_exits_with_status_2(
 def test_the_entry_point_names_itself_in_its_usage_and_errors(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Core's ``main`` names the entry point that runs, where it named the source's slug,
-    ``usda-nass`` (https://github.com/xippios/sdk-core/issues/167)."""
+    """Core's ``main`` names the entry point that runs, where it named the server,
+    ``xippios-usda-nass``, and its help says that ``--allow-remote`` changes nothing on
+    this read server (https://github.com/xippios/sdk-core/issues/167)."""
     monkeypatch.setattr(server, "run", lambda **kwargs: None)
     monkeypatch.setattr(sys, "argv", ["/opt/venv/bin/xippios-usda-nass-mcp", "--split-years", "25"])
     with pytest.raises(SystemExit) as exit_info:
@@ -2652,6 +2653,13 @@ def test_the_entry_point_names_itself_in_its_usage_and_errors(
     err = capsys.readouterr().err
     assert err.startswith("usage: xippios-usda-nass-mcp ")
     assert err.splitlines()[-1] == f"xippios-usda-nass-mcp: error: {SPLIT_REFUSAL.format(25)}"
+    monkeypatch.setattr(sys, "argv", ["/opt/venv/bin/xippios-usda-nass-mcp", "--help"])
+    with pytest.raises(SystemExit) as help_info:
+        run()
+    assert help_info.value.code == 0
+    usage = " ".join(capsys.readouterr().out.split())
+    assert usage.startswith("usage: xippios-usda-nass-mcp ")
+    assert "--allow-remote changes nothing: this read server is not held to loopback" in usage
 
 
 @pytest.mark.anyio
