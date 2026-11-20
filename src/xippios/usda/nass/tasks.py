@@ -524,7 +524,9 @@ async def get_crop_progress_async(
         commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``,
             ``"WINTER WHEAT"``, ``"COTTON"``; ``list_param_values("commodity_desc")``
             lists them.
-        year: Crop year, e.g. ``2024``.
+        year: Crop year, e.g. ``2024``. Quick Stats names no release and answers a year
+            it has not published yet as one without records, so ``NotFoundError`` may
+            mean either.
         state: Two-letter state code for the state series; ``None`` returns the
             national ``US TOTAL`` series.
         stage: A single stage, e.g. ``ProgressStage.PCT_PLANTED``,
@@ -551,7 +553,9 @@ async def get_crop_condition_async(
     Args:
         commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``,
             ``"WINTER WHEAT"``.
-        year: Crop year, e.g. ``2024``.
+        year: Crop year, e.g. ``2024``. Quick Stats names no release and answers a year
+            it has not published yet as one without records, so ``NotFoundError`` may
+            mean either.
         state: Two-letter state code for the state series; ``None`` returns the
             national ``US TOTAL`` series.
         category: One of ``ConditionCategory.PCT_VERY_POOR``, ``PCT_POOR``, ``PCT_FAIR``,
@@ -599,7 +603,8 @@ async def get_county_yield_async(
     Args:
         commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``, ``"WHEAT"``.
         year: Crop year, e.g. ``2023``. County estimates for a year appear the following
-            spring.
+            spring. Quick Stats names no release and answers a year it has not published
+            yet as one without records, so ``NotFoundError`` may mean either.
         state: Two-letter state code to restrict to one state; ``None`` returns every
             county in the country, which stays under the 50,000-record limit for one crop
             and year.
@@ -619,7 +624,9 @@ async def get_county_production_async(
 
     Args:
         commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``, ``"WHEAT"``.
-        year: Crop year, e.g. ``2023``.
+        year: Crop year, e.g. ``2023``. Quick Stats names no release and answers a year
+            it has not published yet as one without records, so ``NotFoundError`` may
+            mean either.
         state: Two-letter state code to restrict to one state; ``None`` returns every
             county in the country.
     """
@@ -661,7 +668,9 @@ async def get_acreage_async(
 
     Args:
         commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``, ``"WHEAT"``.
-        year: Crop year, e.g. ``2023``.
+        year: Crop year, e.g. ``2023``. Quick Stats names no release and answers a year
+            it has not published yet as one without records, so ``NotFoundError`` may
+            mean either.
         statistic: ``AreaStatistic.AREA_PLANTED`` or ``AreaStatistic.AREA_HARVESTED``.
         state: Two-letter state code for the state figure; ``None`` returns the national
             ``US TOTAL`` figure.
@@ -692,7 +701,9 @@ async def get_acreage_forecasts_async(
 
     Args:
         commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``, ``"WHEAT"``.
-        year: Crop year, e.g. ``2023``.
+        year: Crop year, e.g. ``2023``. Quick Stats names no release and answers a year
+            it has not published yet as one without records, so ``NotFoundError`` may
+            mean either.
         statistic: ``AreaStatistic.AREA_PLANTED`` or ``AreaStatistic.AREA_HARVESTED``.
         state: Two-letter state code for the state series; ``None`` returns the national
             series.
@@ -747,7 +758,9 @@ async def get_production_forecasts_async(
     Args:
         commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``,
             ``"WHEAT"``, ``"COTTON"``; ``list_param_values("commodity_desc")`` lists them.
-        year: Crop year, e.g. ``2023``.
+        year: Crop year, e.g. ``2023``. Quick Stats names no release and answers a year
+            it has not published yet as one without records, so ``NotFoundError`` may
+            mean either.
         statistic: ``ProductionStatistic.PRODUCTION`` or ``ProductionStatistic.YIELD``.
         state: Two-letter state code for the state series, e.g. ``StateAlpha.IA``;
             ``None`` returns the national series.
@@ -784,7 +797,9 @@ async def get_production_async(
     Args:
         commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``,
             ``"WHEAT"``, ``"COTTON"``; ``list_param_values("commodity_desc")`` lists them.
-        year: Crop year, e.g. ``2023``.
+        year: Crop year, e.g. ``2023``. Quick Stats names no release and answers a year
+            it has not published yet as one without records, so ``NotFoundError`` may
+            mean either.
         statistic: ``ProductionStatistic.PRODUCTION`` or ``ProductionStatistic.YIELD``.
         state: Two-letter state code for the state figure, e.g. ``StateAlpha.IA``;
             ``None`` returns the national ``US TOTAL`` figure.
@@ -822,7 +837,9 @@ async def get_prices_received_async(
     Args:
         commodity: Upstream ``commodity_desc``, e.g. ``"CORN"``, ``"SOYBEANS"``, ``"MILK"``,
             ``"CATTLE"``.
-        year: Calendar year of the months, e.g. ``2023``.
+        year: Calendar year of the months, e.g. ``2023``. Quick Stats names no release
+            and answers a year it has not published yet as one without records, so
+            ``NotFoundError`` may mean either.
         state: Two-letter state code for the state series; ``None`` returns the
             national series.
         frequency: ``FreqDesc.MONTHLY`` or ``FreqDesc.ANNUAL`` to keep one; ``None``
@@ -899,7 +916,8 @@ async def get_census_farms_async(
     Args:
         year: A Census year, e.g. ``2022`` or ``2017``; the Census of Agriculture is
             taken every five years, and a year without rows under these filters raises
-            ``NotFoundError``.
+            ``NotFoundError``. Quick Stats names no release and answers a year it has not
+            published yet as one without records, so ``NotFoundError`` may mean either.
         statistic: ``FarmStatistic.OPERATIONS`` (the number of farms) or
             ``FarmStatistic.AREA_OPERATED`` (land in farms).
         state: Two-letter state code, e.g. ``StateAlpha.IA``: that state's figures, or
@@ -961,7 +979,9 @@ async def get_livestock_inventory_async(
     Args:
         commodity: Upstream ``commodity_desc``: ``LivestockCommodity.CATTLE``,
             ``LivestockCommodity.HOGS`` or ``LivestockCommodity.SHEEP``.
-        year: Year of the survey days, e.g. ``2024``.
+        year: Year of the survey days, e.g. ``2024``. Quick Stats names no release and
+            answers a year it has not published yet as one without records, so
+            ``NotFoundError`` may mean either.
         state: Two-letter state code for the state series, e.g. ``StateAlpha.IA``,
             ``StateAlpha.TX``; ``None`` returns the national ``US TOTAL`` series.
         class_desc: One upstream ``class_desc`` to keep, e.g. ``"INCL CALVES"``,
@@ -1016,7 +1036,9 @@ async def get_milk_production_async(
     quarters alike as ``MONTHLY``. ``value`` is the quantity in pounds as published.
 
     Args:
-        year: Calendar year, e.g. ``2024``.
+        year: Calendar year, e.g. ``2024``. Quick Stats names no release and answers a
+            year it has not published yet as one without records, so ``NotFoundError``
+            may mean either.
         state: Two-letter state code for the state series, e.g. ``StateAlpha.WI``,
             ``StateAlpha.CA``; ``None`` returns the national ``US TOTAL`` series.
         frequency: ``FreqDesc.MONTHLY`` (the months and quarters) or ``FreqDesc.ANNUAL``
@@ -1056,7 +1078,9 @@ async def get_grain_stocks_async(
             ``"WHEAT"``; ``list_param_values("commodity_desc")`` lists them.
         year: Year of the stocks days, e.g. ``2024`` for the stocks on 1 March, 1 June,
             1 September and 1 December 2024; the current year returns only the stocks
-            days published so far.
+            days published so far. Quick Stats names no release and answers a year it has
+            not published yet as one without records, so ``NotFoundError`` may mean
+            either.
         state: Two-letter state code for the state estimates, e.g. ``"IA"``, ``"ND"``;
             ``None`` returns the national ``US TOTAL`` estimates.
     """
