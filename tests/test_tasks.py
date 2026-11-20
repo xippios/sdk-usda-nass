@@ -2550,7 +2550,7 @@ def restore_split_ceiling() -> Iterator[None]:
     tasks.set_split_ceiling(SPLIT_CEILING)
 
 
-def test_the_split_ceilings_and_the_option() -> None:
+def test_the_split_ceilings_and_the_option(plain_terminal: None) -> None:
     """20 years for the Python API and the HTTP router, the ceiling in force while no MCP
     server applied its options; ``--split-years`` on core's parser, 5 by default."""
     assert (SPLIT_CEILING, MCP_SPLIT_YEARS) == (20, 5)
@@ -2601,7 +2601,7 @@ def test_the_hooks_apply_the_option_through_cores_parser() -> None:
     assert tasks.split_ceiling() == 5
 
 
-@pytest.mark.usefixtures("restore_split_ceiling")
+@pytest.mark.usefixtures("restore_split_ceiling", "plain_terminal")
 def test_the_entry_point_applies_split_years_or_exits_with_status_2(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -2638,7 +2638,7 @@ def test_the_entry_point_applies_split_years_or_exits_with_status_2(
     assert tasks.split_ceiling() == 3
 
 
-@pytest.mark.usefixtures("restore_split_ceiling")
+@pytest.mark.usefixtures("restore_split_ceiling", "plain_terminal")
 def test_the_entry_point_names_itself_in_its_usage_and_errors(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -2698,3 +2698,18 @@ async def test_the_mcp_server_refuses_a_split_beyond_its_ceiling_before_any_call
     sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
     assert sent == [str(year) for year in range(2016, 2021)]
     assert not fetched.called
+
+
+# --- the terminal that argparse's text is compared in ---
+
+PLAIN = {"PYTHON_COLORS": "0", "COLUMNS": "100"}
+"""No colors, which Python 3.14's argparse adds under ``FORCE_COLOR``, and a width that
+keeps the usage line whole (https://github.com/xippios/sdk-usda-nass/issues/73)."""
+
+
+@pytest.fixture
+def plain_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin ``PLAIN`` for a test that compares argparse's text, whatever terminal the suite
+    runs in; argparse reads both when it prints."""
+    for name, value in PLAIN.items():
+        monkeypatch.setenv(name, value)
