@@ -823,7 +823,7 @@ def test_prices_received_national_monthly(
     ]
 
 
-# --- the livestock slices, decision 9 (a) (Johannes, 2026-10-26 and 2026-10-28) ---
+# --- the livestock slices (https://github.com/xippios/sdk-usda-nass/pull/29) ---
 
 INVENTORY_FILTERS: dict[str, str | int] = {  # get_livestock_inventory's fixed filters
     "statisticcat_desc": "INVENTORY",
@@ -1040,7 +1040,7 @@ async def test_upstream_files_dairy_products_beside_milk_production_in_lb(
         assert sent_query(route) == recorded_query(fixture)
 
 
-# --- get_grain_stocks, decision 9 (c) (Johannes, 2026-10-26 and 2026-10-28) ---
+# --- get_grain_stocks (https://github.com/xippios/sdk-usda-nass/pull/31) ---
 
 STOCKS_FIXED: dict[str, str] = {  # confirmed with get_counts on 2026-10-28: nothing dropped
     "statisticcat_desc": "STOCKS",
@@ -1275,7 +1275,7 @@ def test_acreage_forecasts_national(replay_fixture: Callable[[str, str], respx.R
     assert result.data[0].value_number == Decimal("91996000")
 
 
-# --- get_production_forecasts and get_production, decision 9 (b) (Johannes, 2026-10-28) ---
+# --- get_production and its forecasts (https://github.com/xippios/sdk-usda-nass/pull/30) ---
 
 CORN_US_2023: dict[str, str | int] = {
     "commodity_desc": "CORN",
@@ -1635,7 +1635,7 @@ def test_a_host_applies_the_options_as_the_entry_point_does() -> None:
     assert tasks.split_ceiling() == MCP_SPLIT_YEARS
 
 
-# --- get_census_farms, decision 9 (d) (Johannes, 2026-10-28) ---
+# --- get_census_farms (https://github.com/xippios/sdk-usda-nass/pull/32) ---
 
 CENSUS_FILTERS: dict[str, str | int] = {  # get_census_farms' fixed filters, counted 2026-10-28
     "source_desc": "CENSUS",
@@ -1659,7 +1659,7 @@ def test_census_farms_national(replay_fixture: ReplayFixture) -> None:
     }
     assert sent_query(fetched) == {**expected, "format": "JSON", "key": REDACTED}
     assert result.meta.request == {**expected, "year": 2022}
-    assert not counted.called  # a slice skips the count (decision 5)
+    assert not counted.called  # a slice skips it, https://github.com/xippios/sdk-usda-nass/pull/32
     assert result.meta.endpoint == "api_GET"
     assert result.meta.total is None
     assert result.meta.published_at is None
@@ -1905,7 +1905,7 @@ def test_grain_stocks_over_http(replay_fixture: ReplayFixture) -> None:
     assert body["meta"]["request"]["agg_level_desc"] == "STATE"
 
 
-# --- get_data(split_by_year=True), decision 8 (Johannes, 2026-10-26 and 2026-10-28) ---
+# --- get_data(split_by_year=True) (https://github.com/xippios/sdk-usda-nass/pull/27) ---
 
 IA_FILTERS: dict[str, str | int] = {"state_alpha": "IA", "year__GE": 2023, "year__LE": 2024}
 IA_SINCE_FILTERS: dict[str, str | int] = {"state_alpha": "IA", "year__GE": 2023}
@@ -2151,9 +2151,9 @@ def test_split_of_one_year_over_the_limit_refuses_after_the_first_count(
 def test_split_counts_a_year_past_the_current_one_without_refusing_it(
     replay_fixture: ReplayFixture, respx_mock: respx.MockRouter
 ) -> None:
-    """The ``year`` form keeps no future-year refusal (Johannes, 2026-10-28): with the flag,
-    next year is counted as without it. ``get_counts/no_match`` (a count of 0, recorded for
-    ``year=1800``) answers it, moved with ``url=``: an empty result, nothing fetched."""
+    """The ``year`` form keeps no future-year refusal: with the flag, next year is counted
+    as without it (https://github.com/xippios/sdk-usda-nass/pull/27). A count of 0
+    (``get_counts/no_match``, recorded for ``year=1800``) answers it at ``url=``: no fetch."""
     next_year = datetime.now(UTC).year + 1
     counted = replay_fixture(
         "get_counts",
@@ -2237,8 +2237,8 @@ def test_split_refuses_a_bound_past_the_current_utc_year_before_any_call(
     respx_mock: respx.MockRouter, first: int, last: int | None, named: str
 ) -> None:
     """A year Quick Stats has not published counts 0, as a year without records does, so
-    the range must end by the current UTC year (Johannes, 2026-10-28). Offsets from the
-    current year, read at call time."""
+    the range must end by the current UTC year (https://github.com/xippios/sdk-usda-nass/pull/27).
+    Offsets from the current year, read at call time."""
     now = datetime.now(UTC).year
     years: dict[str, str | int] = {"year__GE": now + first}
     if last is not None:
@@ -2534,7 +2534,7 @@ def test_split_by_year_over_http(replay_fixture: ReplayFixture) -> None:
     assert "year__GE with year__LE" in refused.json()["detail"]
 
 
-# --- the split ceiling on the MCP server, --split-years (Johannes, 2026-10-28) ---
+# --- the MCP server's --split-years (https://github.com/xippios/sdk-usda-nass/pull/27) ---
 
 SPLIT_REFUSAL = (
     "the split ceiling, --split-years on the MCP server, must be a whole number of years "
@@ -2550,7 +2550,7 @@ def restore_split_ceiling() -> Iterator[None]:
     tasks.set_split_ceiling(SPLIT_CEILING)
 
 
-def test_the_split_ceilings_and_the_option() -> None:
+def test_the_split_ceilings_and_the_option(plain_terminal: None) -> None:
     """20 years for the Python API and the HTTP router, the ceiling in force while no MCP
     server applied its options; ``--split-years`` on core's parser, 5 by default."""
     assert (SPLIT_CEILING, MCP_SPLIT_YEARS) == (20, 5)
@@ -2601,7 +2601,7 @@ def test_the_hooks_apply_the_option_through_cores_parser() -> None:
     assert tasks.split_ceiling() == 5
 
 
-@pytest.mark.usefixtures("restore_split_ceiling")
+@pytest.mark.usefixtures("restore_split_ceiling", "plain_terminal")
 def test_the_entry_point_applies_split_years_or_exits_with_status_2(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -2638,7 +2638,7 @@ def test_the_entry_point_applies_split_years_or_exits_with_status_2(
     assert tasks.split_ceiling() == 3
 
 
-@pytest.mark.usefixtures("restore_split_ceiling")
+@pytest.mark.usefixtures("restore_split_ceiling", "plain_terminal")
 def test_the_entry_point_names_itself_in_its_usage_and_errors(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -2698,3 +2698,91 @@ async def test_the_mcp_server_refuses_a_split_beyond_its_ceiling_before_any_call
     sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
     assert sent == [str(year) for year in range(2016, 2021)]
     assert not fetched.called
+
+
+# --- the terminal that argparse's text is compared in ---
+
+PLAIN = {"PYTHON_COLORS": "0", "COLUMNS": "100"}
+"""No colors, which Python 3.14's argparse adds under ``FORCE_COLOR``, and a width that
+keeps the usage line whole (https://github.com/xippios/sdk-usda-nass/issues/73)."""
+
+
+@pytest.fixture
+def plain_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin ``PLAIN`` for a test that compares argparse's text, whatever terminal the suite
+    runs in; argparse reads both when it prints."""
+    for name, value in PLAIN.items():
+        monkeypatch.setenv(name, value)
+
+
+# --- the tasks that fetch one year: an empty answer may be a year not yet published ---
+
+UNPUBLISHED_YEAR = (
+    "Quick Stats names no release and answers a year it has not published yet as one "
+    "without records, so ``NotFoundError`` may mean either."
+)
+"""What each one-year task says of its ``year``: a task that fetches one period and does
+not know the latest released one says that an empty answer may be a period not yet
+released (conventions §4; https://github.com/xippios/sdk-usda-nass/issues/42)."""
+
+
+def _one_year_tasks() -> list[str]:
+    """The tasks of ``tasks.__all__`` that take a ``year``."""
+    import inspect
+
+    return [
+        name
+        for name in tasks.__all__
+        if "year" in inspect.signature(getattr(tasks, name)).parameters
+    ]
+
+
+def test_every_task_but_the_free_form_ones_fetches_one_year() -> None:
+    """``get_counts`` and ``get_data`` take a year as a filter, ``list_param_values`` none."""
+    assert sorted(set(tasks.__all__) - set(_one_year_tasks())) == [
+        "get_counts", "get_data", "list_param_values",
+    ]  # fmt: skip
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("name", _one_year_tasks())
+async def test_a_one_year_task_says_an_empty_answer_may_be_a_year_not_yet_published(
+    name: str,
+) -> None:
+    """Quick Stats answers a query that matches nothing with ``bad request - invalid
+    query``, which ``classify`` raises as ``NotFoundError`` (``api_get/no_match``), and
+    names no release: the task's ``year`` and its MCP tool's description name both
+    readings of that answer."""
+    import inspect
+
+    doc = inspect.getdoc(getattr(tasks, name)) or ""
+    year = re.search(r"^    year: (.*?)(?=^    \w+: |\Z)", doc, re.MULTILINE | re.DOTALL)
+    assert year is not None, f"{name} documents no year under Args"
+    assert UNPUBLISHED_YEAR in " ".join(year.group(1).split())
+    tools = {tool.name: tool for tool in await server.list_tools()}
+    description = tools[f"usda_nass_{name}"].description or ""
+    assert UNPUBLISHED_YEAR in " ".join(description.split())
+
+
+UNPUBLISHED_COUNT = (
+    "For one ``year``, a zero may be a year without records or one not yet published: "
+    "Quick Stats names no release."
+)
+"""What ``get_data`` says of a count of 0 for one ``year``, which returns an empty result
+without the flag and in ``split_by_year``'s ``year`` form, as a year that Quick Stats has
+not published counts (https://github.com/xippios/sdk-usda-nass/pull/27)."""
+
+
+@pytest.mark.anyio
+async def test_get_data_says_a_zero_for_one_year_may_be_a_year_not_yet_published() -> None:
+    """``get_data`` fetches one period when its filters name one ``year``: its lead, the
+    paragraph before ``Args``, and its MCP tool's description name both readings of a
+    count of 0 (conventions §4; https://github.com/xippios/sdk-usda-nass/issues/42)."""
+    import inspect
+
+    doc = inspect.getdoc(tasks.get_data) or ""
+    lead = doc.partition("\n\nArgs:")[0]
+    assert UNPUBLISHED_COUNT in " ".join(lead.split())
+    tools = {tool.name: tool for tool in await server.list_tools()}
+    description = tools["usda_nass_get_data"].description or ""
+    assert UNPUBLISHED_COUNT in " ".join(description.split())

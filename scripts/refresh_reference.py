@@ -182,16 +182,16 @@ lists, ``ProgressStages``; every other class takes the default, ``state_alpha`` 
 # Members the script names, not render_enums (sdk-core ADR-0031), passed to it by
 # member_names().
 # unit_desc: every value with "$" (61 on 2026-10-28) is named by one rule, "$" read as
-# DOLLARS and "/" as PER before the renderer derives the name: "$" is DOLLARS and "$ / X"
-# DOLLARS_PER_<X> (Johannes, 2026-10-28), and "$, X" is DOLLARS_<X> by the same rule.
+# DOLLARS and "/" as PER before the renderer derives the name: "$" is DOLLARS, "$ / X"
+# DOLLARS_PER_<X> and "$, X" DOLLARS_<X> (https://github.com/xippios/sdk-usda-nass/pull/26).
 # The renderer derives no name from "$" and drops "$" and "/" from the others, so "$ / BU"
 # would share BU with the unit "BU" that unit_desc lists as well, and "$ / ACRE" would read
-# as the unit ACRE. Row 175 proposes the rule for core: "$" as DOLLARS everywhere and "/"
-# as PER only inside a value that contains "$", since reading every "/" as PER would
-# rename 89 unit_desc members without "$".
+# as the unit ACRE. "/" is PER only inside a value with "$", since reading every "/" as PER
+# would rename 89 unit_desc members without "$"; core's renderer keeps no such rule for one
+# source (https://github.com/xippios/sdk-core/issues/114, sdk-core ADR-0023).
 # domain_desc: upstream lists two landlord domains spelled both with "&" and with "AND",
 # which derive one name since "&" reads as AND; the "&" spellings keep the derived name,
-# the spelled-out ones take _SPELLED_OUT (Johannes, 2026-10-28).
+# the spelled-out ones take _SPELLED_OUT (https://github.com/xippios/sdk-usda-nass/pull/26).
 _SPELLED_OUT: dict[str, str] = {
     "LANDLORDS, COMBINED, VALUE OF LAND AND BUILDINGS": (
         "LANDLORDS_COMBINED_VALUE_OF_LAND_AND_BUILDINGS_SPELLED_OUT"
