@@ -2762,3 +2762,27 @@ async def test_a_one_year_task_says_an_empty_answer_may_be_a_year_not_yet_publis
     tools = {tool.name: tool for tool in await server.list_tools()}
     description = tools[f"usda_nass_{name}"].description or ""
     assert UNPUBLISHED_YEAR in " ".join(description.split())
+
+
+UNPUBLISHED_COUNT = (
+    "For one ``year``, a zero may be a year without records or one not yet published: "
+    "Quick Stats names no release."
+)
+"""What ``get_data`` says of a count of 0 for one ``year``, which returns an empty result
+without the flag and in ``split_by_year``'s ``year`` form, as a year that Quick Stats has
+not published counts (https://github.com/xippios/sdk-usda-nass/pull/27)."""
+
+
+@pytest.mark.anyio
+async def test_get_data_says_a_zero_for_one_year_may_be_a_year_not_yet_published() -> None:
+    """``get_data`` fetches one period when its filters name one ``year``: its lead, the
+    paragraph before ``Args``, and its MCP tool's description name both readings of a
+    count of 0 (conventions §4; https://github.com/xippios/sdk-usda-nass/issues/42)."""
+    import inspect
+
+    doc = inspect.getdoc(tasks.get_data) or ""
+    lead = doc.partition("\n\nArgs:")[0]
+    assert UNPUBLISHED_COUNT in " ".join(lead.split())
+    tools = {tool.name: tool for tool in await server.list_tools()}
+    description = tools["usda_nass_get_data"].description or ""
+    assert UNPUBLISHED_COUNT in " ".join(description.split())
