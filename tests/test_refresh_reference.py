@@ -1,11 +1,11 @@
 """``scripts/refresh_reference.py`` offline: its column table parser, its run and its render.
 
 ``columns.csv`` is rebuilt from the HTML column table the snapshot keeps in
-``docs/upstream/param_define.md`` (conventions §3). A run sends each request once and
-counts it, fetches every list before it writes one, and with ``--only`` fetches the lists
-it names alone. These tests read the committed snapshot and files, write under
-``tmp_path`` alone and send no request: the fetchers are replaced, or a route of respx
-answers.
+``docs/upstream/param_define.md`` (conventions §3). A run sends each request once, waits
+up to 300 seconds for its answer and counts it, fetches every list before it writes one,
+and with ``--only`` fetches the lists it names alone. These tests read the committed
+snapshot and files, write under ``tmp_path`` alone and send no request: the fetchers are
+replaced, or a route of respx answers.
 """
 
 import csv
@@ -13,6 +13,7 @@ import importlib.util
 import shutil
 import subprocess
 import sys
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
@@ -20,7 +21,14 @@ from types import ModuleType
 import httpx
 import pytest
 import respx
-from xippios.core import PackagedList, RetryPolicy, UpstreamError
+from xippios.core import (
+    ClientConfig,
+    PackagedList,
+    RetryPolicy,
+    TransportError,
+    UpstreamError,
+)
+from xippios.core.testing import ReplayFixture
 
 from xippios.usda.nass import api
 from xippios.usda.nass._client import BASE_URL, client
@@ -245,6 +253,63 @@ async def test_metered_sends_each_request_once_and_reports_the_count(
     assert client.config is configured
     assert script.QUOTA_HEADER is None
     assert capsys.readouterr().out == "requests sent: 1; quota left: not reported\n"
+
+
+@pytest.mark.anyio
+async def test_metered_waits_300_seconds_for_an_answer_and_restores_the_client(
+    replay_fixture: ReplayFixture,
+) -> None:
+    """Inside ``metered`` the client waits up to 300 seconds for an answer, where its own
+    configuration waits 60: two runs stopped at a list that Quick Stats answered late
+    (https://github.com/xippios/sdk-usda-nass/issues/78). Its connect, write and pool
+    timeouts stay the client's, and it sends each request once. Core builds the client's
+    pool, and with it the timeouts every request carries, at the first request in an
+    event loop, so the request sent shows the run's. After the block the client's
+    configuration is its own again."""
+    route = replay_fixture("get_param_values", "sector_desc")
+    configured = client.config
+    assert configured.timeouts.read == 60.0
+    inside: list[ClientConfig] = []
+    with script.metered(client):
+        inside.append(client.config)
+        await api.get_param_values("sector_desc")
+    timeouts = replace(configured.timeouts, read=300.0)
+    assert [(config.timeouts, config.retry) for config in inside] == [
+        (timeouts, RetryPolicy(max_attempts=1))
+    ]
+    assert route.call_count == 1
+    assert route.calls.last.request.extensions["timeout"] == {
+        **configured.timeouts.to_httpx().as_dict(),
+        "read": 300.0,
+    }
+    assert client.config is configured
+
+
+@pytest.mark.anyio
+async def test_metered_sends_a_list_not_answered_in_time_once_and_restores_the_client(
+    respx_mock: respx.MockRouter,
+) -> None:
+    """NOT RECORDED: no answer at all; the route raises ``httpx.ReadTimeout``, as httpx
+    does once the read timeout passes, since a wait that ends without an answer leaves
+    nothing to record (conventions §10). The request carries the run's 300 seconds and
+    is sent once, where the client's retry policy would send a timed-out GET again; the
+    run fails with core's ``TransportError``, and the client's configuration is its own
+    again after the block."""
+    sent: list[dict[str, float]] = []
+
+    def unanswered(request: httpx.Request) -> httpx.Response:
+        sent.append(request.extensions["timeout"])
+        raise httpx.ReadTimeout("no answer within the read timeout", request=request)
+
+    route = respx_mock.get(f"{BASE_URL}/get_param_values/").mock(side_effect=unanswered)
+    configured = client.config
+    assert configured.retry.retry_transport_errors
+    assert configured.retry.max_attempts > 1
+    with pytest.raises(TransportError), script.metered(client):
+        await api.get_param_values("agg_level_desc")
+    assert route.call_count == 1
+    assert [timeout["read"] for timeout in sent] == [300.0]
+    assert client.config is configured
 
 
 def test_render_writes_enums_py_as_committed() -> None:

@@ -76,6 +76,12 @@ QUOTA_HEADER: str | None = None
 """The response header in which upstream reports the requests left in its quota: none,
 since Quick Stats documents no quota and its recorded answers carry no such header."""
 
+READ_TIMEOUT = 300.0
+"""The run's read timeout in seconds, how long a request waits for its answer to arrive,
+where the client's own configuration waits 60 (conventions §6): two runs on 2026-11-20 got
+no answer for ``agg_level_desc`` within 60 seconds, and one request for it with this
+timeout was answered in 7.5 (https://github.com/xippios/sdk-usda-nass/issues/78)."""
+
 # The snapshot's column names where they differ from the columns' names in the data: the
 # stray space upstream prints in one key, and the two data value columns as api_GET names
 # them.
@@ -247,13 +253,21 @@ class Meter:
 def metered(target: AsyncClient) -> Iterator[Meter]:
     """``target`` for the block: one attempt per request, each counted, then the report.
 
-    ``RetryPolicy(max_attempts=1)`` keeps a 5xx or a 429 from spending a second keyed
-    call. ``target``'s configuration is restored after the block, and the report is
-    printed, a failed run's too.
+    ``RetryPolicy(max_attempts=1)`` keeps a 5xx, a 429 or a timeout from spending a second
+    keyed call, and the read timeout is ``READ_TIMEOUT``, the other timeouts ``target``'s.
+    Core builds the client's pool, and with it the timeouts, at the first request in an
+    event loop: the run sends the script's first request, so its pool takes them.
+    ``target``'s configuration is restored after the block, and the report is printed, a
+    failed run's too.
     """
     configured = target.config
     meter = Meter(configured.observe)
-    target.config = replace(configured, retry=RetryPolicy(max_attempts=1), observe=meter)
+    target.config = replace(
+        configured,
+        timeouts=replace(configured.timeouts, read=READ_TIMEOUT),
+        retry=RetryPolicy(max_attempts=1),
+        observe=meter,
+    )
     try:
         yield meter
     finally:
