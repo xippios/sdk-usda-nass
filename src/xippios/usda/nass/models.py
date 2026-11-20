@@ -135,7 +135,7 @@ class ApiGetResponse(UpstreamModel):
 class CropProgressRecord(_Published):
     """One weekly crop progress or condition estimate: a projection of ``QuickStatsRecord``.
 
-    Columns keep their upstream names (ADR-0003); only the ones that vary within a
+    Columns keep their upstream names (sdk-core ADR-0028); only the ones that vary within a
     progress or condition series are kept. ``unit_desc`` carries the stage
     (``"PCT PLANTED"``, ``"PCT EMERGED"``, ...) or the condition category
     (``"PCT EXCELLENT"`` ... ``"PCT VERY POOR"``); ``value`` is that percentage as
@@ -162,7 +162,7 @@ class CropProgressRecord(_Published):
 class CountyEstimateRecord(_Published):
     """One annual county estimate (yield or production): a projection of ``QuickStatsRecord``.
 
-    Columns keep their upstream names (ADR-0003). ``prodn_practice_desc`` separates the
+    Columns keep their upstream names (sdk-core ADR-0028). ``prodn_practice_desc`` separates the
     all-practices figure from irrigated and non-irrigated ones where a state reports
     them; ``util_practice_desc`` separates grain from silage; ``unit_desc`` names the
     unit (``"BU / ACRE"``, ``"TONS / ACRE"``, ``"BU"``, ``"TONS"``). ``cv_percent`` is the
@@ -212,7 +212,7 @@ class FarmStatistic(StrEnum):
 class AcreageRecord(_Published):
     """One acreage estimate in acres: a projection of ``QuickStatsRecord``.
 
-    Columns keep their upstream names (ADR-0003). ``statisticcat_desc`` is
+    Columns keep their upstream names (sdk-core ADR-0028). ``statisticcat_desc`` is
     ``AREA PLANTED`` or ``AREA HARVESTED``; ``reference_period_desc`` is ``YEAR`` for a
     final figure or names the forecast (``YEAR - AUG FORECAST``); ``util_practice_desc``
     separates grain from silage on the harvested side; ``source_desc`` tells survey from
@@ -240,7 +240,7 @@ class AcreageRecord(_Published):
 class CensusFarmsRecord(_Published):
     """One Census of Agriculture farms figure: a projection of ``QuickStatsRecord``.
 
-    Columns keep their upstream names (ADR-0003), those of ``CountyEstimateRecord``.
+    Columns keep their upstream names (sdk-core ADR-0028), those of ``CountyEstimateRecord``.
     ``statisticcat_desc`` is ``OPERATIONS`` or ``AREA OPERATED``; ``unit_desc`` tells the
     figures of one place apart: ``OPERATIONS`` (the number of farms) and
     ``PCT OF FARM OPERATIONS``, or ``ACRES`` (land in farms), ``ACRES / OPERATION``,
@@ -282,7 +282,7 @@ class ProductionStatistic(StrEnum):
 class ProductionRecord(_Published):
     """One production or yield estimate, forecast or final: a projection of ``QuickStatsRecord``.
 
-    Columns keep their upstream names (ADR-0003), the acreage projection's columns.
+    Columns keep their upstream names (sdk-core ADR-0028), the acreage projection's columns.
     ``statisticcat_desc`` is ``PRODUCTION`` or ``YIELD``; ``reference_period_desc`` is
     ``YEAR`` for the final figure or names the forecast (``YEAR - AUG FORECAST``).
     Utilisations, classes and units are rows of their own: ``util_practice_desc``
@@ -313,7 +313,7 @@ class ProductionRecord(_Published):
 class PriceReceivedRecord(_Published):
     """One price-received estimate: a projection of ``QuickStatsRecord``.
 
-    Columns keep their upstream names (ADR-0003). ``freq_desc`` is ``MONTHLY`` or
+    Columns keep their upstream names (sdk-core ADR-0028). ``freq_desc`` is ``MONTHLY`` or
     ``ANNUAL`` (the marketing-year average); ``reference_period_desc`` names the month or
     ``MARKETING YEAR`` and ``begin_code``/``end_code`` carry the month numbers, ``00`` for
     the year. ``unit_desc`` is the price unit (``"$ / BU"``) or, in the national series,
@@ -349,7 +349,7 @@ class LivestockCommodity(StrEnum):
 class LivestockInventoryRecord(_Published):
     """One livestock inventory in head on a survey day: a projection of ``QuickStatsRecord``.
 
-    Columns keep their upstream names (ADR-0003). ``class_desc`` names the class counted
+    Columns keep their upstream names (sdk-core ADR-0028). ``class_desc`` names the class counted
     (``"INCL CALVES"``, ``"COWS, BEEF"``, ``"ALL CLASSES"``, ``"MARKET, LT 50 LBS"``);
     ``prodn_practice_desc`` is ``"ON FEED"`` for cattle on feed and, in the rows recorded,
     ``"ALL PRODUCTION PRACTICES"`` otherwise. ``reference_period_desc`` names the day
@@ -379,7 +379,7 @@ class LivestockInventoryRecord(_Published):
 class MilkProductionRecord(_Published):
     """One milk production estimate in pounds: a projection of ``QuickStatsRecord``.
 
-    Columns keep their upstream names (ADR-0003). ``freq_desc`` is ``MONTHLY`` for a
+    Columns keep their upstream names (sdk-core ADR-0028). ``freq_desc`` is ``MONTHLY`` for a
     month or a quarter and ``ANNUAL`` for the year; ``reference_period_desc`` names the
     period (``"JAN"``, ``"JAN THRU MAR"``, ``"YEAR"``) and ``begin_code``/``end_code`` carry
     its first and last month numbers, ``00`` for the year. ``value`` is the quantity as
@@ -407,7 +407,7 @@ class MilkProductionRecord(_Published):
 class GrainStocksRecord(_Published):
     """One grain stocks estimate in bushels, as of a day: a projection of ``QuickStatsRecord``.
 
-    Columns keep their upstream names (ADR-0003). ``reference_period_desc`` names the day
+    Columns keep their upstream names (sdk-core ADR-0028). ``reference_period_desc`` names the day
     (``FIRST OF MAR``, ``FIRST OF JUN``, ``FIRST OF SEP``, ``FIRST OF DEC``) and
     ``begin_code``/``end_code`` carry its month (``03`` ... ``12``); ``freq_desc`` is
     ``POINT IN TIME``. ``util_practice_desc`` tells the position as upstream spells it for

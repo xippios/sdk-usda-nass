@@ -119,8 +119,9 @@ def _check_value(param: str, raw: str | int) -> None:
         return
     # A value list has no upstream names: each value stands for itself.
     close = closest(str(value), {record[param]: record[param] for record in packaged.records})
+    # Core words the closest values itself, each once; the hint stands where none is close.
     hint = (
-        f"Did you mean {', '.join(code for code, _ in close)}?"
+        None
         if close
         else (
             f"list_param_values({param!r}) lists the known values (over MCP, the tool "

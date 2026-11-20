@@ -1,14 +1,15 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: v0.3.4
+_commit: v0.4.0
 _src_path: https://github.com/xippios/sdk-template.git
 api_base_url: https://quickstats.nass.usda.gov/api
 api_key_env: NASS_API_KEY
 api_key_location: query
 api_key_name: key
 core_git_ref: ''
-core_version: 0.3.0
+core_version: 0.4.0
 gateway: none
 has_files: false
+has_reference_data: true
 human: jdidaskalu
 import_path: usda.nass
 live_secrets: '[]'
@@ -18,5 +19,7 @@ rate_limit_provenance: self-imposed
 source_dependencies: '[]'
 source_name: USDA NASS Quick Stats
 source_slug: usda-nass
+tenant_param: ''
 upstream_docs_url: https://quickstats.nass.usda.gov/api
 upstream_url: https://quickstats.nass.usda.gov
+write_server: false

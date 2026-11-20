@@ -14,7 +14,7 @@ follows, sdk-core's conventions among them, are listed under
 | API base URL | `https://quickstats.nass.usda.gov/api` |
 | Documentation | https://quickstats.nass.usda.gov/api, snapshotted in `docs/upstream/` |
 | Credentials | `NASS_API_KEY` from the environment, sent as the `key` query parameter |
-| Rate limit | 30 requests per minute, burst 1; a self-imposed pace, upstream documents none (sdk-core ADR-0010); enforced client-side in `_client.py` |
+| Rate limit | 30 requests per minute, burst 1; a self-imposed pace, upstream documents none (sdk-core ADR-0033, decision 1); enforced client-side in `_client.py` |
 | Write tools | no, this package is read-only |
 
 The snapshot listed in `docs/upstream/FETCHED.md` is the reference for names, parameters and
@@ -28,7 +28,8 @@ src/xippios/usda/nass/
   py.typed         PEP 561 marker; consumers' mypy --strict needs it
   _version.py      __version__ from distribution metadata
   _client.py       the one configured AsyncClient (base URL, key, rate limit, and a memory
-                   cache for the get_param_values lookups alone, 24 hours)
+                   cache for the get_param_values lookups alone, 24 hours), ENV_VARS and
+                   classify, upstream's documented error shapes
   errors.py        the package's own error classes and limits (conventions §5):
                    QueryTooLarge, RECORD_LIMIT, SPLIT_CEILING, MCP_SPLIT_YEARS
   models.py        pydantic models mirroring upstream payloads (UpstreamModel); by the
@@ -37,7 +38,7 @@ src/xippios/usda/nass/
   api/             endpoint wrappers, one module per upstream operation (conventions §2)
   tasks.py         task functions; __all__ is what the adapters register, but BULK_TASKS,
                    the Python-only ones; MCP_CAPS any per-tool result caps
-  mcp.py           xippios-usda-nass-mcp entry point
+  mcp.py           xippios-usda-nass-mcp entry point: build() the tool set, server
   http.py          FastAPI router
   params.py        the packaged reference lists, read from reference/
   enums.py         StrEnums (IntEnums for integer ids) generated from the packaged lists;
@@ -57,8 +58,11 @@ tests/
                    README status table, the template tag, the core bound
   test_tasks.py    per-task replay tests
   test_live.py     @pytest.mark.live smoke tests, one per task
-  test_refresh_reference.py   the refresh script's column-table parser against the
-                   snapshot in docs/upstream/, offline
+  test_refresh_reference.py   the refresh script offline: its column-table parser against
+                   the snapshot in docs/upstream/, its run's one attempt per request,
+                   count and order, --only, and enums.py rendered as committed
+  test_refresh_upstream.py   FETCHED.md as the capture script renders it, offline, with
+                   the row of OBSERVED.md, which a snapshot leaves as written
 docs/
   upstream/        documentation snapshot and FETCHED.md
   adr/             this package's design decisions, one NNNN-<slug>.md record each, laid
@@ -102,7 +106,7 @@ uv run xippios-usda-nass-mcp   # stdio; add --http for streamable HTTP, and
 ```
 
 `uv run pytest` is offline: core's plugin refuses the network and skips the rate limiter's
-waits in every test not marked `live` (conventions §10, sdk-core ADR-0013). A test that
+waits in every test not marked `live` (conventions §10, sdk-core ADR-0035). A test that
 asserts a limiter wait or a quota pause is marked `rate_limited`, one that must reach the
 network `network`.
 It sends the key's placeholder, with `NASS_API_KEY` set to it because
@@ -126,6 +130,15 @@ and counts, never on a raw payload.
 - Upstream's documented error shapes go into `classify` in `_client.py`, once, and an error
   class of the package's own into `errors.py`; a wrapper never inspects a status code
   (conventions §5, §6).
+- One limiter paces each host the package sends to (conventions §2, §6). A second base URL
+  on the host of the API base URL goes through the one `client` of `_client.py` by its
+  absolute URL, and `classify`'s path checks name both bases. An origin or mirror that the
+  publisher runs itself, where its canonical host refuses automated requests, takes that
+  host's pace through the same client, and `docs/upstream/` names both hosts; a mirror that
+  anyone else runs is never sent to. A host that a dependency sends to is reached through
+  the dependency's tasks alone. Any other host gets a client of its own in `_client.py`,
+  its base URL and its `RateLimit` beside the first's, and a row of its own in the table
+  under What this package wraps, with its pace and where the pace comes from.
 - A change brings its tests, written before the code, and passes the offline checks above;
   its changelog entry is a fragment under `changelog/`, one file holding its bullet, as
   `changelog/README.md` lays it out (conventions §12). Commit subjects follow Conventional
@@ -141,16 +154,17 @@ and counts, never on a raw payload.
 - Never hand-write a fixture, and never commit one without grepping it for key patterns
   (conventions §10).
 - Never read or print `.envrc`, `.env`, the credential variable of this package,
-  `NASS_API_KEY`, or any variable ending in `_API_KEY`, `_REFRESH_TOKEN` or
+  `NASS_API_KEY`, or any variable ending in `_API_KEY`, `_TOKEN` or
   `_SECRET`.
 - Never write a key, a token or another credential into a file or a commit.
 - Never put logic in `mcp.py` or `http.py`, and never add a route or a tool by hand: the
   adapters register `tasks.__all__` (sdk-core ADR-0001).
-- Never rename or re-map an upstream concept to another source's (sdk-core ADR-0003).
+- Never rename or re-map an upstream concept to another source's (sdk-core ADR-0028).
 - Never return a documented personal identifier in a task's projection, echo one in
   `meta.request`, or commit one in a fixture (sdk-core ADR-0017).
-- Never edit `docs/upstream/` by hand: `/refresh-upstream` fetches it, and the pull request
-  shows its diff (conventions §3).
+- Never edit `docs/upstream/` by hand but `docs/upstream/OBSERVED.md`, the notes on what
+  upstream does but never documents: `/refresh-upstream` fetches the rest, and the pull
+  request shows its diff (conventions §3).
 - Never add `src/xippios/__init__.py`, nor an `__init__.py` at a level between it and the
   package (sdk-core ADR-0006).
 - Never push a tag by hand: a release's tag comes from `publish.yml` alone (conventions §12).
@@ -162,7 +176,7 @@ template release reaches it in a pull request of its own, with
 `uvx --from 'copier>=9.19' copier update --defaults --vcs-ref=<tag>` (conventions §15): the
 update renders the template's files again and never overwrites the files this package
 fills, `__init__.py`, `_client.py`, `errors.py`, `models.py`, `api/`, `parse/`, `tasks.py`,
-`params.py`, `enums.py`, `reference/`, `scripts/refresh_reference.py`,
+`tasks_write.py`, `params.py`, `enums.py`, `reference/`, `scripts/refresh_reference.py`,
 `scripts/refresh_upstream.py`, `tests/test_tasks.py`, `tests/test_live.py`,
 `tests/fixtures/`, `docs/upstream/`, `docs/adr.md`, `docs/adr.json`, `README.md`,
 `CHANGELOG.md` and `CLAUDE.md`. sdk-template's
