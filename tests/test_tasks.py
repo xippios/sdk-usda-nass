@@ -2713,3 +2713,52 @@ def plain_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
     runs in; argparse reads both when it prints."""
     for name, value in PLAIN.items():
         monkeypatch.setenv(name, value)
+
+
+# --- the tasks that fetch one year: an empty answer may be a year not yet published ---
+
+UNPUBLISHED_YEAR = (
+    "Quick Stats names no release and answers a year it has not published yet as one "
+    "without records, so ``NotFoundError`` may mean either."
+)
+"""What each one-year task says of its ``year``: a task that fetches one period and does
+not know the latest released one says that an empty answer may be a period not yet
+released (conventions §4; https://github.com/xippios/sdk-usda-nass/issues/42)."""
+
+
+def _one_year_tasks() -> list[str]:
+    """The tasks of ``tasks.__all__`` that take a ``year``."""
+    import inspect
+
+    return [
+        name
+        for name in tasks.__all__
+        if "year" in inspect.signature(getattr(tasks, name)).parameters
+    ]
+
+
+def test_every_task_but_the_free_form_ones_fetches_one_year() -> None:
+    """``get_counts`` and ``get_data`` take a year as a filter, ``list_param_values`` none."""
+    assert sorted(set(tasks.__all__) - set(_one_year_tasks())) == [
+        "get_counts", "get_data", "list_param_values",
+    ]  # fmt: skip
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("name", _one_year_tasks())
+async def test_a_one_year_task_says_an_empty_answer_may_be_a_year_not_yet_published(
+    name: str,
+) -> None:
+    """Quick Stats answers a query that matches nothing with ``bad request - invalid
+    query``, which ``classify`` raises as ``NotFoundError`` (``api_get/no_match``), and
+    names no release: the task's ``year`` and its MCP tool's description name both
+    readings of that answer."""
+    import inspect
+
+    doc = inspect.getdoc(getattr(tasks, name)) or ""
+    year = re.search(r"^    year: (.*?)(?=^    \w+: |\Z)", doc, re.MULTILINE | re.DOTALL)
+    assert year is not None, f"{name} documents no year under Args"
+    assert UNPUBLISHED_YEAR in " ".join(year.group(1).split())
+    tools = {tool.name: tool for tool in await server.list_tools()}
+    description = tools[f"usda_nass_{name}"].description or ""
+    assert UNPUBLISHED_YEAR in " ".join(description.split())
