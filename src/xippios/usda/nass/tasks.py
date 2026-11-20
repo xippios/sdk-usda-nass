@@ -9,10 +9,12 @@ belongs to the normalisation layer, not here.
 ``get_data(split_by_year=True)`` splits one call into at most ``split_ceiling()`` years:
 ``SPLIT_CEILING`` (20) in Python and over HTTP; the MCP server starts with
 ``MCP_SPLIT_YEARS`` (5), and its ``--split-years`` sets another ceiling from 1 to 20
-through core's option hooks (``mcp_add_options``, ``mcp_apply_options``; ADR-0014). The
-entry point ``xippios-usda-nass-mcp`` sets the MCP ceiling, since core's ``main`` applies
-the option, so a host that imports ``xippios.usda.nass.mcp.server`` and serves it another
-way keeps 20. The ceiling is process-wide: a Python or HTTP call made in the MCP server's
+through core's option hooks (``mcp_add_options``, ``mcp_apply_options``; sdk-core
+ADR-0036, decision 8). The entry point ``xippios-usda-nass-mcp`` sets the MCP ceiling,
+since core's ``main`` applies the option, and so does a host that serves
+``xippios.usda.nass.mcp.build()`` and applies its hooks with the tool set's
+``option_defaults()``; a host that serves ``xippios.usda.nass.mcp.server`` without them
+keeps 20. The ceiling is process-wide: a Python or HTTP call made in the MCP server's
 process meets the MCP ceiling too.
 """
 
@@ -77,7 +79,8 @@ __all__ = [
     "list_param_values",
 ]
 
-# A task named here is Python-only: no tool, no route; the adapters skip it (ADR-0019 decision 4).
+# A task named here is Python-only: no tool, no route; the adapters skip it (sdk-core ADR-0040,
+# decision 4).
 BULK_TASKS: frozenset[str] = frozenset()
 
 MCP_CAPS: Mapping[str, ResultCap] = {
@@ -90,7 +93,7 @@ MCP_CAPS: Mapping[str, ResultCap] = {
         ),
     ),
 }
-"""MCP result caps of their own, by task function name (conventions §8, ADR-0016).
+"""MCP result caps of their own, by task function name (conventions §8, sdk-core ADR-0038).
 
 ``list_param_values`` is the reference lookup an agent needs whole to form valid filters,
 and its lists run past the family's default of 200 rows. Of the nine packaged lists

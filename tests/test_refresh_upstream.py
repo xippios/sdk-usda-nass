@@ -62,7 +62,7 @@ def test_fetched_md_names_no_observed_md_while_there_is_none() -> None:
 
 def test_fetched_md_cites_the_standing_record_of_sdk_core() -> None:
     """The sentences the script writes cite sdk-core's record as it stands at core 0.4.0,
-    ADR-0028, which restates ADR-0003, by the repository's name."""
+    sdk-core ADR-0028, which restates sdk-core ADR-0003, by the repository's name."""
     text = " ".join(render(observed=False).split())
     assert text.count("(sdk-core ADR-0028)") == 2
     assert "ADR-0003" not in text

@@ -315,7 +315,7 @@ def test_get_data_parses_every_column(replay_fixture: Callable[[str, str], respx
     assert result.meta.request == SMALL_FILTERS
     assert len(result.data) == 2
     # The count get_counts reported, as recorded for EXAMPLE_FILTERS: upstream's statement,
-    # never len(data) (conventions §4, ADR-0012).
+    # never len(data) (conventions §4, sdk-core ADR-0034).
     assert result.meta.total == 22345
     record = result.data[0]
     assert record.commodity_desc == "CORN"
@@ -521,8 +521,8 @@ async def test_list_param_values_over_mcp_is_whole_past_the_default_cap(
     respx_mock: respx.MockRouter,
 ) -> None:
     """``statisticcat_desc``, past the default cap of 200 rows, answered from the package
-    with no upstream call: the tool's own cap, ``tasks.MCP_CAPS`` (ADR-0016), lets every
-    one through, so no note is added."""
+    with no upstream call: the tool's own cap, ``tasks.MCP_CAPS`` (sdk-core ADR-0038), lets
+    every one through, so no note is added."""
     payload = await mcp_call(server, "usda_nass_list_param_values", {"param": "statisticcat_desc"})
     assert not respx_mock.calls
     assert len(payload["data"]) == len(PackagedList.load(PACKAGE, "statisticcat_desc").records)
@@ -1961,7 +1961,7 @@ def mount_ia_split(replay_fixture: ReplayFixture) -> dict[str, respx.Route]:
     chunks replay a real Iowa answer of each year (``api_get/corn_price_received_ia_2023``,
     ``api_get/corn_progress_planted_ia_2024``), a slice of that year's records: a whole
     year's answer runs to megabytes, and the recorder cuts no JSON object (``max_bytes=``,
-    ADR-0019 decision 5).
+    sdk-core ADR-0040, decision 5).
     """
     routes = {
         f"count_{year}": replay_fixture("get_counts", f"ia_2023_2024_{year}", match_params=["year"])
