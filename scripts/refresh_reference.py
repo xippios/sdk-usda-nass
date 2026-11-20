@@ -10,16 +10,27 @@ one national year of weekly ``api_GET`` rows, the query they come from kept as t
 ``xippios.core.reference.render_enums`` call, one ``StrEnum`` per packaged and derived
 list, values verbatim and member names derived from the values except the 63 the script
 sets itself in ``member_names`` (on 2026-10-28: the 61 ``unit_desc`` values with ``$``,
-named by one rule, and two ``domain_desc`` values, named literally), each class naming
-the day its list was fetched, and formatted with ``ruff format`` and ``ruff check --fix``,
-as it is committed (ADR-0008); and ``columns.csv`` is rebuilt from the column table in
+named by one rule, and two ``domain_desc`` values, named literally), each class named by
+core's default but the two in ``CLASS_NAMES`` and naming the day its list was fetched,
+and formatted with ``ruff format`` and ``ruff check --fix``, as it is committed (sdk-core
+ADR-0031); and ``columns.csv`` is rebuilt from the column table in
 ``docs/upstream/param_define.md``, which the snapshot keeps as HTML (conventions §3). The
-table is parsed before any file is written, so a snapshot the parser cannot read leaves
-every packaged file as it was. Quick Stats' lists are value lists, so there is no
-``IntEnum`` path. Run from the repository root with what the list endpoints need in the
-environment, the API key, since every Quick Stats endpoint takes it::
+table is parsed before any request, and every list is fetched before the first file is
+written, so a snapshot the parser cannot read, or a fetch that fails, leaves every
+packaged file as it was. Quick Stats' lists are value lists, so there is no ``IntEnum``
+path. Run from the repository root with what the list endpoints need in the environment,
+the API key, since every Quick Stats endpoint takes it::
 
     uv run python scripts/refresh_reference.py
+
+The package's client sends each request once, ``RetryPolicy(max_attempts=1)``, so a 5xx
+or a 429 spends no second keyed call: a run that fails writes nothing and is run again.
+After the fetches it prints the requests it sent, a failed run's too; Quick Stats reports
+no quota left (``QUOTA_HEADER``). A full run sends 11: one ``get_param_values`` per
+packaged parameter and one ``api_GET`` per derived list. ``--only <list> [<list> ...]``
+fetches the named lists of ``LISTS`` alone, writes their files and keeps every other
+file as it is, ``columns.csv`` among them, as a change that packages a new list does;
+``enums.py`` is then regenerated from all of them.
 
 ``--render-only`` regenerates ``enums.py`` from the packaged ``reference/*.json`` alone,
 the nine parameter lists and the two derived ones, without a request and without a key:
@@ -33,15 +44,19 @@ import io
 import re
 import subprocess
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from dataclasses import replace
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 from pathlib import Path
 
-from xippios.core import PackagedList, sync
+import httpx
+from xippios.core import AsyncClient, PackagedList, RetryPolicy, sync
 from xippios.core.reference import enum_member_name, render_enums
 
 from xippios.usda.nass import api
+from xippios.usda.nass._client import client
 from xippios.usda.nass.params import DERIVED_LISTS, PACKAGED_PARAMS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +67,13 @@ ENUMS = PACKAGE_DIR / "enums.py"
 GENERATOR = "scripts/refresh_reference.py"
 
 COLUMNS = REFERENCE / "columns.csv"
+
+LISTS: tuple[str, ...] = (*PACKAGED_PARAMS, *DERIVED_LISTS)
+"""Every list the run fetches and writes, in its order: the names ``--only`` takes."""
+
+QUOTA_HEADER: str | None = None
+"""The response header in which upstream reports the requests left in its quota: none,
+since Quick Stats documents no quota and its recorded answers carry no such header."""
 
 # The snapshot's column names where they differ from the columns' names in the data: the
 # stray space upstream prints in one key, and the two data value columns as api_GET names
@@ -148,15 +170,16 @@ def columns_csv(rows: list[dict[str, str]]) -> str:
     return buffer.getvalue()
 
 
-_ENUM_NAMES = {
-    "statisticcat_desc": "StatisticcatDesc",
-    "unit_desc": "UnitDesc",
-    "domain_desc": "DomainDesc",
+CLASS_NAMES = {
     "progress_stages": "ProgressStage",
     "condition_categories": "ConditionCategory",
 }
+"""The class names the script sets: core's default would name the derived lists after the
+lists, ``ProgressStages``; every other class takes the default, ``state_alpha`` making
+``StateAlpha`` (sdk-core ADR-0031)."""
 
-# Members the script names, not render_enums (ADR-0008), passed to it by member_names().
+# Members the script names, not render_enums (sdk-core ADR-0031), passed to it by
+# member_names().
 # unit_desc: every value with "$" (61 on 2026-10-28) is named by one rule, "$" read as
 # DOLLARS and "/" as PER before the renderer derives the name: "$" is DOLLARS and "$ / X"
 # DOLLARS_PER_<X> (Johannes, 2026-10-28), and "$, X" is DOLLARS_<X> by the same rule.
@@ -189,6 +212,54 @@ def member_names(lists: Mapping[str, list[str]]) -> dict[str, dict[str, str]]:
     return {"unit_desc": dollars, "domain_desc": _SPELLED_OUT}
 
 
+class Meter:
+    """What a run spent: the requests it sent and the quota left that upstream reported.
+
+    The client's ``observe`` hook, which core calls with every response from the wire. It
+    calls the hook the client had first, a quota policy's say (sdk-core ADR-0037), and keeps
+    the last count that upstream sent in ``QUOTA_HEADER``. A request is counted by its
+    response: with no retry each has one, but for one that fails in transport, whose error
+    ends the run.
+    """
+
+    def __init__(self, observe: Callable[[httpx.Response], None] | None) -> None:
+        self.sent = 0
+        self.left: int | None = None
+        self._observe = observe
+
+    def __call__(self, response: httpx.Response) -> None:
+        """Count ``response`` and keep the quota it reports, after the hook it replaces."""
+        if self._observe is not None:
+            self._observe(response)
+        self.sent += 1
+        value = response.headers.get(QUOTA_HEADER) if QUOTA_HEADER else None
+        if value is not None and value.isascii() and value.isdigit():
+            self.left = int(value)
+
+    def report(self) -> str:
+        """The requests sent and the quota left, as upstream last reported it, one line."""
+        left = "not reported" if self.left is None else f"{self.left} ({QUOTA_HEADER})"
+        return f"requests sent: {self.sent}; quota left: {left}"
+
+
+@contextmanager
+def metered(target: AsyncClient) -> Iterator[Meter]:
+    """``target`` for the block: one attempt per request, each counted, then the report.
+
+    ``RetryPolicy(max_attempts=1)`` keeps a 5xx or a 429 from spending a second keyed
+    call. ``target``'s configuration is restored after the block, and the report is
+    printed, a failed run's too.
+    """
+    configured = target.config
+    meter = Meter(configured.observe)
+    target.config = replace(configured, retry=RetryPolicy(max_attempts=1), observe=meter)
+    try:
+        yield meter
+    finally:
+        target.config = configured
+        print(meter.report())  # noqa: T201
+
+
 def write(name: str, packaged: PackagedList) -> None:
     """Write ``reference/<name>.json``: the list as ``PackagedList.write`` writes it."""
     path = REFERENCE / f"{name}.json"
@@ -210,84 +281,110 @@ def note(query: Mapping[str, str | int]) -> str:
     return f"distinct unit_desc of api_GET with {filters}"
 
 
-def derive(name: str, filters: dict[str, str | int], year: int) -> None:
-    """Distinct ``unit_desc`` values of one national year of weekly rows, written to a file."""
+def fetch_param(param: str) -> PackagedList:
+    """A packaged parameter's values, fetched by one ``get_param_values`` call."""
+    answer = sync(api.get_param_values)(param)
+    return PackagedList(
+        param=param,
+        endpoint="get_param_values",
+        fetched=answer.retrieved_at,
+        records=[{param: value} for value in answer.payload],
+    )
+
+
+def fetch_derived(name: str, filters: Mapping[str, str | int], year: int) -> PackagedList:
+    """Distinct ``unit_desc`` values of one national year of weekly rows, one ``api_GET``."""
     query: dict[str, str | int] = {**filters, "freq_desc": "WEEKLY", "year": year}
     rows = sync(api.api_get)(query).data
-    values = sorted({row.unit_desc for row in rows})
     print(f"{name}: {len(rows)} rows")  # noqa: T201
-    packaged = PackagedList(
+    return PackagedList(
         param="unit_desc",
         endpoint="api_GET",
         fetched=datetime.now(UTC),
         note=note(query),
-        records=[{"unit_desc": value} for value in values],
+        records=[{"unit_desc": value} for value in sorted({row.unit_desc for row in rows})],
     )
-    write(name, packaged)
+
+
+def module() -> str:
+    """``enums.py`` as ``render_enums`` writes it from the packaged files, before ruff."""
+    lists: dict[str, list[str]] = {}
+    fetched: dict[str, str] = {}
+    for name in LISTS:
+        packaged = read(name)
+        lists[name] = [record[packaged.param] for record in packaged.records]
+        fetched[name] = f"{packaged.fetched:%Y-%m-%d}"
+    return render_enums(
+        lists,
+        fetched=fetched,
+        class_names=CLASS_NAMES,
+        member_names=member_names(lists),
+        generator=GENERATOR,
+    )
 
 
 def render() -> None:
     """Regenerate ``enums.py`` from the packaged lists, packaged and derived, as committed."""
-    lists: dict[str, list[str]] = {}
-    fetched: dict[str, str] = {}
-    for name in (*PACKAGED_PARAMS, *DERIVED_LISTS):
-        packaged = read(name)
-        lists[name] = [record[packaged.param] for record in packaged.records]
-        fetched[name] = f"{packaged.fetched:%Y-%m-%d}"
-    module = render_enums(
-        lists,
-        fetched=fetched,
-        class_names=_ENUM_NAMES,
-        member_names=member_names(lists),
-        generator=GENERATOR,
-    )
-    ENUMS.write_text(module, encoding="utf-8")
+    ENUMS.write_text(module(), encoding="utf-8")
     sys.stdout.flush()
     for command in (["format"], ["check", "--fix"]):
         run = subprocess.run([sys.executable, "-m", "ruff", *command, str(ENUMS)], cwd=ROOT)
         if run.returncode:
             raise SystemExit(f"ruff {' '.join(command)} left {ENUMS.name} failing")
-    print(f"{ENUMS.name}: {len(lists)} enums, from the packaged files")  # noqa: T201
+    print(f"{ENUMS.name}: {len(LISTS)} enums, from the packaged files")  # noqa: T201
 
 
-def refresh() -> None:
-    """Fetch the packaged lists, derive stages and categories, rebuild enums.py and columns.csv.
+def refresh(only: Sequence[str] = ()) -> None:
+    """Fetch the lists, then write their files, enums.py and, on a full run, columns.csv.
 
-    The column table is parsed first: a snapshot the parser cannot read stops the run
-    before any request and before any file is written.
+    The column table is parsed and ``only``, the lists ``--only`` names, checked before
+    the first request: a snapshot the parser cannot read, or a list the script does not
+    package, stops the run before anything is sent or written. Every list is fetched
+    before the first file is written, each request sent once and counted.
     """
     columns = columns_csv(columns_from_snapshot())
+    if unknown := [name for name in only if name not in LISTS]:
+        raise SystemExit(f"--only: no list {', '.join(unknown)} in {', '.join(LISTS)}")
+    chosen = set(only or LISTS)
     year = datetime.now(UTC).year - 1
-    fetch = sync(api.get_param_values)
-    for param in PACKAGED_PARAMS:
-        values, retrieved_at = fetch(param)
-        packaged = PackagedList(
-            param=param,
-            endpoint="get_param_values",
-            fetched=retrieved_at,
-            records=[{param: value} for value in values],
-        )
-        write(param, packaged)
-    for name, filters in DERIVED_LISTS.items():
-        derive(name, filters, year)
+    with metered(client):
+        lists = [
+            *((param, fetch_param(param)) for param in PACKAGED_PARAMS if param in chosen),
+            *(
+                (name, fetch_derived(name, filters, year))
+                for name, filters in DERIVED_LISTS.items()
+                if name in chosen
+            ),
+        ]
+    for name, packaged in lists:
+        write(name, packaged)
     render()
-    COLUMNS.write_text(columns, encoding="utf-8", newline="")
-    print("columns.csv rebuilt from docs/upstream/param_define.md")  # noqa: T201
+    if not only:
+        COLUMNS.write_text(columns, encoding="utf-8", newline="")
+        print("columns.csv rebuilt from docs/upstream/param_define.md")  # noqa: T201
 
 
-def main() -> None:
-    """Refresh from upstream, or with ``--render-only`` regenerate ``enums.py`` alone."""
+def main(argv: Sequence[str] | None = None) -> None:
+    """Refresh from upstream, some lists with ``--only``, or ``enums.py`` alone."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
-    parser.add_argument(
+    choice = parser.add_mutually_exclusive_group()
+    choice.add_argument(
         "--render-only",
         action="store_true",
         help="regenerate enums.py from the packaged reference/*.json, without a request or a key",
     )
-    args = parser.parse_args()
+    choice.add_argument(
+        "--only",
+        nargs="+",
+        default=[],
+        metavar="LIST",
+        help="fetch these lists alone and keep every other file",
+    )
+    args = parser.parse_args(argv)
     if args.render_only:
         render()
     else:
-        refresh()
+        refresh(args.only)
 
 
 if __name__ == "__main__":
