@@ -30,7 +30,8 @@ no quota left (``QUOTA_HEADER``). A full run sends 11: one ``get_param_values`` 
 packaged parameter and one ``api_GET`` per derived list. ``--only <list> [<list> ...]``
 fetches the named lists of ``LISTS`` alone, writes their files and keeps every other
 file as it is, ``columns.csv`` among them, as a change that packages a new list does;
-``enums.py`` is then regenerated from all of them.
+``enums.py`` is then regenerated from all of them, so every list it keeps must be
+packaged already, which is checked before the first request.
 
 ``--render-only`` regenerates ``enums.py`` from the packaged ``reference/*.json`` alone,
 the nine parameter lists and the two derived ones, without a request and without a key:
@@ -337,15 +338,19 @@ def render() -> None:
 def refresh(only: Sequence[str] = ()) -> None:
     """Fetch the lists, then write their files, enums.py and, on a full run, columns.csv.
 
-    The column table is parsed and ``only``, the lists ``--only`` names, checked before
-    the first request: a snapshot the parser cannot read, or a list the script does not
-    package, stops the run before anything is sent or written. Every list is fetched
-    before the first file is written, each request sent once and counted.
+    The column table is parsed, ``only``, the lists ``--only`` names, checked, and every
+    list it keeps found packaged, before the first request: a snapshot the parser cannot
+    read, a list the script does not package, or a kept list whose file is absent stops
+    the run before anything is sent or written, since the render reads every file. Every
+    list is fetched before the first file is written, each request sent once and counted.
     """
     columns = columns_csv(columns_from_snapshot())
     if unknown := [name for name in only if name not in LISTS]:
         raise SystemExit(f"--only: no list {', '.join(unknown)} in {', '.join(LISTS)}")
     chosen = set(only or LISTS)
+    kept = [name for name in LISTS if name not in chosen]
+    if missing := [name for name in kept if not (REFERENCE / f"{name}.json").is_file()]:
+        raise SystemExit(f"{', '.join(missing)} is not packaged yet: run without --only")
     year = datetime.now(UTC).year - 1
     with metered(client):
         lists = [
