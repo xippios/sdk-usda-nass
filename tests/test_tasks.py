@@ -1659,7 +1659,7 @@ def test_census_farms_national(replay_fixture: ReplayFixture) -> None:
     }
     assert sent_query(fetched) == {**expected, "format": "JSON", "key": REDACTED}
     assert result.meta.request == {**expected, "year": 2022}
-    assert not counted.called  # a slice skips it, https://github.com/xippios/sdk-usda-nass/pull/15
+    assert not counted.called  # a slice skips it, https://github.com/xippios/sdk-usda-nass/pull/32
     assert result.meta.endpoint == "api_GET"
     assert result.meta.total is None
     assert result.meta.published_at is None
