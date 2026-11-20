@@ -823,7 +823,7 @@ def test_prices_received_national_monthly(
     ]
 
 
-# --- the livestock slices, decision 9 (a) (Johannes, 2026-10-26 and 2026-10-28) ---
+# --- the livestock slices (https://github.com/xippios/sdk-usda-nass/pull/29) ---
 
 INVENTORY_FILTERS: dict[str, str | int] = {  # get_livestock_inventory's fixed filters
     "statisticcat_desc": "INVENTORY",
@@ -1040,7 +1040,7 @@ async def test_upstream_files_dairy_products_beside_milk_production_in_lb(
         assert sent_query(route) == recorded_query(fixture)
 
 
-# --- get_grain_stocks, decision 9 (c) (Johannes, 2026-10-26 and 2026-10-28) ---
+# --- get_grain_stocks (https://github.com/xippios/sdk-usda-nass/pull/31) ---
 
 STOCKS_FIXED: dict[str, str] = {  # confirmed with get_counts on 2026-10-28: nothing dropped
     "statisticcat_desc": "STOCKS",
@@ -1275,7 +1275,7 @@ def test_acreage_forecasts_national(replay_fixture: Callable[[str, str], respx.R
     assert result.data[0].value_number == Decimal("91996000")
 
 
-# --- get_production_forecasts and get_production, decision 9 (b) (Johannes, 2026-10-28) ---
+# --- get_production and its forecasts (https://github.com/xippios/sdk-usda-nass/pull/30) ---
 
 CORN_US_2023: dict[str, str | int] = {
     "commodity_desc": "CORN",
@@ -1635,7 +1635,7 @@ def test_a_host_applies_the_options_as_the_entry_point_does() -> None:
     assert tasks.split_ceiling() == MCP_SPLIT_YEARS
 
 
-# --- get_census_farms, decision 9 (d) (Johannes, 2026-10-28) ---
+# --- get_census_farms (https://github.com/xippios/sdk-usda-nass/pull/32) ---
 
 CENSUS_FILTERS: dict[str, str | int] = {  # get_census_farms' fixed filters, counted 2026-10-28
     "source_desc": "CENSUS",
@@ -1659,7 +1659,7 @@ def test_census_farms_national(replay_fixture: ReplayFixture) -> None:
     }
     assert sent_query(fetched) == {**expected, "format": "JSON", "key": REDACTED}
     assert result.meta.request == {**expected, "year": 2022}
-    assert not counted.called  # a slice skips the count (decision 5)
+    assert not counted.called  # a slice skips it, https://github.com/xippios/sdk-usda-nass/pull/15
     assert result.meta.endpoint == "api_GET"
     assert result.meta.total is None
     assert result.meta.published_at is None
@@ -1905,7 +1905,7 @@ def test_grain_stocks_over_http(replay_fixture: ReplayFixture) -> None:
     assert body["meta"]["request"]["agg_level_desc"] == "STATE"
 
 
-# --- get_data(split_by_year=True), decision 8 (Johannes, 2026-10-26 and 2026-10-28) ---
+# --- get_data(split_by_year=True) (https://github.com/xippios/sdk-usda-nass/pull/27) ---
 
 IA_FILTERS: dict[str, str | int] = {"state_alpha": "IA", "year__GE": 2023, "year__LE": 2024}
 IA_SINCE_FILTERS: dict[str, str | int] = {"state_alpha": "IA", "year__GE": 2023}
@@ -2151,9 +2151,9 @@ def test_split_of_one_year_over_the_limit_refuses_after_the_first_count(
 def test_split_counts_a_year_past_the_current_one_without_refusing_it(
     replay_fixture: ReplayFixture, respx_mock: respx.MockRouter
 ) -> None:
-    """The ``year`` form keeps no future-year refusal (Johannes, 2026-10-28): with the flag,
-    next year is counted as without it. ``get_counts/no_match`` (a count of 0, recorded for
-    ``year=1800``) answers it, moved with ``url=``: an empty result, nothing fetched."""
+    """The ``year`` form keeps no future-year refusal: with the flag, next year is counted
+    as without it (https://github.com/xippios/sdk-usda-nass/pull/27). A count of 0
+    (``get_counts/no_match``, recorded for ``year=1800``) answers it at ``url=``: no fetch."""
     next_year = datetime.now(UTC).year + 1
     counted = replay_fixture(
         "get_counts",
@@ -2237,8 +2237,8 @@ def test_split_refuses_a_bound_past_the_current_utc_year_before_any_call(
     respx_mock: respx.MockRouter, first: int, last: int | None, named: str
 ) -> None:
     """A year Quick Stats has not published counts 0, as a year without records does, so
-    the range must end by the current UTC year (Johannes, 2026-10-28). Offsets from the
-    current year, read at call time."""
+    the range must end by the current UTC year (https://github.com/xippios/sdk-usda-nass/pull/27).
+    Offsets from the current year, read at call time."""
     now = datetime.now(UTC).year
     years: dict[str, str | int] = {"year__GE": now + first}
     if last is not None:
@@ -2534,7 +2534,7 @@ def test_split_by_year_over_http(replay_fixture: ReplayFixture) -> None:
     assert "year__GE with year__LE" in refused.json()["detail"]
 
 
-# --- the split ceiling on the MCP server, --split-years (Johannes, 2026-10-28) ---
+# --- the MCP server's --split-years (https://github.com/xippios/sdk-usda-nass/pull/27) ---
 
 SPLIT_REFUSAL = (
     "the split ceiling, --split-years on the MCP server, must be a whole number of years "
