@@ -4,16 +4,86 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/) (pre-1.0: breaking changes bump the minor).
 
-## [Unreleased]
+## [0.3.0] - 2026-11-20
+
+### Added
+
+- `xippios.usda.nass.mcp` exports `build()`, the tool set of xippios-core's package
+  contract with the tools' caps and the `--split-years` option, `server`, built from it,
+  and `ENV_VARS`, the variables the package reads, `NASS_API_KEY` alone, so a host serves
+  the package as `xippios-usda-nass-mcp` does.
+  (https://github.com/xippios/sdk-core/issues/245)
 
 ### Changed
 
+- The reference refresh, `scripts/refresh_reference.py`, which a maintainer runs before a
+  release, waits up to 300 seconds for each list's answer, where it gave up after the
+  client's 60, and still sends each request once. Two runs had stopped at
+  `agg_level_desc`, which Quick Stats did not answer within 60 seconds.
+  (https://github.com/xippios/sdk-usda-nass/issues/78)
+- The thirteen tasks that take a `year`, `get_production` and `get_crop_progress` among
+  them, say under `year`, and so in their MCP tools' descriptions, that an empty answer may
+  be a year not yet published: Quick Stats names no release and answers such a year as one
+  without records, so `NotFoundError` may mean either. `get_data` says the same of a count
+  of 0 for one `year`, which returns an empty result, as its `split_by_year` said already of
+  a year counting 0; sdk-core's conventions §4 ask it of every task that fetches one period.
+  (https://github.com/xippios/sdk-usda-nass/issues/42)
+- `xippios-usda-nass-mcp` names itself in its usage line and its errors, a refused
+  `--split-years 25` ending `xippios-usda-nass-mcp: error: the split ceiling, ...`, where
+  they named the server, `xippios-usda-nass`. Its help says that `--allow-remote` changes
+  nothing on this read server, which is not held to loopback.
+  (https://github.com/xippios/sdk-core/issues/167)
+- A tool's error answer sets `isError` on its result beside the text
+  `error: <ErrorClass>: <message>`, a filter key that is no Quick Stats column or a value
+  that a packaged list lacks among them, so a client tells a refusal from data without
+  reading the text. (https://github.com/xippios/sdk-core/issues/168)
+- A route answers an argument that its schema refuses, a `stage` that is no
+  `ProgressStage` say, as problem details before the task runs: HTTP 422, the title
+  `InvalidRequestError` and the detail `<argument>: <message>`, without the value given,
+  where FastAPI's own 422 listed its error details with the input.
+  (https://github.com/xippios/sdk-core/issues/66)
+- A refusal of a value that a packaged list lacks, `state_alpha` `XX` say, ends with
+  `If upstream added it since, the packaged list is out of date.`, where it named the
+  maintainers' `/refresh-reference-data`, which an agent cannot run.
+  (https://github.com/xippios/sdk-core/issues/111)
+- Adopts sdk-template v0.3.4, from v0.3.1, with conventions 1.27 and no new core minor: the
+  floor stays `xippios-core~=0.3.0`, and no module or test changes. The README lists the
+  documents a change follows under `## Documents`, and `CLAUDE.md` takes the place of
+  `.claude/family.md`, which the update deletes, and cites sdk-core's records as
+  `sdk-core ADR-NNNN`. (https://github.com/xippios/sdk-template/releases/tag/v0.3.4,
+  https://github.com/xippios/sdk-usda-nass/issues/39)
 - Adopted sdk-template v0.3.1 (conventions §15), with no new core minor: the floor stays
   `xippios-core~=0.3.0`. `.github/CODEOWNERS` is rendered from the template's answers
   and names the code owner whose review a change to each of its paths needs;
   `.gitignore` leaves copier's `*.rej` and `*.orig` out; `.claude/family.md`,
   `/adopt-release`, `/release-prep` and the PR template no longer have the author of a
   pull request merge it.
+
+### Fixed
+
+- A list that `list_param_values` fetches live is kept for 24 hours only once its answer
+  parsed, so an answer that does not parse is asked again on the next lookup, where it was
+  kept and failed every lookup until its entry expired. The lookup that fetched a list and
+  every lookup the cache answers report one `meta.retrieved_at`.
+  (https://github.com/xippios/sdk-core/issues/122,
+  https://github.com/xippios/sdk-core/issues/79)
+
+### Breaking
+
+- `api.get_param_values` returns xippios-core's `Answer[list[str]]`, its `payload` the
+  values and its `retrieved_at` the time, and `ParamValues`, the pair it returned, is gone
+  from `xippios.usda.nass.api`. A caller that unpacked the pair, as `values, retrieved_at =
+  await api.get_param_values("sector_desc")`, reads `answer.payload` and
+  `answer.retrieved_at`. (https://github.com/xippios/sdk-core/issues/123)
+- A tool refuses an argument that it does not declare before it runs, whatever its value,
+  where the argument was dropped and the tool ran without it. `usda_nass_list_param_values`
+  called with `parameter` answers `error: InvalidRequestError: parameter: Not an argument
+  of this tool`, then names `param`, the one argument it takes.
+  (https://github.com/xippios/sdk-core/issues/84)
+- Adopts sdk-template v0.4.0, from v0.3.4, with `core_version=0.4.0`. The package depends
+  on `xippios-core~=0.4.0`, its extras likewise, and follows conventions 1.28.
+  (https://github.com/xippios/sdk-template/releases/tag/v0.4.0,
+  https://github.com/xippios/sdk-usda-nass/issues/71)
 
 ## [0.2.0] - 2026-10-28
 
