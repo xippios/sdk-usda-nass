@@ -1068,7 +1068,7 @@ def test_the_count_task_is_count_data_with_no_alias() -> None:
     assert api.get_counts.__name__ == "get_counts"
 
 
-@pytest.mark.usefixtures("restore_split_ceiling")
+@pytest.mark.usefixtures("restore_the_ceiling")
 def test_a_host_applies_the_options_as_the_entry_point_does() -> None:
     """A host applies the defaults of the tool set's hooks, under core's signature, the
     parsed options alone, so its server splits into 11 years at most, as
@@ -1832,21 +1832,21 @@ SPLIT_REFUSAL = (
 
 
 @pytest.fixture
-def restore_split_ceiling() -> Iterator[None]:
+def restore_the_ceiling() -> Iterator[None]:
     """The split ceiling is process-wide: a test that sets it leaves the Python API's,
     ``SPLIT_CEILING``, for the tests after it."""
     yield
     tasks.SPLIT.set(SPLIT_CEILING)
 
 
-def test_the_split_ceilings_and_the_option(plain_terminal: None) -> None:
+def test_the_ceilings_of_the_split_and_the_option(plain_terminal: None) -> None:
     """20 years for the Python API and the HTTP router, the ceiling in force while no MCP
     server applied its options; ``--split-years`` on core's parser, 11 by default, the most
     years whose split stays within the about two dozen requests that conventions §8 allow
     one tool call, 22 for a two-sided range and 23 for ``year__GE`` alone. The ceiling is
-    core's ``Ceiling``, whose two hooks the module declares, where the package's own
-    ``split_ceiling`` and ``set_split_ceiling`` stood
-    (https://github.com/xippios/sdk-core/issues/315)."""
+    core's ``Ceiling``, whose two hooks the module declares, where the package's own two
+    functions of the ceiling stood (https://github.com/xippios/sdk-core/issues/315): no
+    function of ``tasks`` reads or sets a ceiling of its own."""
     from xippios.core import Ceiling
 
     assert (SPLIT_CEILING, MCP_SPLIT_YEARS) == (20, 11)
@@ -1854,8 +1854,7 @@ def test_the_split_ceilings_and_the_option(plain_terminal: None) -> None:
     assert (tasks.SPLIT.most, tasks.SPLIT.mcp, tasks.SPLIT.option) == (20, 11, "--split-years")
     assert tasks.mcp_add_options == tasks.SPLIT.add_options
     assert tasks.mcp_apply_options == tasks.SPLIT.apply_options
-    assert not hasattr(tasks, "split_ceiling")
-    assert not hasattr(tasks, "set_split_ceiling")
+    assert [name for name in vars(tasks) if name.islower() and "ceiling" in name] == []
     assert tasks.SPLIT.value == 20
     parser = build_parser(server.name, add_options=tasks.mcp_add_options)
     assert parser.parse_args([]).split_years == 11
@@ -1870,16 +1869,16 @@ def test_the_split_ceilings_and_the_option(plain_terminal: None) -> None:
     ) in " ".join(parser.format_help().split())
 
 
-@pytest.mark.usefixtures("restore_split_ceiling")
+@pytest.mark.usefixtures("restore_the_ceiling")
 @pytest.mark.parametrize("years", [1, 5, 20])
-def test_the_split_ceiling_takes_1_to_20(years: int) -> None:
+def test_the_ceiling_takes_1_to_20(years: int) -> None:
     tasks.SPLIT.set(years)
     assert tasks.SPLIT.value == years
 
 
-@pytest.mark.usefixtures("restore_split_ceiling")
+@pytest.mark.usefixtures("restore_the_ceiling")
 @pytest.mark.parametrize("years", [0, 21, -5, True, "5", 5.0, None])
-def test_the_split_ceiling_refuses_anything_else(years: object) -> None:
+def test_the_ceiling_refuses_anything_else(years: object) -> None:
     """Never above 20, never below 1, never a bool, a text or a float; the ceiling in
     force stays."""
     tasks.SPLIT.set(10)
@@ -1889,7 +1888,7 @@ def test_the_split_ceiling_refuses_anything_else(years: object) -> None:
     assert tasks.SPLIT.value == 10
 
 
-@pytest.mark.usefixtures("restore_split_ceiling")
+@pytest.mark.usefixtures("restore_the_ceiling")
 def test_the_hooks_apply_the_option_through_cores_parser() -> None:
     """``--split-years 3`` applies 3, no option applies the default 11, and 25 is refused
     with the ceiling unchanged; ``mcp_apply_options`` takes the parsed options alone and
@@ -1904,7 +1903,7 @@ def test_the_hooks_apply_the_option_through_cores_parser() -> None:
     assert tasks.SPLIT.value == 11
 
 
-@pytest.mark.usefixtures("restore_split_ceiling", "plain_terminal")
+@pytest.mark.usefixtures("restore_the_ceiling", "plain_terminal")
 def test_the_entry_point_applies_split_years_or_exits_with_status_2(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1942,7 +1941,7 @@ def test_the_entry_point_applies_split_years_or_exits_with_status_2(
 
 
 @pytest.mark.anyio
-@pytest.mark.usefixtures("restore_split_ceiling")
+@pytest.mark.usefixtures("restore_the_ceiling")
 async def test_the_mcp_server_refuses_a_split_beyond_its_ceiling_before_any_call(
     replay_fixture: ReplayFixture, respx_mock: respx.MockRouter
 ) -> None:
