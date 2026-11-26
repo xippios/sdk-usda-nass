@@ -61,14 +61,16 @@ def _payload(response: httpx.Response) -> Any:
 
 
 def classify(response: httpx.Response) -> XippiosError | None:
-    """Quick Stats' documented and observed error shapes, mapped once (sdk-core ADR-0031).
+    """Quick Stats' error shapes, mapped once (sdk-core ADR-0031).
 
-    Observed on 2026-10-22 beyond ``docs/upstream/api.md``: a query over the 50,000-record
-    maximum answers HTTP 413 ``{"error": ["exceeds limit=50000"]}``; filters that match no
-    record answer HTTP 400 ``{"error": ["bad request - invalid query"]}``; an unknown
-    ``get_param_values`` parameter answers HTTP 400 ``{"<param>": ["no value"]}``. Each
-    error names the request by core's ``request_description``, its method and path, never
-    its host or its query, which carries the key (conventions §5; sdk-core ADR-0030).
+    The three refusals as Quick Stats sends them, beyond the messages that
+    ``docs/upstream/api.md`` lists, stand in ``docs/upstream/OBSERVED.md`` under "Refusals":
+    HTTP 413 ``{"error": ["exceeds limit=50000"]}`` is ``QueryTooLarge``, HTTP 400
+    ``{"error": ["bad request - invalid query"]}`` from filters that match no record a
+    ``NotFoundError``, and HTTP 400 ``{"<param>": ["no value"]}`` from ``get_param_values``
+    a ``NotFoundError`` naming the parameter. Each error names the request by core's
+    ``request_description``, its method and path, never its host or its query, which carries
+    the key (conventions §5; sdk-core ADR-0030).
     """
     request = request_description(response)
     if response.status_code == 413:
@@ -100,10 +102,9 @@ config = ClientConfig(
     base_url=BASE_URL,
     rate_limit=RATE_LIMIT,
     # Core's default bounds hold: 256 entries outnumber the 39 Quick Stats columns and a
-    # split's 41 answers, and ``cache_max_bytes`` (8 MiB) is far above the lists measured
-    # (``domain_desc``, 22,194 bytes of compact JSON, the largest; ``commodity_desc``, a list
-    # fetched live, 6,792 bytes as recorded on 2026-10-28); a larger answer, a year of data
-    # among them, is returned and not kept.
+    # split's 41 answers, and ``cache_max_bytes`` (8 MiB) is far above the longest list
+    # (``docs/upstream/OBSERVED.md``, "The lists' lengths"); a larger answer, of about 9,000
+    # records or more ("A record is about 900 bytes"), is returned and not kept.
     cache=MemoryCache(
         lifetimes={_LIST_PATH: _LIST_TTL, _COUNT_PATH: _DATA_TTL, _DATA_PATH: _DATA_TTL}
     ),

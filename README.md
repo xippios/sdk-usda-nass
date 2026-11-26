@@ -6,6 +6,29 @@ Typed Python client, MCP server and FastAPI routes for
 upstream documentation; every response carries its metadata (source, endpoint,
 retrieved_at, request).
 
+## Scope
+
+Of Quick Stats' API the package wraps the three operations that its documentation lists
+(`docs/upstream/`): `api_GET`, the published estimates for a set of filters, read as JSON,
+`get_counts`, the count of the same filters, and `get_param_values`, the values that a
+parameter takes, of which the package ships nine lists and refreshes them before each
+release. A filter is any column of the column definitions, with any of the documented
+operators. A documented choice that a caller cannot make stands here with its public issue:
+
+- `format` and `callback` of `api_GET`: the documentation offers CSV and XML beside JSON, and
+  JSONP by a callback, and the package asks for JSON
+  (https://github.com/xippios/sdk-usda-nass/issues/65).
+- The Data Set Download files, which the documentation names as the way past 50,000 records
+  beside narrower filters: the package reads no file, and refuses a query over the limit
+  with the filters that narrow it or splits it by year
+  (https://github.com/xippios/sdk-usda-nass/issues/66).
+
+What the package adds is the count before a query, the check of each filter against the
+packaged column table and lists before a request, and a split by year where one call cannot
+serve a range. It fixes no filter, ranks nothing and derives no figure for the caller: the
+thirteen tasks of 0.3.0 that fixed filters over `api_GET` left in 0.4.0, and the query of
+each stays one `get_data` call with the same filters.
+
 ## Install
 
 ```bash
@@ -32,12 +55,13 @@ tasks.count_data(filters).data  # 2 records would come back from api_GET
 records = tasks.get_data(filters).data
 records[0].short_desc  # 'CORN - ACRES PLANTED'
 records[0].value, records[0].value_number  # '510,000', Decimal('510000'); JSON: 510000
+tasks.list_param_values("sector_desc").data  # ['ANIMALS & PRODUCTS', 'CROPS', ...]
 ```
 
 `get_data` counts the records first: zero matches return an empty result, more than
 50,000 raise `QueryTooLarge` with the count and a hint, narrower filters or a split by
-year, before anything is fetched. `list_param_values("sector_desc")` lists the values a
-filter can take. The client keeps a count and the data for 300 seconds and a list fetched
+year, before anything is fetched. `list_param_values` lists the values a filter can take,
+nine of them packaged and every other fetched live. The client keeps a count and the data for 300 seconds and a list fetched
 live for a day, so the same call within that time sends nothing, and a year that Quick
 Stats publishes within those 300 seconds reads as none until they pass.
 
@@ -45,10 +69,10 @@ Stats publishes within those 300 seconds reads as none until they pass.
 cannot serve them, when its filters bound the years as `year`, `year__GE` with
 `year__LE`, or `year__GE` alone up to the current UTC year; any other year filter, and a
 `year__GE` or `year__LE` past the current UTC year, is refused with
-`InvalidRequestError` before a call. Quick Stats keeps one bound on `year` per query
-(recorded 2026-10-28: it counts `year__GE` with `year__LE` as `year__GE` alone, and
-drops `year__GE` beside `year__LT`), so a two-sided year range is served only by this
-split. That form is always split, every year counted before anything is fetched; `year`
+`InvalidRequestError` before a call. Quick Stats keeps one bound on `year` per query: it
+counts `year__GE` with `year__LE` as `year__GE` alone, and drops `year__GE` beside
+`year__LT` (`docs/upstream/OBSERVED.md`, "One bound on year a query"), so a two-sided year
+range is served only by this split. That form is always split, every year counted before anything is fetched; `year`
 is counted and fetched once, and `year__GE` alone is counted first and split only over
 the limit. One call splits into at most 20 years in Python and over HTTP, and 11 by
 default on the MCP server, whose `--split-years` sets 1 to 20: a longer split raises
@@ -95,7 +119,7 @@ counts no records for it.
 Tools are read-only and named `usda_nass_<verb>_<noun>`. Results are capped, at
 200 rows or 64 KB unless a tool has a cap of its own, with a note on how to see the rest:
 `usda_nass_list_param_values` returns up to 1,000 values, since its lists run longer than
-200 (`domain_desc`, packaged, has 616; `commodity_desc`, fetched live, 467), and takes
+200 (`docs/upstream/OBSERVED.md`, "The lists' lengths"), and takes
 `offset`, the values already shown, which continues a cut list from the package or the
 client's cache without a request. `usda_nass_get_data` keeps 200 rows or 64 KB, and its
 note names the filters that narrow a query; it takes no `offset`, since a continuation
@@ -118,11 +142,10 @@ exactly tasks.__all__, and tasks_write.__all__ where the package has write tasks
 | `api_GET` | `tasks.get_data(filters, split_by_year=)` | `usda_nass_get_data` | alpha |
 | `get_param_values` | `tasks.list_param_values(param)` | `usda_nass_list_param_values` | alpha |
 
-The package serves these three tasks, where 0.3.0 served sixteen: the thirteen that fixed
-filters over `api_GET` for the caller left, and the query of each is one `get_data` call
-with the same filters. 0.3.0 requires xippios-core 0.4.x (`~=0.4.0`); 0.2.0 does not
-work with core 0.4.0. Alpha: the public surface may change in a minor version before 1.0
-(conventions §12); `CHANGELOG.md` lists every change.
+0.4.0 serves these three tasks, where 0.3.0 served sixteen, as `## Scope` says, and
+requires xippios-core 0.5.x (`~=0.5.0`); 0.3.0 does not work with core 0.5.0. Alpha: the
+public surface may change in a minor version before 1.0 (conventions §12); `CHANGELOG.md`
+lists every change.
 
 ## Upstream terms and attribution
 
@@ -189,6 +212,7 @@ over the organization's, switches it off.
 - sdk-core: [docs/review-checklist.md](https://github.com/xippios/sdk-core/blob/main/docs/review-checklist.md) — what the review of a pull request checks, in order.
 - sdk-usda-nass: [docs/adr.md](https://github.com/xippios/sdk-usda-nass/blob/main/docs/adr.md) — the index of this package's own decisions, generated from the records in `docs/adr/`.
 - sdk-usda-nass: [docs/upstream/FETCHED.md](https://github.com/xippios/sdk-usda-nass/blob/main/docs/upstream/FETCHED.md) — the snapshot of the upstream documentation, the reference for names, parameters and semantics.
+- sdk-usda-nass: [docs/upstream/OBSERVED.md](https://github.com/xippios/sdk-usda-nass/blob/main/docs/upstream/OBSERVED.md) — what Quick Stats does that its documentation does not state, each note with the probe that showed it.
 
 ## Licence
 

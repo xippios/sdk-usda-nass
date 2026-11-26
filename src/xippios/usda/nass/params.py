@@ -140,9 +140,8 @@ def codes(param: str) -> PackagedCodes:
     """The packaged list of ``param``, declared once per process with core's check (§5).
 
     Each value stands for itself, so the list has no name field, and its values are
-    compared without regard to case, as Quick Stats compares them (``state_alpha=va``
-    counts what ``VA`` counts, ``get_counts/corn_va_since_2012_lowercase`` recorded
-    2026-10-28).
+    compared without regard to case, as Quick Stats compares them
+    (``docs/upstream/OBSERVED.md``, "A value's case is ignored").
 
     Args:
         param: One of ``PACKAGED_PARAMS``, e.g. ``"state_alpha"``.
@@ -161,7 +160,8 @@ def validate_filters(filters: Filters) -> dict[str, str | int]:
 
     Quick Stats ignores unknown column names, so a misspelt key would silently query the
     whole database, and counts no records for an unknown value, the answer a query
-    without data gets. A key is ``<column>`` or ``<column>__<OPERATOR>``. The value of a
+    without data gets (``docs/upstream/OBSERVED.md``, "An unknown column is ignored" and
+    "An unknown value counts 0"). A key is ``<column>`` or ``<column>__<OPERATOR>``. The value of a
     bare key that names a packaged parameter (``PACKAGED_PARAMS``) must be in its
     packaged list, compared without regard to case as Quick Stats compares it; a key
     with an operator is checked as a key only. Every value is sent as given.
