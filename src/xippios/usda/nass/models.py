@@ -5,7 +5,10 @@ Conventions §3 and ``/add-endpoint`` give the rules.
 Quick Stats sends every value as a string; the models coerce the numeric and temporal
 ones and keep the rest verbatim, empty strings included. ``value`` stays the published
 string, because a suppression code such as ``"(D)"`` is information; ``value_number``
-is its parsed form and travels as a JSON number. Column meanings are in
+is its parsed form and travels as a JSON number, and ``cv_percent`` and
+``cv_percent_number`` stand so too (conventions §3). Each code field declares by
+``NamedBy`` the field beside it in which Quick Stats sends the code's name (conventions
+§4; sdk-core ADR-0067, decision 6). Column meanings are in
 ``docs/upstream/param_define.md``; the response shapes in ``api.md`` and the recorded
 fixtures. None of those columns is a personal identifier, so ``QuickStatsRecord`` keeps
 every one.
@@ -14,9 +17,10 @@ every one.
 from collections.abc import Mapping
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Annotated
 
 from pydantic import Field, computed_field, field_validator
-from xippios.core import UpstreamModel, parse_decimal
+from xippios.core import NamedBy, UpstreamModel, parse_decimal
 
 __all__ = ["ApiGetResponse", "Filters", "GetCountsResponse", "QuickStatsRecord"]
 
@@ -60,6 +64,11 @@ class QuickStatsRecord(_Published):
     upstream spelling and carried as ``value`` and ``cv_percent``. ``value`` stays a
     string because it carries either a number with thousands separators (``"510,000"``)
     or a suppression code such as ``"(D)"``; ``value_number`` parses the numeric case.
+    ``cv_percent`` stays the printed coefficient of variation, a number, a code such as
+    ``"(L)"`` or empty, and ``cv_percent_number`` parses the numeric case
+    (https://github.com/xippios/sdk-usda-nass/issues/36). The state, district, county,
+    watershed and country codes each name the field beside them that holds their name;
+    ``congr_district_code``, ``begin_code``, ``end_code`` and ``zip_5`` have none.
     """
 
     source_desc: str
@@ -75,21 +84,21 @@ class QuickStatsRecord(_Published):
     domain_desc: str
     domaincat_desc: str
     agg_level_desc: str
-    state_ansi: str
-    state_fips_code: str
-    state_alpha: str
+    state_ansi: Annotated[str, NamedBy("state_name")]
+    state_fips_code: Annotated[str, NamedBy("state_name")]
+    state_alpha: Annotated[str, NamedBy("state_name")]
     state_name: str
-    asd_code: str
+    asd_code: Annotated[str, NamedBy("asd_desc")]
     asd_desc: str
-    county_ansi: str
-    county_code: str
+    county_ansi: Annotated[str, NamedBy("county_name")]
+    county_code: Annotated[str, NamedBy("county_name")]
     county_name: str
     region_desc: str
     zip_5: str
-    watershed_code: str
+    watershed_code: Annotated[str, NamedBy("watershed_desc")]
     watershed_desc: str
     congr_district_code: str
-    country_code: str
+    country_code: Annotated[str, NamedBy("country_name")]
     country_name: str
     location_desc: str
     year: int
@@ -100,6 +109,12 @@ class QuickStatsRecord(_Published):
     week_ending: date | None
     load_time: datetime
     cv_percent: str = Field(validation_alias="CV (%)")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def cv_percent_number(self) -> Decimal | None:
+        """``cv_percent`` as a number, or ``None`` for a code such as ``"(L)"`` or none."""
+        return parse_decimal(self.cv_percent)
 
     @field_validator("week_ending", mode="before")
     @classmethod
