@@ -66,23 +66,31 @@ def classify(response: httpx.Response) -> XippiosError | None:
     Observed on 2026-10-22 beyond ``docs/upstream/api.md``: a query over the 50,000-record
     maximum answers HTTP 413 ``{"error": ["exceeds limit=50000"]}``; filters that match no
     record answer HTTP 400 ``{"error": ["bad request - invalid query"]}``; an unknown
-    ``get_param_values`` parameter answers HTTP 400 ``{"<param>": ["no value"]}``.
+    ``get_param_values`` parameter answers HTTP 400 ``{"<param>": ["no value"]}``. Each
+    error names the request by core's ``request_description``, its method and path, never
+    its host or its query, which carries the key (conventions §5; sdk-core ADR-0030).
     """
+    request = request_description(response)
     if response.status_code == 413:
         from xippios.usda.nass.errors import QueryTooLarge
 
-        return QueryTooLarge(None, request=request_description(response))
+        return QueryTooLarge(None, request=request)
     if response.status_code == 400:
         payload = _payload(response)
         if isinstance(payload, dict):
             if payload.get("error") == [_NO_MATCH]:
                 return NotFoundError(
-                    f"no Quick Stats record matches these filters (upstream: {_NO_MATCH})",
+                    f"no Quick Stats record matches the filters of {request} (upstream: "
+                    f"{_NO_MATCH})",
                     source=SOURCE,
                 )
             missing = [name for name, value in payload.items() if value == ["no value"]]
             if missing:
-                return NotFoundError(f"Quick Stats has no parameter {missing[0]!r}", source=SOURCE)
+                return NotFoundError(
+                    f"Quick Stats has no parameter {missing[0]!r}: {request} answered HTTP 400 "
+                    'with "no value"',
+                    source=SOURCE,
+                )
     return None
 
 
