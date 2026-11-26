@@ -1,19 +1,24 @@
-"""``scripts/refresh_upstream.py``'s ``FETCHED.md`` and its writing, offline.
+"""``scripts/refresh_upstream.py``'s declaration to core's snapshot frame, offline.
 
-Nothing here sends a request: ``render_fetched``, ``write_snapshot`` and ``compare`` take
-what a capture run fetched, here one row made up for the test alone, written under
-``tmp_path``, never to ``docs/upstream/``. ``OBSERVED.md`` is the one file under
-``docs/upstream/`` written by hand (conventions §3, sdk-core ADR-0028).
+The frame, ``xippios.core.refresh``, fetches through the client it is given, checks the
+attribution, writes ``FETCHED.md``, its row of ``OBSERVED.md`` among them, and the files,
+and compares them in ``--check``; core's own tests hold each of those (sdk-core ADR-0062).
+What stays the package's is what its ``Snapshot`` declares and its hook ``reduce``. Nothing
+here sends a request.
 """
 
 import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+from xippios.core.refresh import Snapshot
+
+from xippios.usda.nass._client import client
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "refresh_upstream.py"
-FETCHED = "2026-11-20T09:00:00Z"
-HAND = "written by hand: what upstream does but never documents; not fetched or checked"
+API = "https://quickstats.nass.usda.gov/api"
+PARAM_DEFINE = "https://quickstats.nass.usda.gov/param_define"
 
 
 def load_script() -> ModuleType:
@@ -28,55 +33,37 @@ def load_script() -> ModuleType:
 script = load_script()
 
 
-def a_row() -> object:
-    """A row of a converted page, as a capture run makes one."""
-    response = script.Response(
-        url="https://quickstats.nass.usda.gov/api",
-        status=200,
-        body=b"<html></html>",
-        etag=None,
-        last_modified=None,
-        redirects=(),
-    )
-    return script.Row(script.Page(response.url, "api.md", note="a note"), response, b"# API\n")
+def test_the_snapshot_declares_the_two_pages_with_the_converter() -> None:
+    """The api page and the column definitions, each kept as Markdown by ``reduce``, the
+    snapshot written under ``docs/upstream/`` of the repository and fetched through the
+    package's own client, which sends no key, since no page is a keyed sample: a run sends
+    2 requests."""
+    snapshot = script.SNAPSHOT
+    assert isinstance(snapshot, Snapshot)
+    assert (snapshot.name, snapshot.slug) == ("USDA NASS Quick Stats", "usda-nass")
+    assert [(page.url, page.file, page.status) for page in snapshot.pages] == [
+        (API, "api.md", 200),
+        (PARAM_DEFINE, "param_define.md", 200),
+    ]
+    assert snapshot.reduce is script.reduce
+    assert snapshot.out == ROOT / "docs/upstream"
+    assert snapshot.not_fetched == ()
+    assert snapshot.client is client
+    assert snapshot.variables == ()
+    assert not any(page.keyed for page in snapshot.pages)
 
 
-def render(*, observed: bool) -> str:
-    text: str = script.render_fetched([a_row()], FETCHED, observed=observed)
-    return text
-
-
-def test_fetched_md_lists_observed_md_in_a_row_of_its_own() -> None:
-    """Once ``OBSERVED.md`` exists, the table lists it as written by hand."""
-    text = render(observed=True)
-    row = f"| {script.OBSERVED} | - | - | - | - | - | - | - | {HAND} |"
-    assert row in text.splitlines()
-    assert f"edited by hand but `{script.OBSERVED}`" in " ".join(text.split())
-
-
-def test_fetched_md_names_no_observed_md_while_there_is_none() -> None:
-    text = render(observed=False)
-    assert script.OBSERVED not in text
-    assert "nothing here is edited by hand." in " ".join(text.split())
-
-
-def test_fetched_md_cites_the_standing_record_of_sdk_core() -> None:
-    """The sentences the script writes cite sdk-core's record as it stands at core 0.4.0,
-    sdk-core ADR-0028, which restates sdk-core ADR-0003, by the repository's name."""
-    text = " ".join(render(observed=False).split())
-    assert text.count("(sdk-core ADR-0028)") == 2
-    assert "ADR-0003" not in text
-
-
-def test_a_snapshot_leaves_observed_md_as_written_and_check_reads_it(tmp_path: Path) -> None:
-    """The run writes its files and ``FETCHED.md`` and never touches the notes, and
-    ``--check`` renders the table with their row where the file exists."""
-    notes = tmp_path / script.OBSERVED
-    notes.write_text("# What Quick Stats does but never documents\n", encoding="utf-8")
-    (tmp_path / "FETCHED.md").write_text("old\n", encoding="utf-8")
-    script.write_snapshot(tmp_path, [a_row()], render(observed=True))
-    assert notes.read_text(encoding="utf-8") == "# What Quick Stats does but never documents\n"
-    assert (tmp_path / "api.md").read_bytes() == b"# API\n"
-    assert script.compare(tmp_path, [a_row()]) == []
-    notes.unlink()
-    assert script.compare(tmp_path, [a_row()]) == ["FETCHED.md"]
+def test_the_attribution_and_the_words_that_state_nothing() -> None:
+    """The api page prints the NASS API Terms of Service and the notice its Attribution
+    section asks for; param_define states none. The check reads past the api page's own
+    references to those terms and two phrases of the terms themselves, each in its context,
+    since core's search reads "terms and conditions" too (sdk-core ADR-0062)."""
+    snapshot = script.SNAPSHOT
+    assert [(item.text, item.source) for item in snapshot.attribution] == [
+        ("NASS API Terms of Service", API),
+        ("This product uses the NASS API but is not endorsed or certified by NASS.", API),
+    ]
+    for words in snapshot.vocabulary:
+        assert words.casefold() not in {"terms of service", "terms and conditions"}, words
+    assert "agree to the NASS Terms of Service" in snapshot.vocabulary
+    assert "subject to the terms and conditions of this Agreement" in snapshot.vocabulary
