@@ -70,10 +70,7 @@ package checks every key against its column table and raises `InvalidRequestErro
 naming the closest valid names, before anything is sent; it checks the value of a
 packaged parameter (`state_alpha`, `sector_desc`, `unit_desc`, ...) against its packaged
 list too and refuses an unknown one with `UnknownCode` before the call, since Quick Stats
-counts no records for it. `xippios.usda.nass.enums` holds StrEnums for the nine packaged
-lists (`StateAlpha.VA`, `SectorDesc.CROPS`, `UnitDesc.DOLLARS_PER_BU`, ...) and for the
-progress stages and condition categories derived from the data
-(`ProgressStage.PCT_PLANTED`, `ConditionCategory.PCT_GOOD`).
+counts no records for it.
 
 ## MCP
 

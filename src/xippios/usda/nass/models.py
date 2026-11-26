@@ -8,8 +8,7 @@ string, because a suppression code such as ``"(D)"`` is information; ``value_num
 is its parsed form and travels as a JSON number. Column meanings are in
 ``docs/upstream/param_define.md``; the response shapes in ``api.md`` and the recorded
 fixtures. None of those columns is a personal identifier, so ``QuickStatsRecord`` keeps
-every one, and the packaged lists hold values, not integer ids, so no enum is typed
-``IntEnum``.
+every one.
 """
 
 from collections.abc import Mapping
