@@ -84,19 +84,37 @@ async def test_unknown_columns_are_ignored_upstream(
     assert (await api.get_counts({"not_a_column": "x"})).payload.count == 57873464
 
 
-def test_unknown_filter_keys_are_rejected_before_any_call(respx_mock: respx.MockRouter) -> None:
+UNKNOWN_COLUMN = (
+    "'comodity_desc' is not a Quick Stats column; did you mean commodity_desc, domaincat_desc, "
+    "domain_desc? Nothing was sent. Columns are defined in docs/upstream/param_define.md."
+)
+UNKNOWN_OPERATOR = (
+    "'year__GTE': unknown operator 'GTE'; use one of __LE, __LT, __GT, __GE, __LIKE, "
+    "__NOT_LIKE, __NE. Nothing was sent."
+)
+
+
+@pytest.mark.parametrize(
+    ("filters", "refusal"),
+    [
+        ({"comodity_desc": "CORN", "year__GTE": 2012, "state_alpha": "XX"}, UNKNOWN_COLUMN),
+        ({"year__GTE": 2012, "comodity_desc": "CORN", "state_alpha": "XX"}, UNKNOWN_OPERATOR),
+        ({"commodity_desc": "CORN", "year__GTE": 2012}, UNKNOWN_OPERATOR),
+    ],
+    ids=["column-first", "operator-first", "operator-alone"],
+)
+def test_unknown_filter_keys_are_rejected_before_any_call(
+    respx_mock: respx.MockRouter, filters: dict[str, str | int], refusal: str
+) -> None:
+    """A refusal of the call as given names the first problem that it finds, the first
+    unknown column or operator in the caller's order, and gathers no list of every problem
+    (conventions §5, sdk-core ADR-0061, decision 7). The keys are checked before the values,
+    so ``state_alpha=XX`` is not reached, and the refusal comes before any request and says
+    so (sdk-core ADR-0045)."""
     with pytest.raises(InvalidRequestError) as info:
-        tasks.count_data({"comodity_desc": "CORN", "year__GTE": 2012, "state_alpha": "XX"})
-    assert not isinstance(info.value, UnknownCode)  # the keys are checked before the values
-    message = str(info.value)
-    assert "'comodity_desc' is not a Quick Stats column" in message
-    assert "did you mean commodity_desc" in message
-    assert "'year__GTE': unknown operator 'GTE'" in message
-    assert "__GE" in message
-    # The refusal comes before any request and says so (conventions §5, sdk-core ADR-0045).
-    assert message.endswith(
-        ". Nothing was sent. Columns are defined in docs/upstream/param_define.md."
-    )
+        tasks.count_data(filters)
+    assert not isinstance(info.value, UnknownCode)
+    assert str(info.value) == refusal
     assert not respx_mock.calls
 
 
