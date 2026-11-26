@@ -245,8 +245,9 @@ def _refuse_after_the_count(years: range) -> None:
 
     Core's ``SPLIT.check`` says that nothing was sent, which holds before any request of the
     call, as for a two-sided range; ``year__GE`` alone is counted first and split only over
-    the limit, so its refusal is worded here, without that sentence (sdk-core ADR-0054,
-    amendment 2026-11-22).
+    the limit, so its refusal is worded here and says what was sent in place of that
+    sentence: the count of the range, and no yearly count or fetch (conventions §4 and §5;
+    sdk-core ADR-0054, amendment 2026-11-22).
 
     Raises:
         InvalidRequestError: ``years`` holds more than ``SPLIT.value`` years.
@@ -262,8 +263,9 @@ def _refuse_after_the_count(years: range) -> None:
             f"default; {SPLIT.option} raises it, up to {SPLIT.most})"
         )
     raise InvalidRequestError(
-        f"{bound}; the years run from {first} to {last}, {len(years)} years. Give a "
-        f"shorter range, e.g. year__GE={last - ceiling + 1} with year__LE={last}.",
+        f"{bound}; the years run from {first} to {last}, {len(years)} years. The count of "
+        f"year__GE={first} was sent, and no year was counted or fetched. Give a shorter "
+        f"range, e.g. year__GE={last - ceiling + 1} with year__LE={last}.",
         source=SOURCE,
     )
 
