@@ -19,7 +19,7 @@ from types import ModuleType
 import pytest
 import respx
 from xippios.core import ClientConfig, PackagedList
-from xippios.core.refresh import Listed, Lists
+from xippios.core.refresh import Listed, Lists, run
 from xippios.core.testing import ReplayFixture
 
 from xippios.usda.nass import api
@@ -177,11 +177,15 @@ async def test_the_run_waits_300_seconds_for_an_answer_and_restores_the_client(
 
 
 def test_the_command_line_is_the_frames(capsys: pytest.CaptureFixture[str]) -> None:
-    """``--only`` and ``--render-only`` are the frame's, and the script adds no option of
-    its own; ``--help`` sends nothing and leaves the client as it was."""
+    """``--only`` and ``--render-only`` are the frame's, and the script defines no ``main``
+    and no option of its own, its entry core's ``run`` of ``LISTS`` inside the read timeout
+    (https://github.com/xippios/sdk-usda-nass/issues/60); ``--help`` sends nothing and
+    leaves the client as it was."""
+    assert not hasattr(script, "main")
+    assert not hasattr(script, "render")
     configured = client.config
     with pytest.raises(SystemExit) as info:
-        script.main(["--help"])
+        run(script.LISTS, ["--help"])
     assert info.value.code == 0
     usage = " ".join(capsys.readouterr().out.split())
     assert "--render-only" in usage
@@ -196,6 +200,6 @@ def test_only_refuses_a_list_it_does_not_package_before_any_request(
     active with no route mounted, so a request would fail loudly."""
     before = {path.name: path.read_bytes() for path in REFERENCE.iterdir()}
     with pytest.raises(SystemExit, match="--only: no list state_alfa, commodity_desc in "):
-        script.main(["--only", "state_alfa", "unit_desc", "commodity_desc"])
+        run(script.LISTS, ["--only", "state_alfa", "unit_desc", "commodity_desc"])
     assert not respx_mock.calls
     assert {path.name: path.read_bytes() for path in REFERENCE.iterdir()} == before
