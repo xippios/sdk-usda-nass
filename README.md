@@ -52,11 +52,15 @@ the limit. One call splits into at most 20 years in Python and over HTTP, and 11
 default on the MCP server, whose `--split-years` sets 1 to 20: a longer split raises
 `InvalidRequestError` naming the ceiling, for a two-sided range before any call, for
 `year__GE` alone after its count, while an open range within the limit is fetched whole
-however far back it starts. A year counting 0 is skipped: it has no records, or none
-published yet, which Quick Stats does not tell apart, and `meta.vintage` stays `None`,
-since Quick Stats names no release. A year over 50,000 on its own still raises
-`QueryTooLarge` naming it, and the records come in year order with `meta.total` the
-yearly counts summed. A split costs up to two keyed calls per year.
+however far back it starts. A year counting 0 is passed over: it has no records, or none
+published yet, which Quick Stats does not tell apart, so one note of `meta.notes` names
+the years passed over, and `meta.vintage` stays `None`, since Quick Stats names no
+release. A year over 50,000 on its own still raises `QueryTooLarge` naming it, and the
+records come in year order. A split sums no yearly counts: `meta.total` stays `None` for a
+two-sided range, which Quick Stats counts as `year__GE` alone, and keeps upstream's count
+of the range for `year__GE` alone. A split costs up to two keyed calls per year. An answer
+of one `year` without records says in its note that Quick Stats counted none, the count it
+also gives a year not yet published.
 
 Each record carries every column of Quick Stats under its upstream name; `value` stays
 the published string and `value_number` its parsed form. `meta.published_at` stays
