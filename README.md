@@ -58,24 +58,10 @@ since Quick Stats names no release. A year over 50,000 on its own still raises
 `QueryTooLarge` naming it, and the records come in year order with `meta.total` the
 yearly counts summed. A split costs up to two keyed calls per year.
 
-Task-shaped functions sit on top for the slices an agent reaches in one call:
-
-```python
-from xippios.usda.nass import tasks
-from xippios.usda.nass.enums import ProgressStage, StateAlpha
-
-weekly = tasks.get_crop_progress(
-    "CORN", 2024, state=StateAlpha.IA, stage=ProgressStage.PCT_PLANTED
-).data
-weekly[-1].week_ending, weekly[-1].value_number  # datetime.date(2024, 6, 9), Decimal('98')
-```
-
-They return projections of the Quick Stats record under upstream column names, never a
-renamed or computed field (sdk-core ADR-0028); `value` stays the published string and
-`value_number` its parsed form. `meta.published_at` stays empty: Quick Stats publishes
-no release time and each row's `load_time` carries no zone, so nothing is read into it.
-The task-shaped functions skip the count check, their fixed filters keep them small; an
-over-limit answer still raises `QueryTooLarge`.
+Each record carries every column of Quick Stats under its upstream name; `value` stays
+the published string and `value_number` its parsed form. `meta.published_at` stays
+empty: Quick Stats publishes no release time and each row's `load_time` carries no zone,
+so nothing is read into it.
 
 Filters are Quick Stats column names, optionally suffixed with an operator (`__GE`,
 `__LE`, `__LIKE`, ...), mapped to values; the columns are listed in
@@ -84,10 +70,7 @@ package checks every key against its column table and raises `InvalidRequestErro
 naming the closest valid names, before anything is sent; it checks the value of a
 packaged parameter (`state_alpha`, `sector_desc`, `unit_desc`, ...) against its packaged
 list too and refuses an unknown one with `UnknownCode` before the call, since Quick Stats
-counts no records for it. `xippios.usda.nass.enums` holds StrEnums for the nine packaged
-lists (`StateAlpha.VA`, `SectorDesc.CROPS`, `UnitDesc.DOLLARS_PER_BU`, ...) and for the
-progress stages and condition categories derived from the data
-(`ProgressStage.PCT_PLANTED`, `ConditionCategory.PCT_GOOD`).
+counts no records for it.
 
 ## MCP
 
@@ -124,23 +107,12 @@ exactly tasks.__all__, and tasks_write.__all__ where the package has write tasks
 | `get_counts` | `tasks.get_counts(filters)` | `usda_nass_get_counts` | alpha |
 | `api_GET` | `tasks.get_data(filters, split_by_year=)` | `usda_nass_get_data` | alpha |
 | `get_param_values` | `tasks.list_param_values(param)` | `usda_nass_list_param_values` | alpha |
-| `api_GET` (PROGRESS, WEEKLY) | `tasks.get_crop_progress(commodity, year, state=, stage=)` | `usda_nass_get_crop_progress` | alpha |
-| `api_GET` (CONDITION, WEEKLY) | `tasks.get_crop_condition(commodity, year, state=, category=)` | `usda_nass_get_crop_condition` | alpha |
-| `api_GET` (YIELD, COUNTY) | `tasks.get_county_yield(commodity, year, state=)` | `usda_nass_get_county_yield` | alpha |
-| `api_GET` (PRODUCTION, COUNTY) | `tasks.get_county_production(commodity, year, state=)` | `usda_nass_get_county_production` | alpha |
-| `api_GET` (AREA PLANTED / HARVESTED) | `tasks.get_acreage(commodity, year, statistic, state=)` | `usda_nass_get_acreage` | alpha |
-| `api_GET` (AREA PLANTED / HARVESTED, forecasts) | `tasks.get_acreage_forecasts(commodity, year, statistic, state=)` | `usda_nass_get_acreage_forecasts` | alpha |
-| `api_GET` (PRODUCTION / YIELD) | `tasks.get_production(commodity, year, statistic, state=)` | `usda_nass_get_production` | alpha |
-| `api_GET` (PRODUCTION / YIELD, forecasts) | `tasks.get_production_forecasts(commodity, year, statistic, state=)` | `usda_nass_get_production_forecasts` | alpha |
-| `api_GET` (PRICE RECEIVED) | `tasks.get_prices_received(commodity, year, state=, frequency=)` | `usda_nass_get_prices_received` | alpha |
-| `api_GET` (INVENTORY, HEAD, POINT IN TIME) | `tasks.get_livestock_inventory(commodity, year, state=, class_desc=)` | `usda_nass_get_livestock_inventory` | alpha |
-| `api_GET` (MILK, ALL CLASSES, PRODUCTION, LB) | `tasks.get_milk_production(year, state=, frequency=)` | `usda_nass_get_milk_production` | alpha |
-| `api_GET` (CENSUS, FARM OPERATIONS, OPERATIONS / AREA OPERATED) | `tasks.get_census_farms(year, statistic, state=, by_county=)` | `usda_nass_get_census_farms` | alpha |
-| `api_GET` (STOCKS, BU, POINT IN TIME) | `tasks.get_grain_stocks(commodity, year, state=)` | `usda_nass_get_grain_stocks` | alpha |
 
-0.3.0 covers the same sixteen tasks as 0.2.0 and requires xippios-core 0.4.x (`~=0.4.0`);
-0.2.0 does not work with core 0.4.0. Alpha: the public surface may change in a minor
-version before 1.0 (conventions §12); `CHANGELOG.md` lists every change.
+The package serves these three tasks, where 0.3.0 served sixteen: the thirteen that fixed
+filters over `api_GET` for the caller left, and the query of each is one `get_data` call
+with the same filters. 0.3.0 requires xippios-core 0.4.x (`~=0.4.0`); 0.2.0 does not
+work with core 0.4.0. Alpha: the public surface may change in a minor version before 1.0
+(conventions §12); `CHANGELOG.md` lists every change.
 
 ## Upstream terms and attribution
 

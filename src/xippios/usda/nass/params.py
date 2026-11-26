@@ -10,7 +10,6 @@ provenance.
 
 import difflib
 import functools
-from enum import Enum
 
 from pydantic import Field, field_validator
 from xippios.core import (
@@ -26,7 +25,6 @@ from xippios.usda.nass._client import SOURCE
 from xippios.usda.nass.models import Filters
 
 __all__ = [
-    "DERIVED_LISTS",
     "OPERATORS",
     "PACKAGED_PARAMS",
     "Column",
@@ -51,18 +49,6 @@ PACKAGED_PARAMS: tuple[str, ...] = (
     "domain_desc",
 )
 """Parameters whose value lists ship inside the package."""
-
-DERIVED_LISTS: dict[str, dict[str, str | int]] = {
-    "progress_stages": {"statisticcat_desc": "PROGRESS", "agg_level_desc": "NATIONAL"},
-    "condition_categories": {"statisticcat_desc": "CONDITION", "agg_level_desc": "NATIONAL"},
-}
-"""Lists of ``unit_desc`` values derived from one year of national weekly data.
-
-Quick Stats has no endpoint for "the stages a progress series uses", so the refresh
-script fetches the national PROGRESS and CONDITION rows of the previous year and keeps
-the distinct ``unit_desc`` values; the file, ``reference/<name>.json`` with ``param``
-``unit_desc``, records the query it came from in its ``note``.
-"""
 
 
 class Column(UpstreamModel):
@@ -113,12 +99,11 @@ def _check_value(param: str, raw: str | int) -> None:
     spelling, or points at ``list_param_values`` and its MCP tool
     ``usda_nass_list_param_values`` when none is close.
     """
-    value: str | int = raw.value if isinstance(raw, Enum) else raw
     packaged, values = _packaged(param)
-    if str(value).upper() in values:
+    if str(raw).upper() in values:
         return
     # A value list has no upstream names: each value stands for itself.
-    close = closest(str(value), {record[param]: record[param] for record in packaged.records})
+    close = closest(str(raw), {record[param]: record[param] for record in packaged.records})
     # Core words the closest values itself, each once; the hint stands where none is close.
     hint = (
         None
@@ -130,7 +115,7 @@ def _check_value(param: str, raw: str | int) -> None:
     )
     raise UnknownCode(
         param,
-        value,
+        raw,
         list_name=packaged.param,
         fetched=packaged.fetched,
         closest=close,
@@ -151,9 +136,8 @@ def validate_filters(filters: Filters) -> dict[str, str | int]:
     whole database, and counts no records for an unknown value, the answer a query
     without data gets. A key is ``<column>`` or ``<column>__<OPERATOR>``. The value of a
     bare key that names a packaged parameter (``PACKAGED_PARAMS``) must be in its
-    packaged list, compared without regard to case as Quick Stats compares it, an enum
-    member by its ``value``; a key with an operator is checked as a key only. Every
-    value is sent as given.
+    packaged list, compared without regard to case as Quick Stats compares it; a key
+    with an operator is checked as a key only. Every value is sent as given.
 
     Args:
         filters: The query parameters as the caller gave them.

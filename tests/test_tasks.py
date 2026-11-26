@@ -8,10 +8,9 @@ import json
 import re
 import sys
 from collections.abc import Callable, Iterator
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
 
 import httpx
 import pytest
@@ -23,9 +22,7 @@ from xippios.core import (
     MemoryCache,
     NotFoundError,
     PackagedList,
-    Result,
     UnknownCode,
-    UpstreamModel,
     ValidationError,
     load_json,
 )
@@ -36,7 +33,6 @@ from xippios.core.redaction import scrub_url
 from xippios.core.testing import (
     REDACTED,
     ReplayFixture,
-    assert_projection,
     assert_time_between,
     load_fixture,
     mcp_call,
@@ -46,28 +42,12 @@ from xippios.core.testing import (
     sent_urls,
 )
 
-from xippios.usda.nass import api, enums, tasks
+from xippios.usda.nass import api, tasks
 from xippios.usda.nass._client import BASE_URL, config
 from xippios.usda.nass.errors import MCP_SPLIT_YEARS, SPLIT_CEILING, QueryTooLarge
 from xippios.usda.nass.mcp import run, server
-from xippios.usda.nass.models import (
-    AcreageRecord,
-    ApiGetResponse,
-    AreaStatistic,
-    CensusFarmsRecord,
-    CountyEstimateRecord,
-    CropProgressRecord,
-    FarmStatistic,
-    GrainStocksRecord,
-    LivestockCommodity,
-    LivestockInventoryRecord,
-    MilkProductionRecord,
-    PriceReceivedRecord,
-    ProductionRecord,
-    ProductionStatistic,
-    QuickStatsRecord,
-)
-from xippios.usda.nass.params import DERIVED_LISTS, PACKAGE, PACKAGED_PARAMS, columns
+from xippios.usda.nass.models import ApiGetResponse, QuickStatsRecord
+from xippios.usda.nass.params import PACKAGE, PACKAGED_PARAMS, columns
 
 EXAMPLE_FILTERS: dict[str, str | int] = {
     "commodity_desc": "CORN",
@@ -141,58 +121,15 @@ def fetched_as_written(name: str) -> datetime:
     return when
 
 
-@pytest.mark.parametrize("param", PACKAGED_PARAMS)
-def test_enums_match_the_packaged_lists(param: str) -> None:
-    cls = getattr(enums, "".join(part.capitalize() for part in param.split("_")))
-    packaged = PackagedList.load(PACKAGE, param)
-    values = [record[param] for record in packaged.records]
-    assert [member.value for member in cls] == values
-    assert cls.__doc__ == f"Values of ``{param}`` (fetched {packaged.fetched:%Y-%m-%d})."
+def test_the_package_ships_no_enum_of_its_lists() -> None:
+    """A filter takes upstream's text, which ``validate_filters`` checks against the
+    packaged list without regard to case, so no enum of a list ships beside it: the
+    eleven generated in ``xippios.usda.nass.enums`` left in 0.4.0, since nothing in the
+    package read them once the slices left
+    (https://github.com/xippios/sdk-usda-nass/issues/89)."""
+    import importlib.util
 
-
-def test_enum_members_keep_upstream_values_and_the_hand_names() -> None:
-    """Derived names, and the ones the refresh script sets (``member_names``): every dollar
-    unit by the DOLLARS / PER rule, and the two spelled-out landlord domains."""
-    assert {"statisticcat_desc", "unit_desc", "domain_desc"} <= set(PACKAGED_PARAMS)
-    assert enums.StateAlpha.VA.value == "VA"
-    assert enums.SectorDesc.ANIMALS_AND_PRODUCTS.value == "ANIMALS & PRODUCTS"
-    assert enums.AggLevelDesc.REGION_MULTI_STATE.value == "REGION : MULTI-STATE"
-    assert enums.StatisticcatDesc.AREA_PLANTED.value == "AREA PLANTED"
-    assert enums.DomainDesc.TOTAL.value == "TOTAL"
-    assert enums.UnitDesc.ACRES.value == "ACRES"
-    assert enums.UnitDesc.DOLLARS.value == "$"
-    assert enums.UnitDesc.BU.value == "BU"
-    assert enums.UnitDesc.DOLLARS_PER_BU.value == "$ / BU"
-    assert enums.UnitDesc.LB_CHERRY_BASIS.value == "LB, CHERRY BASIS"
-    assert enums.UnitDesc.DOLLARS_PER_LB_CHERRY_BASIS.value == "$ / LB, CHERRY BASIS"
-    assert enums.UnitDesc.ACRE_FEET.value == "ACRE FEET"
-    assert enums.UnitDesc.DOLLARS_PER_ACRE.value == "$ / ACRE"
-    assert enums.UnitDesc.DOLLARS_PER_TON_DRY_BASIS.value == "$ / TON, DRY BASIS"
-    assert enums.UnitDesc.DOLLARS_PER_1_000_EGGS.value == "$ / 1,000 EGGS"
-    assert enums.UnitDesc.DOLLARS_CHERRY_BASIS.value == "$, CHERRY BASIS"
-    for member in enums.UnitDesc:
-        assert member.name.startswith("DOLLARS") == ("$" in member.value), member
-        assert member.name.startswith("DOLLARS_PER_") == member.value.startswith("$ / "), member
-    landlords = "LANDLORDS_NON_OPERATING_VALUE_OF_LAND_AND_BUILDINGS"
-    assert enums.DomainDesc[landlords].value == (
-        "LANDLORDS, NON-OPERATING, VALUE OF LAND & BUILDINGS"
-    )
-    assert enums.DomainDesc[f"{landlords}_SPELLED_OUT"].value == (
-        "LANDLORDS, NON-OPERATING, VALUE OF LAND AND BUILDINGS"
-    )
-    assert sum(member.name.endswith("_SPELLED_OUT") for member in enums.DomainDesc) == 2
-
-
-def test_enum_members_are_accepted_as_filter_values(
-    replay_fixture: Callable[[str, str], respx.Route],
-) -> None:
-    """A member passes the packaged-list check by its value."""
-    route = replay_fixture("get_counts", "corn_va_since_2012")
-    result = tasks.get_counts(
-        {"state_alpha": enums.StateAlpha.VA, "sector_desc": enums.SectorDesc.CROPS}
-    )
-    assert result.meta.request["state_alpha"] == "VA"
-    assert sent_query(route)["sector_desc"] == "CROPS"
+    assert importlib.util.find_spec("xippios.usda.nass.enums") is None
 
 
 @pytest.mark.anyio
@@ -570,6 +507,24 @@ def test_packaged_parameters_are_answered_without_a_network_call(
     assert not respx_mock.calls
 
 
+def test_the_package_ships_the_nine_lists_and_the_column_table() -> None:
+    """``reference/`` holds a file for each of the nine parameters that upstream lists by
+    ``get_param_values``, ``columns.csv`` and its README, and no list of the package's own
+    (https://github.com/xippios/sdk-core/issues/474): the progress stages and condition
+    categories, which it derived from one year of data, left in 0.4.0, and the packaged
+    ``unit_desc`` holds each of their 21 values."""
+    from importlib.resources import files
+
+    from xippios.usda.nass import params
+
+    shipped = sorted(entry.name for entry in files(PACKAGE).joinpath("reference").iterdir())
+    lists = [f"{param}.json" for param in PACKAGED_PARAMS]
+    assert shipped == sorted(["README.md", "columns.csv", *lists])
+    assert not hasattr(params, "DERIVED_LISTS")
+    units = set(tasks.list_param_values("unit_desc").data)
+    assert {"PCT PLANTED", "PCT HARVESTED", "PCT EXCELLENT", "PCT VERY POOR"} <= units
+
+
 def test_packaged_answers_hold_known_values(respx_mock: respx.MockRouter) -> None:
     assert "CROPS" in tasks.list_param_values("sector_desc").data
     assert "VA" in tasks.list_param_values("state_alpha").data
@@ -602,637 +557,6 @@ def test_columns_cover_every_record_field() -> None:
     }
 
 
-def test_crop_progress_state_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    fetched = replay_fixture("api_get", "corn_progress_planted_ia_2024")
-    result = tasks.get_crop_progress(
-        "CORN", 2024, state=enums.StateAlpha.IA, stage=enums.ProgressStage.PCT_PLANTED
-    )
-    assert result.meta.request == {
-        "commodity_desc": "CORN",
-        "statisticcat_desc": "PROGRESS",
-        "freq_desc": "WEEKLY",
-        "year": 2024,
-        "agg_level_desc": "STATE",
-        "state_alpha": "IA",
-        "unit_desc": "PCT PLANTED",
-    }
-    assert sent_query(fetched)["statisticcat_desc"] == "PROGRESS"
-    assert len(result.data) == 11
-    weeks = [row.week_ending or date.min for row in result.data]
-    assert weeks == sorted(weeks)
-    first, last = result.data[0], result.data[-1]
-    assert first.week_ending == date(2024, 3, 31)
-    assert (first.value, first.value_number) == ("0", Decimal("0"))
-    assert last.week_ending == date(2024, 6, 9)
-    assert last.value_number == Decimal("98")  # NASS stops the series short of 100
-    assert {row.unit_desc for row in result.data} == {"PCT PLANTED"}
-    assert {row.state_alpha for row in result.data} == {"IA"}
-    assert last.short_desc == "CORN - PROGRESS, MEASURED IN PCT PLANTED"
-    assert isinstance(last.load_time, datetime)
-
-
-def test_crop_progress_national_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("api_get", "corn_progress_planted_us_2024")
-    result = tasks.get_crop_progress("CORN", 2024, stage=enums.ProgressStage.PCT_PLANTED)
-    assert result.meta.request["agg_level_desc"] == "NATIONAL"
-    assert "state_alpha" not in result.meta.request
-    assert {row.state_alpha for row in result.data} == {"US"}
-    assert {row.state_name for row in result.data} == {"US TOTAL"}
-
-
-def test_crop_condition_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("api_get", "corn_condition_good_ia_2024")
-    result = tasks.get_crop_condition(
-        "CORN", 2024, state=enums.StateAlpha.IA, category=enums.ConditionCategory.PCT_GOOD
-    )
-    assert result.meta.request["statisticcat_desc"] == "CONDITION"
-    assert result.meta.request["unit_desc"] == "PCT GOOD"
-    assert len(result.data) == 21
-    assert {row.statisticcat_desc for row in result.data} == {"CONDITION"}
-    assert all(row.value_number is not None and 0 <= row.value_number <= 100 for row in result.data)
-
-
-def test_derived_enums_match_their_lists_and_provenance() -> None:
-    stages = PackagedList.load(PACKAGE, "progress_stages")
-    categories = PackagedList.load(PACKAGE, "condition_categories")
-    assert [m.value for m in enums.ProgressStage] == [r["unit_desc"] for r in stages.records]
-    assert [m.value for m in enums.ConditionCategory] == [
-        r["unit_desc"] for r in categories.records
-    ]
-    for derived in (stages, categories):
-        assert (derived.param, derived.endpoint) == ("unit_desc", "api_GET")
-    for name in DERIVED_LISTS:
-        assert PackagedList.load(PACKAGE, name).fetched == fetched_as_written(name)
-    assert stages.note is not None
-    assert "statisticcat_desc=PROGRESS" in stages.note
-    assert "agg_level_desc=NATIONAL" in stages.note
-    assert set(DERIVED_LISTS) == {"progress_stages", "condition_categories"}
-    assert enums.ProgressStage.PCT_PLANTED.value == "PCT PLANTED"
-    assert [m.value for m in enums.ConditionCategory] == [
-        "PCT EXCELLENT", "PCT FAIR", "PCT GOOD", "PCT POOR", "PCT VERY POOR",
-    ]  # fmt: skip
-
-
-def test_county_yield_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    fetched = replay_fixture("api_get", "corn_yield_de_2023_county")
-    result = tasks.get_county_yield("CORN", 2023, state=enums.StateAlpha.DE)
-    assert result.meta.request == {
-        "commodity_desc": "CORN",
-        "statisticcat_desc": "YIELD",
-        "agg_level_desc": "COUNTY",
-        "freq_desc": "ANNUAL",
-        "reference_period_desc": "YEAR",
-        "year": 2023,
-        "state_alpha": "DE",
-    }
-    assert sent_query(fetched)["agg_level_desc"] == "COUNTY"
-    assert len(result.data) == 9
-    assert [row.county_name for row in result.data[:3]] == ["KENT"] * 3
-    assert {row.county_name for row in result.data} == {"KENT", "NEW CASTLE", "SUSSEX"}
-    assert {row.prodn_practice_desc for row in result.data} == {
-        "ALL PRODUCTION PRACTICES", "IRRIGATED", "NON-IRRIGATED",
-    }  # fmt: skip
-    assert {row.unit_desc for row in result.data} == {"BU / ACRE"}
-    kent_all = next(
-        row
-        for row in result.data
-        if row.county_name == "KENT" and row.prodn_practice_desc == "ALL PRODUCTION PRACTICES"
-    )
-    assert (kent_all.value, kent_all.value_number) == ("194.5", Decimal("194.5"))
-    assert kent_all.cv_percent == Decimal("2.5")
-    assert kent_all.county_code == "001"
-    assert kent_all.asd_desc == "CENTRAL"
-    assert all(
-        row.cv_percent is None
-        for row in result.data
-        if row.prodn_practice_desc != "ALL PRODUCTION PRACTICES"
-    )
-
-
-def test_county_production_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("api_get", "corn_production_de_2023_county")
-    result = tasks.get_county_production("CORN", 2023, state=enums.StateAlpha.DE)
-    assert result.meta.request["statisticcat_desc"] == "PRODUCTION"
-    assert {row.unit_desc for row in result.data} == {"BU"}
-    sussex_all = next(
-        row
-        for row in result.data
-        if row.county_name == "SUSSEX" and row.prodn_practice_desc == "ALL PRODUCTION PRACTICES"
-    )
-    assert sussex_all.value_number == Decimal("18397000")
-    assert sussex_all.cv_percent == Decimal("8.7")
-
-
-def test_county_series_without_state_covers_the_country(
-    replay_fixture: Callable[[str, str], respx.Route],
-) -> None:
-    replay_fixture("api_get", "corn_yield_de_2023_county")
-    result = tasks.get_county_yield("CORN", 2023)
-    assert "state_alpha" not in result.meta.request
-    assert result.meta.request["agg_level_desc"] == "COUNTY"
-
-
-def test_acreage_planted_state(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    fetched = replay_fixture("api_get", "corn_area_planted_ia_2023")
-    result = tasks.get_acreage("CORN", 2023, AreaStatistic.AREA_PLANTED, state=enums.StateAlpha.IA)
-    assert result.meta.request == {
-        "commodity_desc": "CORN",
-        "statisticcat_desc": "AREA PLANTED",
-        "unit_desc": "ACRES",
-        "domain_desc": "TOTAL",
-        "prodn_practice_desc": "ALL PRODUCTION PRACTICES",
-        "freq_desc": "ANNUAL",
-        "reference_period_desc": "YEAR",
-        "agg_level_desc": "STATE",
-        "year": 2023,
-        "state_alpha": "IA",
-    }
-    assert sent_query(fetched)["unit_desc"] == "ACRES"
-    assert len(result.data) == 1
-    row = result.data[0]
-    assert row.value_number == Decimal("13100000")
-    assert row.util_practice_desc == "ALL UTILIZATION PRACTICES"
-    assert row.source_desc == "SURVEY"
-    assert row.cv_percent is None
-
-
-def test_acreage_harvested_splits_grain_and_silage(
-    replay_fixture: Callable[[str, str], respx.Route],
-) -> None:
-    replay_fixture("api_get", "corn_area_harvested_ia_2023")
-    result = tasks.get_acreage(
-        "CORN", 2023, AreaStatistic.AREA_HARVESTED, state=enums.StateAlpha.IA
-    )
-    assert result.meta.request["statisticcat_desc"] == "AREA HARVESTED"
-    assert [(row.util_practice_desc, row.value_number) for row in result.data] == [
-        ("GRAIN", Decimal("12550000")),
-        ("SILAGE", Decimal("380000")),
-    ]
-
-
-def test_acreage_national(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("api_get", "corn_area_planted_us_2023")
-    result = tasks.get_acreage("CORN", 2023, AreaStatistic.AREA_PLANTED)
-    assert result.meta.request["agg_level_desc"] == "NATIONAL"
-    assert "state_alpha" not in result.meta.request
-    assert result.data[0].state_alpha == "US"
-    assert result.data[0].value_number == Decimal("94641000")
-
-
-def test_prices_received_state_series(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    fetched = replay_fixture("api_get", "corn_price_received_ia_2023")
-    result = tasks.get_prices_received("CORN", 2023, state=enums.StateAlpha.IA)
-    assert result.meta.request == {
-        "commodity_desc": "CORN",
-        "statisticcat_desc": "PRICE RECEIVED",
-        "domain_desc": "TOTAL",
-        "agg_level_desc": "STATE",
-        "year": 2023,
-        "state_alpha": "IA",
-    }
-    assert sent_query(fetched)["statisticcat_desc"] == "PRICE RECEIVED"
-    assert len(result.data) == 13
-    first = result.data[0]
-    assert (first.freq_desc, first.reference_period_desc, first.value_number) == (
-        "ANNUAL", "MARKETING YEAR", Decimal("4.61"),
-    )  # fmt: skip
-    months = result.data[1:]
-    assert [row.reference_period_desc for row in months] == [
-        "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
-    ]  # fmt: skip
-    assert months[0].value_number == Decimal("6.74")
-    assert months[-1].value_number == Decimal("4.89")
-    assert {row.unit_desc for row in result.data} == {"$ / BU"}
-    assert months[0].begin_code == "01"
-
-
-def test_prices_received_national_monthly(
-    replay_fixture: Callable[[str, str], respx.Route],
-) -> None:
-    replay_fixture("api_get", "corn_price_received_us_2023_monthly")
-    result = tasks.get_prices_received("CORN", 2023, frequency=enums.FreqDesc.MONTHLY)
-    assert result.meta.request["agg_level_desc"] == "NATIONAL"
-    assert result.meta.request["freq_desc"] == "MONTHLY"
-    assert "state_alpha" not in result.meta.request
-    assert len(result.data) == 24
-    assert {row.unit_desc for row in result.data} == {"$ / BU", "PCT OF PARITY"}
-    jan = [row for row in result.data if row.reference_period_desc == "JAN"]
-    assert [(row.unit_desc, row.value_number) for row in jan] == [
-        ("$ / BU", Decimal("6.63")),
-        ("PCT OF PARITY", Decimal("43")),
-    ]
-
-
-# --- the livestock slices (https://github.com/xippios/sdk-usda-nass/pull/29) ---
-
-INVENTORY_FILTERS: dict[str, str | int] = {  # get_livestock_inventory's fixed filters
-    "statisticcat_desc": "INVENTORY",
-    "unit_desc": "HEAD",
-    "domain_desc": "TOTAL",
-    "freq_desc": "POINT IN TIME",
-    "source_desc": "SURVEY",
-}
-MILK_FILTERS: dict[str, str | int] = {  # get_milk_production's fixed filters
-    "commodity_desc": "MILK",
-    "class_desc": "ALL CLASSES",
-    "statisticcat_desc": "PRODUCTION",
-    "unit_desc": "LB",
-    "domain_desc": "TOTAL",
-    "source_desc": "SURVEY",
-}
-HOG_CLASSES = [  # Iowa's hog classes of api_get/hogs_inventory_ia_2024, in class order
-    "ALL CLASSES", "BREEDING", "MARKET", "MARKET, 120 TO 179 LBS", "MARKET, 50 TO 119 LBS",
-    "MARKET, GE 180 LBS", "MARKET, LT 50 LBS",
-]  # fmt: skip
-MILK_PERIODS = [  # the months and quarters upstream files as MONTHLY, in slice order
-    "JAN", "JAN THRU MAR", "FEB", "MAR", "APR", "APR THRU JUN", "MAY", "JUN",
-    "JUL", "JUL THRU SEP", "AUG", "SEP", "OCT", "OCT THRU DEC", "NOV", "DEC",
-]  # fmt: skip
-
-
-def assert_sent_as_recorded(route: respx.Route, fixtures_dir: Path, case: str) -> None:
-    """The task sent the very query ``api_get/<case>`` was recorded with (key redacted)."""
-    fixture = load_fixture(fixtures_dir / "api_get" / f"{case}.json")
-    assert sent_query(route) == recorded_query(fixture)
-
-
-def test_livestock_inventory_national_series(
-    replay_fixture: ReplayFixture, fixtures_dir: Path
-) -> None:
-    fetched = replay_fixture("api_get", "cattle_inventory_us_2024")
-    result = tasks.get_livestock_inventory(LivestockCommodity.CATTLE, 2024)
-    assert result.meta.request == {
-        "commodity_desc": "CATTLE",
-        **INVENTORY_FILTERS,
-        "year": 2024,
-        "agg_level_desc": "NATIONAL",
-    }
-    assert_sent_as_recorded(fetched, fixtures_dir, "cattle_inventory_us_2024")
-    assert result.meta.endpoint == "api_GET"
-    assert result.meta.total is None
-    assert result.meta.published_at is None
-    assert len(result.data) == 14
-    assert all(isinstance(row, LivestockInventoryRecord) for row in result.data)
-    assert {(row.state_alpha, row.state_name) for row in result.data} == {("US", "US TOTAL")}
-    assert {
-        (row.statisticcat_desc, row.unit_desc, row.freq_desc, row.source_desc)
-        for row in result.data
-    } == {("INVENTORY", "HEAD", "POINT IN TIME", "SURVEY")}
-    # The national cattle series of 2024 has one survey day, as recorded on 2026-10-28.
-    assert {row.reference_period_desc for row in result.data} == {"FIRST OF JAN"}
-    assert {(row.begin_code, row.end_code) for row in result.data} == {("01", "01")}
-    classes = [row.class_desc for row in result.data]
-    assert classes == sorted(classes)
-    herd = next(row for row in result.data if row.class_desc == "INCL CALVES")
-    assert (herd.short_desc, herd.value, herd.value_number) == (
-        "CATTLE, INCL CALVES - INVENTORY", "87,157,400", Decimal("87157400"),
-    )  # fmt: skip
-    on_feed = result.data[0]
-    assert (on_feed.class_desc, on_feed.prodn_practice_desc, on_feed.short_desc) == (
-        "ALL CLASSES", "ON FEED", "CATTLE, ON FEED - INVENTORY",
-    )  # fmt: skip
-    assert {row.prodn_practice_desc for row in result.data[1:]} == {"ALL PRODUCTION PRACTICES"}
-    assert all(row.load_time.tzinfo is None for row in result.data)
-
-
-def test_livestock_inventory_state_series_sorted_by_day_then_class(
-    replay_fixture: ReplayFixture, fixtures_dir: Path
-) -> None:
-    fetched = replay_fixture("api_get", "hogs_inventory_ia_2024")
-    result = tasks.get_livestock_inventory(LivestockCommodity.HOGS, 2024, state=enums.StateAlpha.IA)
-    assert result.meta.request == {
-        "commodity_desc": "HOGS",
-        **INVENTORY_FILTERS,
-        "year": 2024,
-        "agg_level_desc": "STATE",
-        "state_alpha": "IA",
-    }
-    assert_sent_as_recorded(fetched, fixtures_dir, "hogs_inventory_ia_2024")
-    assert (result.meta.endpoint, result.meta.total, result.meta.published_at) == (
-        "api_GET", None, None,
-    )  # fmt: skip
-    assert len(result.data) == 28
-    days = ["FIRST OF MAR", "FIRST OF JUN", "FIRST OF SEP", "FIRST OF DEC"]
-    assert [row.reference_period_desc for row in result.data] == [
-        day for day in days for _ in HOG_CLASSES
-    ]
-    assert [row.begin_code for row in result.data[:: len(HOG_CLASSES)]] == ["03", "06", "09", "12"]
-    assert [row.class_desc for row in result.data] == HOG_CLASSES * len(days)
-    # Upstream sends the rows class by class; the slice orders them by day, then class.
-    upstream = recorded_chunk(fixtures_dir, "hogs_inventory_ia_2024")
-    assert [record.class_desc for record in upstream[: len(days)]] == ["ALL CLASSES"] * len(days)
-    march, december = result.data[0], result.data[3 * len(HOG_CLASSES)]
-    assert (march.short_desc, march.value, march.value_number) == (
-        "HOGS - INVENTORY", "25,200,000", Decimal("25200000"),
-    )  # fmt: skip
-    assert (december.reference_period_desc, december.class_desc, december.value_number) == (
-        "FIRST OF DEC", "ALL CLASSES", Decimal("24300000"),
-    )  # fmt: skip
-    assert {row.state_alpha for row in result.data} == {"IA"}
-
-
-def test_livestock_inventory_sends_one_class(replay_fixture: ReplayFixture) -> None:
-    """``class_desc`` goes out beside the fixed filters; the national cattle answer is
-    replayed for it, so only what was sent is checked."""
-    fetched = replay_fixture("api_get", "cattle_inventory_us_2024")
-    result = tasks.get_livestock_inventory(
-        LivestockCommodity.CATTLE, 2024, class_desc="INCL CALVES"
-    )
-    assert result.meta.request["class_desc"] == "INCL CALVES"
-    sent = sent_query(fetched)
-    assert (sent["commodity_desc"], sent["class_desc"]) == ("CATTLE", "INCL CALVES")
-
-
-def test_livestock_inventory_class_without_records_is_not_found(
-    replay_fixture: ReplayFixture,
-) -> None:
-    """A ``class_desc`` with no record raises ``NotFoundError``, as the docstring says.
-
-    Upstream's answer to filters that match nothing, HTTP 400 ``bad request - invalid
-    query`` (``api_get/no_match``, recorded for ``year=1800``), is served for the class
-    query, at no keyed cost; upstream's answer to this class itself is not recorded.
-    """
-    query = httpx.QueryParams({"class_desc": "NO SUCH CLASS"})
-    unmatched = replay_fixture(
-        "api_get", "no_match", url=f"{BASE_URL}/api_GET/?{query}", match_params=["class_desc"]
-    )
-    with pytest.raises(NotFoundError, match="invalid query"):
-        tasks.get_livestock_inventory(LivestockCommodity.CATTLE, 2024, class_desc="NO SUCH CLASS")
-    assert sent_query(unmatched)["class_desc"] == "NO SUCH CLASS"
-
-
-def test_milk_production_state_monthly(replay_fixture: ReplayFixture, fixtures_dir: Path) -> None:
-    fetched = replay_fixture("api_get", "milk_production_wi_2024_monthly")
-    result = tasks.get_milk_production(
-        2024, state=enums.StateAlpha.WI, frequency=enums.FreqDesc.MONTHLY
-    )
-    assert result.meta.request == {
-        **MILK_FILTERS,
-        "year": 2024,
-        "agg_level_desc": "STATE",
-        "state_alpha": "WI",
-        "freq_desc": "MONTHLY",
-    }
-    assert_sent_as_recorded(fetched, fixtures_dir, "milk_production_wi_2024_monthly")
-    assert (result.meta.endpoint, result.meta.total, result.meta.published_at) == (
-        "api_GET", None, None,
-    )  # fmt: skip
-    assert all(isinstance(row, MilkProductionRecord) for row in result.data)
-    assert [row.reference_period_desc for row in result.data] == MILK_PERIODS
-    codes = [(row.begin_code, row.end_code) for row in result.data]
-    assert codes == sorted(codes)
-    assert {row.freq_desc for row in result.data} == {"MONTHLY"}
-    assert {row.short_desc for row in result.data} == {"MILK - PRODUCTION, MEASURED IN LB"}
-    assert {(row.state_alpha, row.unit_desc) for row in result.data} == {("WI", "LB")}
-    january, first_quarter = result.data[0], result.data[1]
-    assert (january.value, january.value_number) == ("2,711,000,000", Decimal("2711000000"))
-    assert (first_quarter.begin_code, first_quarter.end_code, first_quarter.value_number) == (
-        "01", "03", Decimal("8058000000"),
-    )  # fmt: skip
-
-
-def test_milk_production_national_year_then_months(
-    replay_fixture: ReplayFixture, fixtures_dir: Path
-) -> None:
-    fetched = replay_fixture("api_get", "milk_production_us_2024")
-    result = tasks.get_milk_production(2024)
-    assert result.meta.request == {**MILK_FILTERS, "year": 2024, "agg_level_desc": "NATIONAL"}
-    assert_sent_as_recorded(fetched, fixtures_dir, "milk_production_us_2024")
-    assert (result.meta.endpoint, result.meta.total, result.meta.published_at) == (
-        "api_GET", None, None,
-    )  # fmt: skip
-    assert len(result.data) == 17
-    year, months = result.data[0], result.data[1:]
-    assert (year.freq_desc, year.reference_period_desc, year.begin_code, year.end_code) == (
-        "ANNUAL", "YEAR", "00", "00",
-    )  # fmt: skip
-    assert year.value_number == Decimal("225889000000")
-    assert [row.reference_period_desc for row in months] == MILK_PERIODS
-    assert {row.freq_desc for row in months} == {"MONTHLY"}
-    # The class keeps the milk series alone: the manufactured dairy products upstream files
-    # nationally under other classes of the same statistic and unit are left out.
-    assert {(row.class_desc, row.short_desc) for row in result.data} == {
-        ("ALL CLASSES", "MILK - PRODUCTION, MEASURED IN LB")
-    }
-    assert {row.state_alpha for row in result.data} == {"US"}
-
-
-@pytest.mark.anyio
-async def test_upstream_files_dairy_products_beside_milk_production_in_lb(
-    replay_fixture: ReplayFixture, fixtures_dir: Path
-) -> None:
-    """The premise of the milk slice's ``class_desc``, recorded at layer 1 on 2026-10-28:
-    nationally, its other fixed filters count 147 records for 2024, the milk series and
-    ten manufactured dairy products (dry and condensed milk), of which ``ALL CLASSES``
-    keeps the 17 of the milk series."""
-    national = {**MILK_FILTERS, "year": 2024, "agg_level_desc": "NATIONAL"}
-    every_class = {key: value for key, value in national.items() if key != "class_desc"}
-    # The more specific fixture first: respx tries routes in order (conventions §10).
-    milk = replay_fixture("get_counts", "milk_production_us_2024", match_params=["class_desc"])
-    every = replay_fixture("get_counts", "milk_production_us_2024_every_class")
-    assert (await api.get_counts(national)).count == 17
-    assert (await api.get_counts(every_class)).count == 147
-    for route, case in (
-        (milk, "milk_production_us_2024"),
-        (every, "milk_production_us_2024_every_class"),
-    ):
-        fixture = load_fixture(fixtures_dir / "get_counts" / f"{case}.json")
-        assert sent_query(route) == recorded_query(fixture)
-
-
-# --- get_grain_stocks (https://github.com/xippios/sdk-usda-nass/pull/31) ---
-
-STOCKS_FIXED: dict[str, str] = {  # confirmed with get_counts on 2026-10-28: nothing dropped
-    "statisticcat_desc": "STOCKS",
-    "unit_desc": "BU",
-    "domain_desc": "TOTAL",
-    "freq_desc": "POINT IN TIME",
-    "source_desc": "SURVEY",
-}
-STOCKS_DAYS = ["FIRST OF MAR", "FIRST OF JUN", "FIRST OF SEP", "FIRST OF DEC"]
-STOCKS_CASES = [  # (case, commodity, state, records, positions, classes), recorded 2026-10-28
-    (
-        "corn_stocks_us_2024", "CORN", None, 12,
-        {"GRAIN", "ON FARM, GRAIN", "OFF FARM, GRAIN"}, {"ALL CLASSES"},
-    ),
-    (
-        "soybeans_stocks_ia_2024", "SOYBEANS", enums.StateAlpha.IA, 12,
-        {"ALL UTILIZATION PRACTICES", "ON FARM", "OFF FARM"}, {"ALL CLASSES"},
-    ),
-    (
-        "wheat_stocks_us_2024", "WHEAT", None, 24,
-        {"ALL UTILIZATION PRACTICES", "ON FARM", "OFF FARM"}, {"ALL CLASSES", "SPRING, DURUM"},
-    ),
-]  # fmt: skip
-
-
-def stocks_order(row: GrainStocksRecord) -> tuple[str, str, str, str]:
-    return (row.begin_code, row.reference_period_desc, row.util_practice_desc, row.class_desc)
-
-
-@pytest.mark.parametrize(
-    ("case", "commodity", "state", "records", "positions", "classes"), STOCKS_CASES
-)
-def test_grain_stocks_slice(
-    replay_fixture: ReplayFixture,
-    fixtures_dir: Path,
-    case: str,
-    commodity: str,
-    state: enums.StateAlpha | None,
-    records: int,
-    positions: set[str],
-    classes: set[str],
-) -> None:
-    counted = replay_fixture("get_counts", "corn_progress_planted_ia_2024")
-    fetched = replay_fixture("api_get", case)
-    result = tasks.get_grain_stocks(commodity, 2024, state=state)
-    level = {"agg_level_desc": "NATIONAL" if state is None else "STATE"}
-    if state is not None:
-        level["state_alpha"] = state.value
-    assert result.meta.request == {
-        "commodity_desc": commodity,
-        **STOCKS_FIXED,
-        "year": 2024,
-        **level,
-    }
-    sent = sent_query(fetched)
-    assert sent == recorded_query(load_fixture(fixtures_dir / "api_get" / f"{case}.json"))
-    assert {key: sent[key] for key in STOCKS_FIXED} == STOCKS_FIXED
-    assert (sent["commodity_desc"], sent["year"], sent["format"]) == (commodity, "2024", "JSON")
-    assert {key: sent[key] for key in level} == level
-    assert ("state_alpha" in sent) == (state is not None)
-    assert not counted.called
-    assert (result.meta.endpoint, result.meta.total) == ("api_GET", None)
-    assert result.meta.published_at is None
-    assert result.meta.vintage is None
-    assert len(result.data) == records
-    assert all(isinstance(row, GrainStocksRecord) for row in result.data)
-    assert [stocks_order(row) for row in result.data] == sorted(map(stocks_order, result.data))
-    per_day = records // len(STOCKS_DAYS)
-    assert [row.reference_period_desc for row in result.data[::per_day]] == STOCKS_DAYS
-    assert [row.begin_code for row in result.data[::per_day]] == ["03", "06", "09", "12"]
-    assert {row.util_practice_desc for row in result.data} == positions
-    assert {row.class_desc for row in result.data} == classes
-    assert {row.commodity_desc for row in result.data} == {commodity}
-    recorded = recorded_chunk(fixtures_dir, case)
-    assert len(recorded) == records
-    for column, value in STOCKS_FIXED.items():  # the projection leaves domain_desc out
-        assert {getattr(row, column) for row in recorded} == {value}, column
-        if column in GrainStocksRecord.model_fields:
-            assert {getattr(row, column) for row in result.data} == {value}, column
-    assert {row.state_alpha for row in result.data} == {"US" if state is None else state.value}
-    assert {row.prodn_practice_desc for row in result.data} == {"ALL PRODUCTION PRACTICES"}
-    assert all(row.value_number is not None for row in result.data)
-    assert all(row.load_time.tzinfo is None for row in result.data)
-
-
-def test_grain_stocks_corn_national_positions_add_up(replay_fixture: ReplayFixture) -> None:
-    replay_fixture("api_get", "corn_stocks_us_2024")
-    result = tasks.get_grain_stocks("CORN", 2024)
-    march = result.data[:3]
-    assert [(row.util_practice_desc, row.value, row.value_number) for row in march] == [
-        ("GRAIN", "8,352,378,000", Decimal("8352378000")),
-        ("OFF FARM, GRAIN", "3,273,378,000", Decimal("3273378000")),
-        ("ON FARM, GRAIN", "5,079,000,000", Decimal("5079000000")),
-    ]
-    assert march[0].short_desc == "CORN, GRAIN - STOCKS, MEASURED IN BU"
-    assert {row.state_name for row in result.data} == {"US TOTAL"}
-    for day in range(0, 12, 3):  # GRAIN is the total of the two positions on every day
-        total, off_farm, on_farm = (row.value_number for row in result.data[day : day + 3])
-        assert total == (off_farm or 0) + (on_farm or 0)
-    december = result.data[9]
-    assert (december.reference_period_desc, december.value_number) == (
-        "FIRST OF DEC", Decimal("12075407000"),
-    )  # fmt: skip
-
-
-def test_grain_stocks_soybeans_state(replay_fixture: ReplayFixture) -> None:
-    replay_fixture("api_get", "soybeans_stocks_ia_2024")
-    result = tasks.get_grain_stocks("SOYBEANS", 2024, state=enums.StateAlpha.IA)
-    assert {row.state_name for row in result.data} == {"IOWA"}
-    assert {row.agg_level_desc for row in result.data} == {"STATE"}
-    assert [(row.util_practice_desc, row.value_number) for row in result.data[:3]] == [
-        ("ALL UTILIZATION PRACTICES", Decimal("313023000")),
-        ("OFF FARM", Decimal("168023000")),
-        ("ON FARM", Decimal("145000000")),
-    ]
-    assert result.data[0].short_desc == "SOYBEANS - STOCKS, MEASURED IN BU"
-
-
-def test_grain_stocks_wheat_carries_durum_as_rows_of_its_own(
-    replay_fixture: ReplayFixture,
-) -> None:
-    replay_fixture("api_get", "wheat_stocks_us_2024")
-    result = tasks.get_grain_stocks("WHEAT", 2024)
-    march = result.data[:6]
-    assert [(row.util_practice_desc, row.class_desc, row.value_number) for row in march] == [
-        ("ALL UTILIZATION PRACTICES", "ALL CLASSES", Decimal("1088709000")),
-        ("ALL UTILIZATION PRACTICES", "SPRING, DURUM", Decimal("36377000")),
-        ("OFF FARM", "ALL CLASSES", Decimal("816779000")),
-        ("OFF FARM", "SPRING, DURUM", Decimal("17577000")),
-        ("ON FARM", "ALL CLASSES", Decimal("271930000")),
-        ("ON FARM", "SPRING, DURUM", Decimal("18800000")),
-    ]
-    durum = [row for row in result.data if row.class_desc == "SPRING, DURUM"]
-    assert len(durum) == 12
-    assert {row.short_desc for row in durum} == {
-        "WHEAT, SPRING, DURUM - STOCKS, MEASURED IN BU",
-        "WHEAT, SPRING, DURUM, OFF FARM - STOCKS, MEASURED IN BU",
-        "WHEAT, SPRING, DURUM, ON FARM - STOCKS, MEASURED IN BU",
-    }
-
-
-@pytest.mark.parametrize(
-    "model",
-    [
-        CropProgressRecord,
-        CountyEstimateRecord,
-        AcreageRecord,
-        PriceReceivedRecord,
-        CensusFarmsRecord,
-        LivestockInventoryRecord,
-        MilkProductionRecord,
-        ProductionRecord,
-        GrainStocksRecord,
-    ],
-)
-def test_projections_are_faithful(model: type[UpstreamModel]) -> None:
-    record = QuickStatsRecord.model_validate({**EXAMPLE_RECORD, "CV (%)": "2.5"})
-    overrides = {"cv_percent": Decimal("2.5")} if "cv_percent" in model.model_fields else {}
-    projected = model.project(record, **overrides)
-    assert_projection(projected, record, **overrides)
-    assert set(model.model_fields) <= set(QuickStatsRecord.model_fields)
-    assert projected.model_dump(mode="json")["value_number"] == 1234.5
-
-
-SLICE_CALLS: dict[str, Callable[[], Result[Any]]] = {
-    "corn_progress_planted_ia_2024": lambda: tasks.get_crop_progress(
-        "CORN", 2024, state=enums.StateAlpha.IA, stage=enums.ProgressStage.PCT_PLANTED
-    ),
-    "hogs_inventory_ia_2024": lambda: tasks.get_livestock_inventory(
-        LivestockCommodity.HOGS, 2024, state=enums.StateAlpha.IA
-    ),
-    "milk_production_wi_2024_monthly": lambda: tasks.get_milk_production(
-        2024, state=enums.StateAlpha.WI, frequency=enums.FreqDesc.MONTHLY
-    ),
-}
-"""A slice's call per ``api_get`` fixture it replays."""
-
-
-@pytest.mark.parametrize("case", SLICE_CALLS)
-def test_slices_skip_the_count_and_leave_published_at_empty(
-    replay_fixture: Callable[[str, str], respx.Route], case: str
-) -> None:
-    counted = replay_fixture("get_counts", "corn_progress_planted_ia_2024")
-    replay_fixture("api_get", case)
-    result = SLICE_CALLS[case]()
-    assert not counted.called
-    assert result.meta.total is None
-    assert result.meta.published_at is None
-    assert result.meta.vintage is None
-    assert all(row.load_time.tzinfo is None for row in result.data)
-
-
 def test_get_data_keeps_the_count_and_leaves_published_at_empty(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
@@ -1244,262 +568,18 @@ def test_get_data_keeps_the_count_and_leaves_published_at_empty(
     assert result.meta.published_at is None
 
 
-def test_acreage_forecasts_state_and_national(
-    replay_fixture: Callable[[str, str], respx.Route],
-) -> None:
-    replay_fixture("api_get", "corn_area_harvested_forecasts_ia_2023")
-    result = tasks.get_acreage_forecasts(
-        "CORN", 2023, AreaStatistic.AREA_HARVESTED, state=enums.StateAlpha.IA
-    )
-    assert result.meta.request["reference_period_desc__NE"] == "YEAR"
-    assert "reference_period_desc" not in result.meta.request
-    assert [row.reference_period_desc for row in result.data] == [
-        "YEAR - JUN ACREAGE", "YEAR - AUG FORECAST", "YEAR - SEP FORECAST",
-        "YEAR - OCT FORECAST", "YEAR - NOV FORECAST",
-    ]  # fmt: skip
-    assert [row.value_number for row in result.data][:2] == [
-        Decimal("12900000"),
-        Decimal("12900000"),
-    ]
-    loads = [row.load_time for row in result.data]
-    assert loads == sorted(loads)
-
-
-def test_acreage_forecasts_national(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("api_get", "corn_area_planted_forecasts_us_2023")
-    result = tasks.get_acreage_forecasts("CORN", 2023, AreaStatistic.AREA_PLANTED)
-    assert result.meta.request["agg_level_desc"] == "NATIONAL"
-    assert [row.reference_period_desc for row in result.data][:2] == [
-        "YEAR - MAR ACREAGE", "YEAR - JUN ACREAGE",
-    ]  # fmt: skip
-    assert result.data[0].value_number == Decimal("91996000")
-
-
-# --- get_production and its forecasts (https://github.com/xippios/sdk-usda-nass/pull/30) ---
-
-CORN_US_2023: dict[str, str | int] = {
-    "commodity_desc": "CORN",
-    "statisticcat_desc": "PRODUCTION",
-    "domain_desc": "TOTAL",
-    "prodn_practice_desc": "ALL PRODUCTION PRACTICES",
-    "freq_desc": "ANNUAL",
-    "year": 2023,
-    "agg_level_desc": "NATIONAL",
-}
-FORECASTS = {"reference_period_desc__LIKE": "FORECAST"}
-FINAL = {"reference_period_desc": "YEAR"}
-CORN_IA_2023_YIELD: dict[str, str | int] = {
-    **CORN_US_2023,
-    "statisticcat_desc": "YIELD",
-    "agg_level_desc": "STATE",
-    "state_alpha": "IA",
-}
-
-
-def assert_slice_meta(result: Result[list[ProductionRecord]]) -> None:
-    assert result.meta.endpoint == "api_GET"
-    assert result.meta.total is None
-    assert result.meta.published_at is None
-    assert result.meta.vintage is None
-
-
-def test_production_forecasts_national(replay_fixture: ReplayFixture, fixtures_dir: Path) -> None:
-    case = "corn_production_forecasts_us_2023"
-    counted = replay_fixture("get_counts", "corn_progress_planted_ia_2024")
-    fetched = replay_fixture("api_get", case)
-    result = tasks.get_production_forecasts("CORN", 2023, ProductionStatistic.PRODUCTION)
-    assert result.meta.request == {**CORN_US_2023, **FORECASTS}
-    assert sent_query(fetched)["reference_period_desc__LIKE"] == "FORECAST"
-    assert_sent_as_recorded(fetched, fixtures_dir, case)
-    assert not counted.called
-    assert_slice_meta(result)
-    assert [row.reference_period_desc for row in result.data] == [
-        "YEAR - AUG FORECAST", "YEAR - SEP FORECAST", "YEAR - OCT FORECAST",
-        "YEAR - NOV FORECAST",
-    ]  # fmt: skip
-    assert [row.value_number for row in result.data] == [
-        Decimal("15110787000"), Decimal("15133911000"), Decimal("15064420000"),
-        Decimal("15234285000"),
-    ]  # fmt: skip
-    assert result.data[0].value == "15,110,787,000"
-    assert {
-        (row.state_alpha, row.util_practice_desc, row.class_desc, row.unit_desc)
-        for row in result.data
-    } == {("US", "GRAIN", "ALL CLASSES", "BU")}
-    loads = [row.load_time for row in result.data]
-    assert loads == sorted(loads)
-    assert loads[0] == datetime(2023, 8, 11, 12, 0)
-
-
-def test_production_final_national_carries_silage_and_value_rows(
-    replay_fixture: ReplayFixture, fixtures_dir: Path
-) -> None:
-    case = "corn_production_us_2023"
-    fetched = replay_fixture("api_get", case)
-    result = tasks.get_production("CORN", 2023, ProductionStatistic.PRODUCTION)
-    assert result.meta.request == {**CORN_US_2023, **FINAL}
-    assert "reference_period_desc__LIKE" not in result.meta.request
-    assert_sent_as_recorded(fetched, fixtures_dir, case)
-    assert_slice_meta(result)
-    assert {row.reference_period_desc for row in result.data} == {"YEAR"}
-    assert [(row.util_practice_desc, row.unit_desc, row.value_number) for row in result.data] == [
-        ("GRAIN", "$", Decimal("70085591000")),
-        ("GRAIN", "BU", Decimal("15340520000")),
-        ("SILAGE", "TONS", Decimal("129854000")),
-    ]
-    assert [row.short_desc for row in result.data] == [
-        "CORN, GRAIN - PRODUCTION, MEASURED IN $",
-        "CORN, GRAIN - PRODUCTION, MEASURED IN BU",
-        "CORN, SILAGE - PRODUCTION, MEASURED IN TONS",
-    ]
-    assert {row.state_alpha for row in result.data} == {"US"}
-
-
-def test_yield_forecasts_state(replay_fixture: ReplayFixture, fixtures_dir: Path) -> None:
-    case = "corn_yield_forecasts_ia_2023"
-    fetched = replay_fixture("api_get", case)
-    result = tasks.get_production_forecasts(
-        "CORN", 2023, ProductionStatistic.YIELD, state=enums.StateAlpha.IA
-    )
-    assert result.meta.request == {**CORN_IA_2023_YIELD, **FORECASTS}
-    assert sent_query(fetched)["state_alpha"] == "IA"
-    assert_sent_as_recorded(fetched, fixtures_dir, case)
-    assert_slice_meta(result)
-    assert [(row.reference_period_desc, row.value_number) for row in result.data] == [
-        ("YEAR - AUG FORECAST", Decimal("203")),
-        ("YEAR - SEP FORECAST", Decimal("200")),
-        ("YEAR - OCT FORECAST", Decimal("199")),
-        ("YEAR - NOV FORECAST", Decimal("200")),
-    ]
-    assert {(row.state_alpha, row.statisticcat_desc, row.unit_desc) for row in result.data} == {
-        ("IA", "YIELD", "BU / ACRE")
-    }
-    assert "YEAR" not in {row.reference_period_desc for row in result.data}
-
-
-def test_yield_final_state_splits_grain_and_silage(
-    replay_fixture: ReplayFixture, fixtures_dir: Path
-) -> None:
-    case = "corn_yield_ia_2023"
-    fetched = replay_fixture("api_get", case)
-    result = tasks.get_production(
-        "CORN", 2023, ProductionStatistic.YIELD, state=enums.StateAlpha.IA
-    )
-    assert result.meta.request == {**CORN_IA_2023_YIELD, **FINAL}
-    assert_sent_as_recorded(fetched, fixtures_dir, case)
-    assert_slice_meta(result)
-    assert [
-        (row.util_practice_desc, row.unit_desc, row.reference_period_desc, row.value_number)
-        for row in result.data
-    ] == [
-        ("GRAIN", "BU / ACRE", "YEAR", Decimal("201")),
-        ("SILAGE", "TONS / ACRE", "YEAR", Decimal("20")),
-    ]
-    assert all(row.cv_percent is None for row in result.data)
-    assert all(row.load_time.tzinfo is None for row in result.data)
-
-
-def test_production_forecasts_carry_wheat_classes_as_rows(
-    replay_fixture: ReplayFixture, fixtures_dir: Path
-) -> None:
-    case = "wheat_production_forecasts_us_2023"
-    fetched = replay_fixture("api_get", case)
-    result = tasks.get_production_forecasts("WHEAT", 2023, ProductionStatistic.PRODUCTION)
-    assert result.meta.request == {**CORN_US_2023, "commodity_desc": "WHEAT", **FORECASTS}
-    assert_sent_as_recorded(fetched, fixtures_dir, case)
-    assert_slice_meta(result)
-    assert len(result.data) == 32
-    assert all(row.reference_period_desc.endswith("FORECAST") for row in result.data)
-    reports = [row.reference_period_desc for row in result.data]
-    months = ("MAY", "JUN", "JUL", "AUG")
-    assert [reports.count(f"YEAR - {month} FORECAST") for month in months] == [5, 5, 11, 11]
-    # May and June forecast winter wheat alone; July adds all wheat and the spring classes.
-    may = [
-        row.class_desc for row in result.data if row.reference_period_desc.startswith("YEAR - MAY")
-    ]
-    assert may == [
-        "WINTER", "WINTER, RED, HARD", "WINTER, RED, SOFT", "WINTER, WHITE, HARD",
-        "WINTER, WHITE, SOFT",
-    ]  # fmt: skip
-    july = [row for row in result.data if row.reference_period_desc == "YEAR - JUL FORECAST"]
-    assert [row.class_desc for row in july][:4] == [
-        "ALL CLASSES", "SPRING, (EXCL DURUM)", "SPRING, DURUM", "SPRING, RED, HARD",
-    ]  # fmt: skip
-    assert (july[0].short_desc, july[0].value_number) == (
-        "WHEAT - PRODUCTION, MEASURED IN BU", Decimal("1739077000"),
-    )  # fmt: skip
-    assert {(row.util_practice_desc, row.unit_desc) for row in result.data} == {
-        ("ALL UTILIZATION PRACTICES", "BU")
-    }
-    order = [
-        (row.load_time, row.util_practice_desc, row.class_desc, row.unit_desc)
-        for row in result.data
-    ]
-    assert order == sorted(order)
-
-
-@pytest.mark.anyio
-async def test_production_tool_call_end_to_end(replay_fixture: ReplayFixture) -> None:
-    fetched = replay_fixture("api_get", "corn_yield_forecasts_ia_2023")
-    payload = await mcp_call(
-        server,
-        "usda_nass_get_production_forecasts",
-        {"commodity": "CORN", "year": 2023, "statistic": "YIELD", "state": "IA"},
-    )
-    assert sent_query(fetched)["statisticcat_desc"] == "YIELD"
-    assert len(payload["data"]) == 4
-    first = payload["data"][0]
-    assert (first["reference_period_desc"], first["value"], first["value_number"]) == (
-        "YEAR - AUG FORECAST", "203", 203,
-    )  # fmt: skip
-    assert payload["meta"]["endpoint"] == "api_GET"
-    assert payload["meta"]["total"] is None
-    assert payload["meta"]["published_at"] is None
-    text = await mcp_call_text(
-        server, "usda_nass_get_production", {"commodity": "CORN", "year": 2023, "statistic": "AREA"}
-    )
-    assert text.startswith("error: InvalidRequestError: statistic:")
-
-
-def test_production_route_end_to_end(replay_fixture: ReplayFixture) -> None:
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-
-    from xippios.usda.nass.http import router
-
-    app = FastAPI()
-    app.include_router(router)
-    client = TestClient(app)
-    fetched = replay_fixture("api_get", "corn_production_us_2023")
-    response = client.get(
-        "/usda-nass/get_production",
-        params={"commodity": "CORN", "year": 2023, "statistic": "PRODUCTION"},
-    )
-    assert response.status_code == 200, response.text
-    assert sent_query(fetched)["reference_period_desc"] == "YEAR"
-    body = response.json()
-    assert [(row["unit_desc"], row["value_number"]) for row in body["data"]] == [
-        ("$", 70085591000), ("BU", 15340520000), ("TONS", 129854000),
-    ]  # fmt: skip
-    assert body["meta"]["request"]["agg_level_desc"] == "NATIONAL"
-    refused = client.get(
-        "/usda-nass/get_production",
-        params={"commodity": "CORN", "year": 2023, "statistic": "AREA PLANTED"},
-    )
-    assert refused.status_code == 422
-
-
 @pytest.mark.anyio
 async def test_mcp_tool_call_end_to_end(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    replay_fixture("api_get", "corn_progress_planted_ia_2024")
-    payload = await mcp_call(
-        server,
-        "usda_nass_get_crop_progress",
-        {"commodity": "CORN", "year": 2024, "state": "IA", "stage": "PCT PLANTED"},
-    )
-    assert len(payload["data"]) == 11
+    replay_fixture("get_counts", "corn_va_since_2012")
+    replay_fixture("api_get", "corn_va_2012_area_planted")
+    payload = await mcp_call(server, "usda_nass_get_data", {"filters": SMALL_FILTERS})
+    assert len(payload["data"]) == 2
     first = payload["data"][0]
-    assert (first["value"], first["value_number"], first["week_ending"]) == ("0", 0.0, "2024-03-31")
+    assert (first["value"], first["value_number"], first["week_ending"]) == (
+        "510,000",
+        510000,
+        None,
+    )
     assert payload["meta"]["published_at"] is None
     with pytest.raises(AssertionError, match=r"InvalidRequestError.*comodity_desc"):
         await mcp_call(server, "usda_nass_get_counts", {"filters": {"comodity_desc": "CORN"}})
@@ -1518,13 +598,14 @@ def test_http_route_end_to_end(replay_fixture: Callable[[str, str], respx.Route]
     app = FastAPI()
     app.include_router(router)
     client = TestClient(app)
-    replay_fixture("api_get", "corn_area_planted_ia_2023")
-    response = client.get(
-        "/usda-nass/get_acreage",
-        params={"commodity": "CORN", "year": 2023, "statistic": "AREA PLANTED", "state": "IA"},
-    )
+    replay_fixture("get_counts", "corn_va_since_2012")
+    replay_fixture("api_get", "corn_va_2012_area_planted")
+    response = client.post("/usda-nass/get_data", json={"filters": SMALL_FILTERS})
     assert response.status_code == 200, response.text
-    assert response.json()["data"][0]["value_number"] == 13100000
+    assert response.json()["data"][0]["value_number"] == 510000
+    listed = client.get("/usda-nass/list_param_values", params={"param": "sector_desc"})
+    assert listed.status_code == 200, listed.text
+    assert "CROPS" in listed.json()["data"]
     rejected = client.post("/usda-nass/get_counts", json={"filters": {"comodity_desc": "CORN"}})
     assert rejected.status_code == 422
     assert rejected.json()["title"] == "InvalidRequestError"
@@ -1537,9 +618,9 @@ def test_http_route_end_to_end(replay_fixture: Callable[[str, str], respx.Route]
 def test_a_route_answers_a_refused_argument_as_problem_details(
     respx_mock: respx.MockRouter,
 ) -> None:
-    """A value outside a parameter's enum, a stage that is no ``ProgressStage``, is refused
-    before the task runs as problem details, the detail worded as the MCP adapter words
-    it and echoing no input, where FastAPI's own 422 listed its error details
+    """A value that a parameter's type refuses, a ``split_by_year`` that is no boolean, is
+    refused before the task runs as problem details, the detail worded as the MCP adapter
+    words it and echoing no input, where FastAPI's own 422 listed its error details
     (https://github.com/xippios/sdk-core/issues/66)."""
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -1549,15 +630,15 @@ def test_a_route_answers_a_refused_argument_as_problem_details(
     app = FastAPI()
     app.include_router(router)
     client = TestClient(app)
-    refused = client.get(
-        "/usda-nass/get_crop_progress",
-        params={"commodity": "CORN", "year": 2024, "stage": "PCT SOWN"},
+    refused = client.post(
+        "/usda-nass/get_data",
+        json={"filters": SMALL_FILTERS, "split_by_year": "every other year"},
     )
     assert refused.status_code == 422
     body = refused.json()
     assert body["title"] == "InvalidRequestError"
-    assert body["detail"].startswith("stage: ")
-    assert "PCT SOWN" not in body["detail"]
+    assert body["detail"].startswith("split_by_year: ")
+    assert "every other year" not in body["detail"]
     assert not respx_mock.calls
 
 
@@ -1620,6 +701,36 @@ def test_the_package_contract_for_a_host() -> None:
     assert tools.option_defaults().split_years == MCP_SPLIT_YEARS
 
 
+@pytest.mark.anyio
+async def test_the_package_serves_its_three_tasks_and_no_slice_of_them() -> None:
+    """The package wraps the three operations of Quick Stats and adds no task that fixes
+    filters for the caller (https://github.com/xippios/sdk-core/issues/474): the slices
+    over ``api_GET`` left in 0.4.0 with their projections and value sets, and the query of
+    each is one ``get_data`` call with the same filters. The package, its MCP server and
+    its router serve the same three tasks, and ``models`` holds the records of the three
+    operations alone."""
+    import xippios.usda.nass as package
+    from xippios.usda.nass import models
+    from xippios.usda.nass.http import router
+
+    assert tasks.__all__ == ["get_counts", "get_data", "list_param_values"]
+    assert package.__all__ == ["__version__", *tasks.__all__]
+    defined = {name.removesuffix("_async") for name in dir(tasks) if name.endswith("_async")}
+    assert defined == set(tasks.__all__)
+    tools = {tool.name for tool in await server.list_tools()}
+    assert tools == {f"usda_nass_{name}" for name in tasks.__all__}
+    assert {getattr(route, "path", None) for route in router.routes} == {
+        f"/usda-nass/{name}" for name in tasks.__all__
+    }
+    classes = {
+        name
+        for name, value in vars(models).items()
+        if isinstance(value, type) and value.__module__ == models.__name__
+    }
+    assert classes == {"ApiGetResponse", "GetCountsResponse", "QuickStatsRecord", "_Published"}
+    assert models.__all__ == ["ApiGetResponse", "Filters", "GetCountsResponse", "QuickStatsRecord"]
+
+
 @pytest.mark.usefixtures("restore_split_ceiling")
 def test_a_host_applies_the_options_as_the_entry_point_does() -> None:
     """A host builds the server from the tool set and applies the defaults of its hooks,
@@ -1633,276 +744,6 @@ def test_a_host_applies_the_options_as_the_entry_point_does() -> None:
     hosted = build_server(tools)
     assert tools.apply_options(tools.option_defaults(), hosted) is hosted
     assert tasks.split_ceiling() == MCP_SPLIT_YEARS
-
-
-# --- get_census_farms (https://github.com/xippios/sdk-usda-nass/pull/32) ---
-
-CENSUS_FILTERS: dict[str, str | int] = {  # get_census_farms' fixed filters, counted 2026-10-28
-    "source_desc": "CENSUS",
-    "group_desc": "FARMS & LAND & ASSETS",
-    "commodity_desc": "FARM OPERATIONS",
-    "class_desc": "ALL CLASSES",
-    "prodn_practice_desc": "ALL PRODUCTION PRACTICES",
-    "domain_desc": "TOTAL",
-}
-
-
-def test_census_farms_national(replay_fixture: ReplayFixture) -> None:
-    counted = replay_fixture("get_counts", "corn_progress_planted_ia_2024")
-    fetched = replay_fixture("api_get", "census_farms_operations_us_2022")
-    result = tasks.get_census_farms(2022, FarmStatistic.OPERATIONS)
-    expected = {
-        **CENSUS_FILTERS,
-        "statisticcat_desc": "OPERATIONS",
-        "year": "2022",
-        "agg_level_desc": "NATIONAL",
-    }
-    assert sent_query(fetched) == {**expected, "format": "JSON", "key": REDACTED}
-    assert result.meta.request == {**expected, "year": 2022}
-    assert not counted.called  # a slice skips it, https://github.com/xippios/sdk-usda-nass/pull/32
-    assert result.meta.endpoint == "api_GET"
-    assert result.meta.total is None
-    assert result.meta.published_at is None
-    assert all(isinstance(row, CensusFarmsRecord) for row in result.data)
-    assert [row.unit_desc for row in result.data] == ["OPERATIONS", "PCT OF FARM OPERATIONS"]
-    farms, share = result.data
-    assert (farms.value, farms.value_number) == ("1,900,487", Decimal("1900487"))
-    assert farms.short_desc == "FARM OPERATIONS - NUMBER OF OPERATIONS"
-    assert farms.cv_percent == Decimal("1.9")
-    assert share.value_number == Decimal("100")
-    assert share.cv_percent is None  # upstream prints "(L)" in CV (%)
-    assert {(row.state_alpha, row.state_name, row.county_name) for row in result.data} == {
-        ("US", "US TOTAL", ""),
-    }
-    assert {(row.source_desc, row.statisticcat_desc, row.year) for row in result.data} == {
-        ("CENSUS", "OPERATIONS", 2022),
-    }
-
-
-def test_census_farms_state(replay_fixture: ReplayFixture) -> None:
-    fetched = replay_fixture("api_get", "census_farms_area_operated_ia_2022")
-    result = tasks.get_census_farms(2022, FarmStatistic.AREA_OPERATED, state=enums.StateAlpha.IA)
-    sent = sent_query(fetched)
-    assert {key: sent[key] for key in CENSUS_FILTERS} == CENSUS_FILTERS
-    assert (sent["statisticcat_desc"], sent["agg_level_desc"], sent["state_alpha"]) == (
-        "AREA OPERATED", "STATE", "IA",
-    )  # fmt: skip
-    assert result.meta.request["state_alpha"] == "IA"
-    assert result.meta.total is None
-    assert result.meta.published_at is None
-    units = [row.unit_desc for row in result.data]
-    assert units == sorted(units)
-    assert set(units) == {
-        "ACRES", "ACRES / OPERATION", "ACRES / OPERATION, MEDIAN", "PCT OF AG LAND",
-        "PCT OF TOTAL LAND",
-    }  # fmt: skip
-    acres = result.data[0]
-    assert (acres.unit_desc, acres.value_number) == ("ACRES", Decimal("29978165"))
-    assert acres.short_desc == "FARM OPERATIONS - ACRES OPERATED"
-    assert acres.cv_percent == Decimal("2.6")
-    assert {(row.agg_level_desc, row.state_alpha, row.county_code) for row in result.data} == {
-        ("STATE", "IA", ""),
-    }
-
-
-def test_census_farms_counties_of_a_state(replay_fixture: ReplayFixture) -> None:
-    fetched = replay_fixture("api_get", "census_farms_operations_de_2022_county")
-    result = tasks.get_census_farms(
-        2022, FarmStatistic.OPERATIONS, state=enums.StateAlpha.DE, by_county=True
-    )
-    sent = sent_query(fetched)
-    assert {key: sent[key] for key in CENSUS_FILTERS} == CENSUS_FILTERS
-    assert (sent["agg_level_desc"], sent["state_alpha"], sent["year"]) == ("COUNTY", "DE", "2022")
-    assert result.meta.request["agg_level_desc"] == "COUNTY"
-    assert result.meta.total is None
-    assert [(row.county_name, row.county_code, row.value_number) for row in result.data] == [
-        ("KENT", "001", Decimal("770")),
-        ("NEW CASTLE", "003", Decimal("335")),
-        ("SUSSEX", "005", Decimal("1053")),
-    ]  # sorted by county; upstream answered New Castle first
-    assert {row.unit_desc for row in result.data} == {"OPERATIONS"}
-    kent = result.data[0]
-    assert (kent.asd_code, kent.asd_desc, kent.county_ansi) == ("50", "CENTRAL", "001")
-    assert kent.cv_percent == Decimal("9.0")
-
-
-def test_census_farms_county_area_units(replay_fixture: ReplayFixture) -> None:
-    replay_fixture("api_get", "census_farms_area_operated_de_2022_county")
-    result = tasks.get_census_farms(
-        2022, FarmStatistic.AREA_OPERATED, state=enums.StateAlpha.DE, by_county=True
-    )
-    assert len(result.data) == 12
-    order = [(row.state_alpha, row.county_name, row.unit_desc) for row in result.data]
-    assert order == sorted(order)
-    assert [row.county_name for row in result.data[:4]] == ["KENT"] * 4
-    assert {row.unit_desc for row in result.data} == {
-        "ACRES", "ACRES / OPERATION", "ACRES / OPERATION, MEDIAN", "PCT OF TOTAL LAND",
-    }  # fmt: skip
-    sussex_acres = next(
-        row for row in result.data if row.county_name == "SUSSEX" and row.unit_desc == "ACRES"
-    )
-    assert sussex_acres.value_number == Decimal("262079")
-    assert all(
-        row.cv_percent is None for row in result.data if row.unit_desc == "PCT OF TOTAL LAND"
-    )  # upstream prints "(H)" in CV (%)
-
-
-def test_census_farms_every_county_sends_no_state(replay_fixture: ReplayFixture) -> None:
-    # No every-county fixture: Delaware's answers a request without a state; only the query counts.
-    fetched = replay_fixture("api_get", "census_farms_operations_de_2022_county")
-    result = tasks.get_census_farms(2022, FarmStatistic.OPERATIONS, by_county=True)
-    sent = sent_query(fetched)
-    assert sent["agg_level_desc"] == "COUNTY"
-    assert "state_alpha" not in sent
-    assert {key: sent[key] for key in CENSUS_FILTERS} == CENSUS_FILTERS
-    assert "state_alpha" not in result.meta.request
-    assert result.meta.request["agg_level_desc"] == "COUNTY"
-
-
-@pytest.mark.anyio
-async def test_census_farms_over_mcp(replay_fixture: ReplayFixture) -> None:
-    replay_fixture("api_get", "census_farms_operations_de_2022_county")
-    payload = await mcp_call(
-        server,
-        "usda_nass_get_census_farms",
-        {"year": 2022, "statistic": "OPERATIONS", "state": "DE", "by_county": True},
-    )
-    assert [row["county_name"] for row in payload["data"]] == ["KENT", "NEW CASTLE", "SUSSEX"]
-    kent = payload["data"][0]
-    assert (kent["value"], kent["value_number"], kent["cv_percent"]) == ("770", 770, 9.0)
-    assert payload["meta"]["endpoint"] == "api_GET"
-    assert payload["meta"]["total"] is None
-    assert payload["meta"]["published_at"] is None
-    request = payload["meta"]["request"]
-    assert (request["agg_level_desc"], request["state_alpha"]) == ("COUNTY", "DE")
-
-
-def test_census_farms_over_http(replay_fixture: ReplayFixture) -> None:
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-
-    from xippios.usda.nass.http import router
-
-    app = FastAPI()
-    app.include_router(router)
-    client = TestClient(app)
-    replay_fixture("api_get", "census_farms_area_operated_ia_2022")
-    response = client.get(
-        "/usda-nass/get_census_farms",
-        params={"year": 2022, "statistic": "AREA OPERATED", "state": "IA"},
-    )
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert len(body["data"]) == 5
-    assert (body["data"][0]["unit_desc"], body["data"][0]["value_number"]) == ("ACRES", 29978165)
-    assert body["meta"]["request"]["agg_level_desc"] == "STATE"
-    unknown = client.get("/usda-nass/get_census_farms", params={"year": 2022, "statistic": "FARMS"})
-    assert unknown.status_code == 422
-
-
-@pytest.mark.anyio
-async def test_livestock_tools_end_to_end_over_mcp(replay_fixture: ReplayFixture) -> None:
-    replay_fixture("api_get", "hogs_inventory_ia_2024", match_params=["commodity_desc"])
-    replay_fixture("api_get", "milk_production_wi_2024_monthly", match_params=["commodity_desc"])
-    inventory = await mcp_call(
-        server,
-        "usda_nass_get_livestock_inventory",
-        {"commodity": "HOGS", "year": 2024, "state": "IA"},
-    )
-    assert len(inventory["data"]) == 28
-    first = inventory["data"][0]
-    assert (first["class_desc"], first["reference_period_desc"]) == ("ALL CLASSES", "FIRST OF MAR")
-    assert (first["value"], first["value_number"]) == ("25,200,000", 25200000)
-    assert inventory["meta"]["request"]["commodity_desc"] == "HOGS"
-    assert inventory["meta"]["total"] is None
-    assert inventory["meta"]["published_at"] is None
-    milk = await mcp_call(
-        server,
-        "usda_nass_get_milk_production",
-        {"year": 2024, "state": "WI", "frequency": "MONTHLY"},
-    )
-    assert [row["reference_period_desc"] for row in milk["data"]] == MILK_PERIODS
-    assert milk["data"][0]["value_number"] == 2711000000
-    refused = await mcp_call_text(
-        server, "usda_nass_get_livestock_inventory", {"commodity": "GOATS", "year": 2024}
-    )
-    assert refused.startswith("error: InvalidRequestError: commodity")
-
-
-def test_livestock_routes_end_to_end_over_http(replay_fixture: ReplayFixture) -> None:
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-
-    from xippios.usda.nass.http import router
-
-    app = FastAPI()
-    app.include_router(router)
-    client = TestClient(app)
-    replay_fixture("api_get", "cattle_inventory_us_2024", match_params=["commodity_desc"])
-    replay_fixture("api_get", "milk_production_us_2024", match_params=["commodity_desc"])
-    inventory = client.get(
-        "/usda-nass/get_livestock_inventory", params={"commodity": "CATTLE", "year": 2024}
-    )
-    assert inventory.status_code == 200, inventory.text
-    rows = inventory.json()["data"]
-    assert len(rows) == 14
-    herd = next(row for row in rows if row["class_desc"] == "INCL CALVES")
-    assert herd["value_number"] == 87157400
-    milk = client.get("/usda-nass/get_milk_production", params={"year": 2024})
-    assert milk.status_code == 200, milk.text
-    assert milk.json()["meta"]["request"]["class_desc"] == "ALL CLASSES"
-    assert [row["freq_desc"] for row in milk.json()["data"]][:2] == ["ANNUAL", "MONTHLY"]
-    refused = client.get(
-        "/usda-nass/get_livestock_inventory", params={"commodity": "GOATS", "year": 2024}
-    )
-    assert refused.status_code == 422
-
-
-@pytest.mark.anyio
-async def test_grain_stocks_over_mcp(replay_fixture: ReplayFixture) -> None:
-    fetched = replay_fixture("api_get", "wheat_stocks_us_2024")
-    payload = await mcp_call(
-        server, "usda_nass_get_grain_stocks", {"commodity": "WHEAT", "year": 2024}
-    )
-    assert sent_query(fetched)["statisticcat_desc"] == "STOCKS"
-    rows = payload["data"]
-    assert len(rows) == 24  # whole, under the default cap
-    first = rows[0]
-    assert (first["reference_period_desc"], first["util_practice_desc"], first["class_desc"]) == (
-        "FIRST OF MAR", "ALL UTILIZATION PRACTICES", "ALL CLASSES",
-    )  # fmt: skip
-    assert (first["value"], first["value_number"]) == ("1,088,709,000", 1088709000)
-    assert "cv_percent" not in first
-    assert {row["class_desc"] for row in rows} == {"ALL CLASSES", "SPRING, DURUM"}
-    meta = payload["meta"]
-    assert (meta["endpoint"], meta["total"], meta["published_at"]) == ("api_GET", None, None)
-    assert meta["request"]["freq_desc"] == "POINT IN TIME"
-
-
-def test_grain_stocks_over_http(replay_fixture: ReplayFixture) -> None:
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-
-    from xippios.usda.nass.http import router
-
-    app = FastAPI()
-    app.include_router(router)
-    client = TestClient(app)
-    fetched = replay_fixture("api_get", "soybeans_stocks_ia_2024")
-    response = client.get(
-        "/usda-nass/get_grain_stocks", params={"commodity": "SOYBEANS", "year": 2024, "state": "IA"}
-    )
-    assert response.status_code == 200, response.text
-    assert sent_query(fetched)["state_alpha"] == "IA"
-    body = response.json()
-    assert len(body["data"]) == 12
-    assert body["data"][0]["util_practice_desc"] == "ALL UTILIZATION PRACTICES"
-    assert body["data"][0]["value_number"] == 313023000
-    assert {row["util_practice_desc"] for row in body["data"]} == {
-        "ALL UTILIZATION PRACTICES", "ON FARM", "OFF FARM",
-    }  # fmt: skip
-    assert (body["meta"]["endpoint"], body["meta"]["total"]) == ("api_GET", None)
-    assert body["meta"]["request"]["agg_level_desc"] == "STATE"
 
 
 # --- get_data(split_by_year=True) (https://github.com/xippios/sdk-usda-nass/pull/27) ---
@@ -2715,53 +1556,7 @@ def plain_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(name, value)
 
 
-# --- the tasks that fetch one year: an empty answer may be a year not yet published ---
-
-UNPUBLISHED_YEAR = (
-    "Quick Stats names no release and answers a year it has not published yet as one "
-    "without records, so ``NotFoundError`` may mean either."
-)
-"""What each one-year task says of its ``year``: a task that fetches one period and does
-not know the latest released one says that an empty answer may be a period not yet
-released (conventions §4; https://github.com/xippios/sdk-usda-nass/issues/42)."""
-
-
-def _one_year_tasks() -> list[str]:
-    """The tasks of ``tasks.__all__`` that take a ``year``."""
-    import inspect
-
-    return [
-        name
-        for name in tasks.__all__
-        if "year" in inspect.signature(getattr(tasks, name)).parameters
-    ]
-
-
-def test_every_task_but_the_free_form_ones_fetches_one_year() -> None:
-    """``get_counts`` and ``get_data`` take a year as a filter, ``list_param_values`` none."""
-    assert sorted(set(tasks.__all__) - set(_one_year_tasks())) == [
-        "get_counts", "get_data", "list_param_values",
-    ]  # fmt: skip
-
-
-@pytest.mark.anyio
-@pytest.mark.parametrize("name", _one_year_tasks())
-async def test_a_one_year_task_says_an_empty_answer_may_be_a_year_not_yet_published(
-    name: str,
-) -> None:
-    """Quick Stats answers a query that matches nothing with ``bad request - invalid
-    query``, which ``classify`` raises as ``NotFoundError`` (``api_get/no_match``), and
-    names no release: the task's ``year`` and its MCP tool's description name both
-    readings of that answer."""
-    import inspect
-
-    doc = inspect.getdoc(getattr(tasks, name)) or ""
-    year = re.search(r"^    year: (.*?)(?=^    \w+: |\Z)", doc, re.MULTILINE | re.DOTALL)
-    assert year is not None, f"{name} documents no year under Args"
-    assert UNPUBLISHED_YEAR in " ".join(year.group(1).split())
-    tools = {tool.name: tool for tool in await server.list_tools()}
-    description = tools[f"usda_nass_{name}"].description or ""
-    assert UNPUBLISHED_YEAR in " ".join(description.split())
+# --- get_data of one year: a count of 0 may be a year not yet published ---
 
 
 UNPUBLISHED_COUNT = (
