@@ -915,6 +915,11 @@ CORN_COUNTY_FILTERS: dict[str, str | int] = {
     "year__LE": 2021,
 }
 
+COUNT_SENT = "The count was sent, and no record was asked for."
+"""What a refusal after the count of a whole query says was sent (conventions §5)."""
+COUNTS_SENT = "Only counts were sent, and no record was asked for."
+"""What a refusal of a year over the limit says was sent: its count, after any before it."""
+
 THROUGH_THE_LIMIT = (  # QueryTooLarge's hint for a whole query (conventions §8)
     "Narrow the filters, for example by year, state_alpha, agg_level_desc or "
     "statisticcat_desc, or call get_data with split_by_year=True (over MCP, the tool "
@@ -1112,8 +1117,8 @@ def test_get_data_without_split_refuses_the_two_year_query(
     assert (info.value.count, info.value.year) == (85535, None)
     assert str(info.value) == (
         "query would return 85,535 records; upstream serves at most 50,000 per call. "
-        f"{THROUGH_THE_LIMIT}"
-    )
+        f"{COUNT_SENT} {THROUGH_THE_LIMIT}"
+    )  # refused after the count, so it says what was sent (conventions §5)
     assert counted.call_count == 1
     assert not fetched.called
 
@@ -1123,13 +1128,20 @@ async def test_query_too_large_names_the_way_through_the_limit(
     replay_fixture: ReplayFixture,
 ) -> None:
     """Narrower filters, or ``get_data`` with ``split_by_year`` on at most 20 years
-    (conventions §8); a year over the limit on its own names narrower filters only."""
+    (conventions §8); a year over the limit on its own names narrower filters only. A
+    refusal from a count says that the count was sent and no record asked for, and
+    upstream's HTTP 413, which refused the data request itself, says nothing of a count
+    (conventions §5)."""
     assert SPLIT_CEILING == 20
-    assert str(QueryTooLarge(85_535)).endswith(THROUGH_THE_LIMIT)
+    assert str(QueryTooLarge(85_535)).endswith(f"{COUNT_SENT} {THROUGH_THE_LIMIT}")
     assert str(QueryTooLarge(None)).endswith(THROUGH_THE_LIMIT)  # upstream's HTTP 413
     assert str(QueryTooLarge(None)).startswith("upstream refused the query as too large")
+    assert "count" not in str(QueryTooLarge(None)).partition(". ")[2]
     alone = str(QueryTooLarge(57_873_464, year=2021))
-    assert "split_by_year cannot fetch it. Narrow the filters, for example by state_alpha" in alone
+    assert (
+        f"split_by_year cannot fetch it. {COUNTS_SENT} Narrow the filters, for example by "
+        "state_alpha"
+    ) in alone
     assert "split_by_year=True" not in alone
     replay_fixture("get_counts", "corn_county_2020_2021")
     text = await mcp_call_text(server, "usda_nass_get_data", {"filters": CORN_COUNTY_FILTERS})
@@ -1156,9 +1168,9 @@ def test_split_refuses_a_year_over_the_limit_before_fetching(
     assert (info.value.count, info.value.year) == (57873464, 2021)
     assert str(info.value) == (
         "query would return 57,873,464 records; upstream serves at most 50,000 per call. "
-        "Year 2021 alone is over the limit, so split_by_year cannot fetch it. Narrow the "
-        "filters, for example by state_alpha, agg_level_desc or statisticcat_desc. The series "
-        "stopped at 2021 after 1 period answered, 2020, and returns nothing."
+        f"Year 2021 alone is over the limit, so split_by_year cannot fetch it. {COUNTS_SENT} "
+        "Narrow the filters, for example by state_alpha, agg_level_desc or statisticcat_desc. "
+        "The series stopped at 2021 after 1 period answered, 2020, and returns nothing."
     )  # core's fetch_periods names the years answered before the refusal
     assert (count_2020.call_count, count_2021.call_count) == (1, 1)
     # No count of the range, and nothing fetched before every year is counted, though 2020 fits.
@@ -1176,6 +1188,11 @@ def test_split_of_one_year_over_the_limit_refuses_after_the_first_count(
     with pytest.raises(QueryTooLarge) as info:
         tasks.get_data({"commodity_desc": "CORN", "year": 2021}, split_by_year=True)
     assert (info.value.count, info.value.year) == (57873464, 2021)
+    assert str(info.value) == (
+        "query would return 57,873,464 records; upstream serves at most 50,000 per call. "
+        f"Year 2021 alone is over the limit, so split_by_year cannot fetch it. {COUNTS_SENT} "
+        "Narrow the filters, for example by state_alpha, agg_level_desc or statisticcat_desc."
+    )
     assert counted.call_count == 1  # the year's count is the first count
     assert not fetched.called
 
@@ -1317,11 +1334,13 @@ def test_split_bounds_year_ge_alone_at_the_current_utc_year(
 
 def ceiling_message(first: int, last: int) -> str:
     """The refusal of ``year__GE`` alone over the ceiling, which the package words after
-    its count, so without core's ``Nothing was sent.``."""
+    its count, so without core's ``Nothing was sent.`` and with what was sent: the count of
+    the range, and no yearly count or fetch (conventions §4 and §5)."""
     return (
         f"split_by_year covers at most 20 years per call; the years run from {first} to "
-        f"{last}, {last - first + 1} years. Give a shorter range, e.g. year__GE={last - 19} "
-        f"with year__LE={last}."
+        f"{last}, {last - first + 1} years. The count of year__GE={first} was sent, and no "
+        f"year was counted or fetched. Give a shorter range, e.g. year__GE={last - 19} with "
+        f"year__LE={last}."
     )
 
 
