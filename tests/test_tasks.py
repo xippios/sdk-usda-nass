@@ -622,6 +622,37 @@ async def test_list_param_values_over_mcp_continues_by_offset_without_a_request(
     assert route.call_count == 1
 
 
+@pytest.mark.anyio
+async def test_a_cut_list_answer_names_its_offset_and_the_calls_after_it_return_the_rest(
+    replay_fixture: Callable[[str, str], respx.Route], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The recorded ``commodity_desc`` list, 467 values, through the package's paged cap
+    with its rows lowered to 200 for this test alone, since no recorded list passes the
+    cap's 1,000: the first call returns 200 values and a note that names the ``offset`` to
+    continue with, and the calls that follow return the rest, the client's cache answering
+    them (https://github.com/xippios/sdk-usda-nass/issues/55)."""
+    from xippios.core import ResultCap
+    from xippios.core.mcp import ToolSet, build_server
+
+    own = tasks.MCP_CAPS["list_param_values"]
+    lowered = ResultCap(max_rows=200, note=own.note, paged=own.paged)
+    monkeypatch.setattr(tasks, "MCP_CAPS", {"list_param_values": lowered})
+    hosted = build_server(ToolSet.from_tasks("usda-nass", tasks))
+    route = replay_fixture("get_param_values", "commodity_desc")
+    whole = tasks.list_param_values("commodity_desc").data
+    assert len(whole) == 467
+    pages = []
+    for offset in (0, 200, 400):
+        arguments: dict[str, object] = {"param": "commodity_desc", "offset": offset}
+        pages.append(await mcp_call(hosted, "usda_nass_list_param_values", arguments))
+    assert [len(page["data"]) for page in pages] == [200, 200, 67]
+    assert [value for page in pages for value in page["data"]] == whole
+    assert "offset=200" in pages[0]["note"]
+    assert "offset=400" in pages[1]["note"]
+    assert "offset=" not in pages[2].get("note", "")
+    assert route.call_count == 1
+
+
 def test_list_param_values_unknown_parameter_is_not_found(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
@@ -966,6 +997,41 @@ def test_get_data_splits_a_two_sided_year_range_by_year(
         sent = {"state_alpha": "IA", "year": str(year), "key": REDACTED}
         assert sent_query(routes[f"count_{year}"]) == sent
         assert sent_query(routes[f"fetch_{year}"]) == {**sent, "format": "JSON"}
+
+
+def test_a_split_whose_later_fetch_fails_returns_nothing_and_names_the_years_answered(
+    replay_fixture: ReplayFixture, respx_mock: respx.MockRouter
+) -> None:
+    """NOT RECORDED for 2024: ``api_get/no_match``, recorded for a query that matched
+    nothing, answers the Iowa fetch of 2024, the answer upstream gives alike for any query
+    without records (conventions §10, kind 3), so the second year's fetch fails after the
+    first returned its records. Core's ``fetch_periods`` raises the error, its class
+    ``NotFoundError`` kept, naming the years answered before it, and the call returns
+    nothing: the records of 2023 are not handed back on their own
+    (https://github.com/xippios/sdk-usda-nass/issues/56)."""
+    for year in IA_COUNTS:
+        replay_fixture("get_counts", f"ia_2023_2024_{year}", match_params=["year"])
+    replay_fixture("api_get", IA_CHUNKS[2023], match_params=["year"])
+    failed = replay_fixture(
+        "api_get",
+        "no_match",
+        url=f"{BASE_URL}/api_GET/?state_alpha=IA&year=2024",
+        match_params=["year"],
+    )
+    with pytest.raises(NotFoundError) as info:
+        tasks.get_data(IA_FILTERS, split_by_year=True)
+    assert str(info.value) == (
+        "no Quick Stats record matches these filters (upstream: bad request - invalid "
+        "query). The series stopped at 2024 after 1 period answered, 2023, and returns "
+        "nothing."
+    )
+    assert failed.call_count == 1
+    assert sent_in_order(respx_mock) == [
+        ("/api/get_counts/", "2023"),
+        ("/api/get_counts/", "2024"),
+        ("/api/api_GET/", "2023"),
+        ("/api/api_GET/", "2024"),
+    ]
 
 
 def test_split_of_year_ge_alone_keeps_the_first_count(
