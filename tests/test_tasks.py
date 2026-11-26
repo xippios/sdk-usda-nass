@@ -7,7 +7,7 @@ import argparse
 import json
 import re
 import sys
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -332,6 +332,7 @@ def test_get_data_parses_every_column(replay_fixture: Callable[[str, str], respx
     assert record.load_time == datetime(2015, 6, 3, 15, 8, 31)
     assert record.short_desc == "CORN - ACRES PLANTED"
     assert sent_query(fetched)["format"] == "JSON"
+    assert result.meta.notes == []  # an answer with records says nothing of a year without
 
 
 def test_get_data_refuses_before_fetching_when_over_the_limit(
@@ -357,6 +358,23 @@ def test_get_data_returns_empty_without_fetching_when_nothing_matches(
     result = tasks.get_data({"commodity_desc": "CORN", "year": 1800, "state_alpha": "VA"})
     assert result.data == []
     assert result.meta.total == 0
+    # One year without records says so in its note, since a year Quick Stats has not
+    # published counts 0 too and it names no release
+    # (https://github.com/xippios/sdk-usda-esr/issues/88).
+    assert result.meta.notes == [one_year_note(1800)]
+    assert not fetched.called
+
+
+def test_get_data_without_a_year_answers_no_records_without_a_note(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """A query that names no one ``year`` and counts 0 answers the empty list alone: the
+    note speaks of one year. ``get_counts/no_match`` answers the query, a count of 0 that
+    upstream gives alike to every query without records (conventions §10, kind 3)."""
+    replay_fixture("get_counts", "no_match")
+    fetched = replay_fixture("api_get", "no_match")
+    result = tasks.get_data({"commodity_desc": "CORN", "year__GE": 2030})
+    assert (result.data, result.meta.total, result.meta.notes) == ([], 0, [])
     assert not fetched.called
 
 
@@ -928,6 +946,25 @@ THROUGH_THE_LIMIT = (  # QueryTooLarge's hint for a whole query (conventions §8
 )
 
 
+def one_year_note(year: int) -> str:
+    """The note of ``get_data`` for one ``year`` that Quick Stats counted 0 for
+    (https://github.com/xippios/sdk-usda-esr/issues/88)."""
+    return (
+        f"Quick Stats counted no record for year {year}, the count it also gives a year not "
+        "yet published."
+    )
+
+
+def passed_over_note(years: Iterable[int]) -> str:
+    """The note of a split that passed over ``years``, each counted 0 (conventions §4)."""
+    named = [str(year) for year in years]
+    joined = named[0] if len(named) == 1 else f"{', '.join(named[:-1])} and {named[-1]}"
+    return (
+        f"split_by_year passed over {joined}, for which Quick Stats counted no record, the "
+        "count it also gives a year not yet published."
+    )
+
+
 def sent_in_order(router: respx.MockRouter) -> list[tuple[str, str | None]]:
     """``(path, year)`` of every request the router answered, oldest first.
 
@@ -1001,7 +1038,10 @@ def test_split_by_year_is_real_end_to_end(
         year: recorded_chunk(fixtures_dir, f"corn_price_received_ia_{year}")
         for year in PRICES_COUNTS
     }
-    assert len(result.data) == result.meta.total == sum(PRICES_COUNTS.values()) == 26
+    assert len(result.data) == sum(PRICES_COUNTS.values()) == 26
+    # Quick Stats counts no two-sided range whole, so the split sums no counts into total
+    # (conventions §4, sdk-core ADR-0060, decision 8), and no year was passed over.
+    assert (result.meta.total, result.meta.notes) == (None, [])
     assert result.data == chunks[2023] + chunks[2024]  # year order, each in upstream's order
     assert [row.year for row in result.data] == [2023] * 13 + [2024] * 13
     assert result.meta.endpoint == "api_GET"
@@ -1015,8 +1055,8 @@ def test_get_data_splits_a_two_sided_year_range_by_year(
     routes = mount_ia_split(replay_fixture)
     result = tasks.get_data(IA_FILTERS, split_by_year=True)
     chunks = {year: recorded_chunk(fixtures_dir, case) for year, case in IA_CHUNKS.items()}
-    # Upstream's yearly counts summed, never len(data): the chunks replay slices (§4).
-    assert result.meta.total == IA_COUNTS[2023] + IA_COUNTS[2024] == 21434
+    # No count of the range stands, and the yearly counts are not summed (conventions §4).
+    assert result.meta.total is None
     assert len(result.data) == len(chunks[2023]) + len(chunks[2024]) == 24
     assert [row.year for row in result.data] == [2023] * 13 + [2024] * 11
     keys = [(row.year, row.reference_period_desc, row.week_ending) for row in result.data]
@@ -1103,7 +1143,10 @@ def test_split_of_year_ge_alone_keeps_the_first_count(
     assert sent_later == [str(year) for year in years if year not in IA_COUNTS]
     assert (routes["fetch_2023"].call_count, routes["fetch_2024"].call_count) == (1, 1)
     assert [row.year for row in result.data] == [2023] * 13 + [2024] * 11
-    assert result.meta.total == sum(IA_COUNTS.values()) == 21434  # the years counted 0 add 0
+    # Quick Stats' own count of the open range, the first count, which the split kept; the
+    # years after 2024 counted 0 and are named in the note (conventions §4).
+    assert result.meta.total == 85535
+    assert result.meta.notes == [passed_over_note(year for year in years if year not in IA_COUNTS)]
     assert result.meta.request == {**IA_SINCE_FILTERS, "split_by_year": True}
 
 
@@ -1219,6 +1262,7 @@ def test_split_counts_a_year_past_the_current_one_without_refusing_it(
     }
     result = tasks.get_data(filters, split_by_year=True)
     assert (result.data, result.meta.total) == ([], 0)
+    assert result.meta.notes == [one_year_note(next_year)]
     assert result.meta.request == {**filters, "split_by_year": True}
     assert sent_query(counted) == {
         "commodity_desc": "CORN",
@@ -1328,7 +1372,8 @@ def test_split_bounds_year_ge_alone_at_the_current_utc_year(
     sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
     assert sent == [str(start), str(start + 1)]
     assert sent[-1] == str(datetime.now(UTC).year)
-    assert (result.data, result.meta.total) == ([], 0)
+    assert (result.data, result.meta.total) == ([], 85535)  # the first count, kept
+    assert result.meta.notes == [passed_over_note([start, start + 1])]
     assert not fetched.called
 
 
@@ -1437,7 +1482,8 @@ def test_split_accepts_twenty_years_of_a_two_sided_range(
     result = tasks.get_data(filters, split_by_year=True)
     sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
     assert sent == [str(year) for year in range(2001, 2021)]
-    assert (result.data, result.meta.total) == ([], 0)
+    assert (result.data, result.meta.total) == ([], None)
+    assert result.meta.notes == [passed_over_note(range(2001, 2021))]
     assert not fetched.called
 
 
@@ -1463,7 +1509,8 @@ def test_split_accepts_twenty_years_from_year_ge_on(
     sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
     assert sent == [str(year) for year in range(start, now + 1)]
     assert len(sent) == 20
-    assert (result.data, result.meta.total) == ([], 0)
+    assert (result.data, result.meta.total) == ([], 85535)
+    assert result.meta.notes == [passed_over_note(range(start, now + 1))]
     assert not fetched.called
 
 
@@ -1570,7 +1617,7 @@ async def test_split_by_year_over_mcp(replay_fixture: ReplayFixture) -> None:
         server, "usda_nass_get_data", {"filters": PRICES_FILTERS, "split_by_year": True}
     )
     assert [row["year"] for row in payload["data"]] == [2023] * 13 + [2024] * 13
-    assert payload["meta"]["total"] == 26
+    assert payload["meta"].get("total") is None
     assert payload["meta"]["request"] == {**PRICES_FILTERS, "split_by_year": True}
     assert "note" not in payload  # 26 rows, under the default cap
     text = await mcp_call_text(
@@ -1595,7 +1642,7 @@ def test_split_by_year_over_http(replay_fixture: ReplayFixture) -> None:
     assert response.status_code == 200
     body = response.json()
     assert [row["year"] for row in body["data"]] == [2023] * 13 + [2024] * 13
-    assert body["meta"]["total"] == 26
+    assert body["meta"].get("total") is None
     assert body["meta"]["request"] == {**PRICES_FILTERS, "split_by_year": True}
     refused = client.post(
         "/usda-nass/get_data", json={"filters": {"year__LE": 2021}, "split_by_year": True}
@@ -1757,7 +1804,8 @@ async def test_the_mcp_server_refuses_a_split_beyond_its_ceiling_before_any_call
         "usda_nass_get_data",
         {"filters": {**six, "year__GE": 2010}, "split_by_year": True},
     )
-    assert (payload["data"], payload["meta"]["total"]) == ([], 0)
+    assert (payload["data"], payload["meta"].get("total")) == ([], None)
+    assert payload["meta"]["notes"] == [passed_over_note(range(2010, 2021))]
     sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
     assert sent == [str(year) for year in range(2010, 2021)]
     assert not fetched.called
