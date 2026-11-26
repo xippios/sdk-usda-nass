@@ -1,10 +1,10 @@
 """Quick Stats failure modes with a distinct, documented meaning (conventions §5)."""
 
-from xippios.core import InvalidRequestError
+from xippios.core import QueryTooLarge as CoreQueryTooLarge
 
 from xippios.usda.nass._client import SOURCE
 
-__all__ = ["MCP_SPLIT_YEARS", "RECORD_LIMIT", "SPLIT_CEILING", "QueryTooLarge"]
+__all__ = ["MCP_SPLIT_YEARS", "NARROW", "RECORD_LIMIT", "SPLIT_CEILING", "QueryTooLarge"]
 
 RECORD_LIMIT = 50_000
 """Most records ``api_GET`` returns for one query (``docs/upstream/api.md``)."""
@@ -15,59 +15,68 @@ SPLIT_CEILING = 20
 A task that assembles a period series states its ceiling (conventions §4). A split of
 more years is refused before its first yearly count: a two-sided range before any call,
 ``year__GE`` alone after its first count; a range one call serves whole is not split. No
-ceiling goes above it (``tasks.set_split_ceiling``).
+ceiling goes above it (``tasks.SPLIT``, core's ``Ceiling``).
 """
 
-MCP_SPLIT_YEARS = 5
+MCP_SPLIT_YEARS = 11
 """The split ceiling the entry point ``xippios-usda-nass-mcp`` starts the MCP server with.
 
-Five years: at most 11 keyed calls for one tool call (a first count, then two calls a
-year), about 22 seconds at the client's pace of 30 a minute. Its ``--split-years`` sets
-another, from 1 to ``SPLIT_CEILING`` (``tasks.mcp_add_options``,
-``tasks.mcp_apply_options``).
+Eleven years, the most whose split stays within the about two dozen requests that one tool
+call may spend before the client's retries (conventions §8): two keyed requests a year, a
+count and the data, so 22 for a two-sided range and 23 for ``year__GE`` alone, whose range
+is counted first. Its ``--split-years`` sets another, from 1 to ``SPLIT_CEILING``
+(``tasks.mcp_add_options``, ``tasks.mcp_apply_options``).
 """
 
+NARROW = (
+    "Narrow the filters, for example by year, state_alpha, agg_level_desc or "
+    "statisticcat_desc, or call get_data with split_by_year=True (over MCP, the tool "
+    f"usda_nass_get_data) on a bounded year range of at most {SPLIT_CEILING} years in Python "
+    f"and over HTTP, {MCP_SPLIT_YEARS} by default on the MCP server (--split-years)."
+)
+"""What narrows a whole query over the limit, the sentences that end its refusal (§8)."""
 
-class QueryTooLarge(InvalidRequestError):
+
+class QueryTooLarge(CoreQueryTooLarge):
     """The query would return more than Quick Stats' 50,000-record maximum (HTTP 422).
 
-    Raised by ``get_data`` before fetching, from the count ``get_counts`` reports, for
-    the whole query or, with ``split_by_year``, for the one year that alone is over the
-    limit; and by the ``api_get`` wrapper when upstream answers HTTP 413
-    ``exceeds limit=50000``. The message for the whole query names the way through the
-    limit: narrower filters, or ``get_data`` with ``split_by_year=True`` on a bounded
-    year range of at most ``SPLIT_CEILING`` years in Python and over HTTP,
-    ``MCP_SPLIT_YEARS`` by default on the MCP server; the one for a year names narrower
-    filters only. The hint is static: it names the defaults, not a ceiling set for the
-    process.
+    Core's class, which words the message (sdk-core ADR-0053), kept as a subclass for
+    ``year``. Raised by ``get_data`` before fetching, from the count ``get_counts``
+    reports, for the whole query or, with ``split_by_year``, for the one year that alone
+    is over the limit; and by ``classify`` when upstream answers HTTP 413 ``exceeds
+    limit=50000``, naming the request it refused. The message for the whole query ends
+    with ``NARROW``, narrower filters or a split by year; the one for a year names
+    narrower filters only. The hint is static: it names the defaults, not a ceiling set
+    for the process.
+
+    Args:
+        count: Records the query, or the year, would return, e.g. ``85_535``; ``None``
+            for upstream's HTTP 413, which names no count.
+        year: The year that alone is over the limit, when ``split_by_year`` found one,
+            e.g. ``2021``; ``None`` otherwise.
+        request: The request upstream refused, as ``request_description(response)``
+            gives it, ``"GET /api/api_GET/"``, for the error ``classify`` maps; ``None``
+            for a refusal before the data request.
 
     Attributes:
-        count: Records the query, or the year, would return, when known.
-        limit: The upstream maximum.
-        year: The year that alone is over the limit, when ``split_by_year`` found one;
-            ``None`` otherwise.
+        count: As given.
+        limit: The upstream maximum, ``RECORD_LIMIT``.
+        narrow: The sentences that end the message.
+        year: As given.
+        request: As given.
     """
 
     def __init__(
-        self, count: int | None, *, limit: int = RECORD_LIMIT, year: int | None = None
+        self, count: int | None, *, year: int | None = None, request: str | None = None
     ) -> None:
-        size = f"{count:,} records" if count is not None else "more records than allowed"
-        if year is None:
-            message = (
-                f"query would return {size}; Quick Stats serves at most {limit:,} per call. "
-                "Narrow the filters, for example by year, state_alpha, agg_level_desc or "
-                "statisticcat_desc, or call get_data with split_by_year=True (over MCP, the "
-                f"tool usda_nass_get_data) on a bounded year range of at most {SPLIT_CEILING} "
-                f"years in Python and over HTTP, {MCP_SPLIT_YEARS} by default on the MCP "
-                "server (--split-years)."
+        narrow = (
+            NARROW
+            if year is None
+            else (
+                f"Year {year} alone is over the limit, so split_by_year cannot fetch it. "
+                "Narrow the filters, for example by state_alpha, agg_level_desc or "
+                "statisticcat_desc."
             )
-        else:
-            message = (
-                f"year {year} alone would return {size}; Quick Stats serves at most "
-                f"{limit:,} per call, so split_by_year cannot fetch it. Narrow the filters, "
-                "for example by state_alpha, agg_level_desc or statisticcat_desc."
-            )
-        super().__init__(message, source=SOURCE)
-        self.count = count
-        self.limit = limit
+        )
+        super().__init__(count, limit=RECORD_LIMIT, narrow=narrow, request=request, source=SOURCE)
         self.year = year

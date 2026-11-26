@@ -3,7 +3,7 @@
 Reference: ``docs/upstream/api.md``, resource 2. The payload is keyed by the parameter
 name: ``{"sector_desc": ["ANIMALS & PRODUCTS", "CROPS", ...]}``. An unknown parameter
 (HTTP 400 ``{"<param>": ["no value"]}``) is mapped in ``_client.classify``. The client
-keeps an answer for 24 hours (``_client.config.cache``), so the wrapper reads through
+keeps an answer for a day (``_client.config.cache``), so the wrapper reads through
 ``AsyncClient.get_answer``, which parses the payload before the cache stores it and says
 when the answer was retrieved: on a cache hit the time it was stored (sdk-core ADR-0037,
 decision 5; conventions §4 and §6).
