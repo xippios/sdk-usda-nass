@@ -459,6 +459,75 @@ def test_value_number_handles_suppression_codes() -> None:
     assert record.value_number is None
 
 
+@pytest.mark.parametrize(
+    ("printed", "number"),
+    [("(L)", None), ("(H)", None), ("", None), ("1.9", Decimal("1.9"))],
+)
+def test_cv_percent_keeps_its_text_beside_its_number(printed: str, number: Decimal | None) -> None:
+    """``EXAMPLE_RECORD`` with each ``CV (%)`` is an input of the test, not an answer from
+    Quick Stats. Quick Stats prints a coefficient of variation or a code such as ``(L)`` in
+    the column, so ``cv_percent`` keeps the text as printed and ``cv_percent_number`` stands
+    beside it, the number or ``None``, as ``value_number`` beside ``value`` (conventions §3;
+    sdk-core ADR-0060, decision 8; https://github.com/xippios/sdk-usda-nass/issues/36)."""
+    record = QuickStatsRecord.model_validate({**EXAMPLE_RECORD, "CV (%)": printed})
+    assert record.cv_percent == printed
+    assert record.cv_percent_number == number
+    dumped = record.model_dump(mode="json")
+    assert (dumped["cv_percent"], dumped["cv_percent_number"]) == (
+        printed,
+        None if number is None else float(number),
+    )
+
+
+CODE_LABELS = {
+    "state_alpha": "state_name",
+    "state_ansi": "state_name",
+    "state_fips_code": "state_name",
+    "asd_code": "asd_desc",
+    "county_ansi": "county_name",
+    "county_code": "county_name",
+    "watershed_code": "watershed_desc",
+    "country_code": "country_name",
+}
+"""Each code field of the record and the field beside it in which Quick Stats sends its
+name, as ``docs/upstream/param_define.md`` defines them."""
+
+
+def test_each_code_field_declares_the_label_beside_it() -> None:
+    """A record's code field names its codes by ``NamedBy``, here the field of the same
+    record in which Quick Stats sends the name, since the nine packaged lists hold values
+    that are their own names (conventions §4; sdk-core ADR-0067, decision 6). A code that
+    no field names, ``congr_district_code``, ``begin_code`` and ``end_code``, and the ZIP
+    code carry none."""
+    from xippios.core import NamedBy
+
+    marked = {
+        field: [mark.by for mark in info.metadata if isinstance(mark, NamedBy)]
+        for field, info in QuickStatsRecord.model_fields.items()
+    }
+    assert {field: by for field, by in marked.items() if by} == {
+        field: [label] for field, label in CODE_LABELS.items()
+    }
+
+
+def test_a_replayed_record_names_its_codes_beside_them(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """The recorded Virginia answer carries each code beside its name, so ``meta.names``
+    takes nothing for them, and ``cv_percent`` keeps the empty text that Quick Stats sent,
+    with ``cv_percent_number`` ``None`` beside it."""
+    # get_counts/corn_va_since_2012, recorded for EXAMPLE_FILTERS, answers the count of
+    # SMALL_FILTERS too, a count within the limit that upstream gives alike for the narrower
+    # query (conventions §10, kind 3).
+    replay_fixture("get_counts", "corn_va_since_2012")
+    replay_fixture("api_get", "corn_va_2012_area_planted")
+    result = tasks.get_data(SMALL_FILTERS)
+    record = result.data[0]
+    assert (record.state_alpha, record.state_ansi, record.state_name) == ("VA", "51", "VIRGINIA")
+    assert (record.cv_percent, record.cv_percent_number) == ("", None)
+    assert result.meta.names == {}
+
+
 EXAMPLE_RECORD = {
     "CV (%)": "", "Value": "1,234.5", "agg_level_desc": "STATE", "asd_code": "",
     "asd_desc": "", "begin_code": "00", "class_desc": "ALL CLASSES",
@@ -851,6 +920,7 @@ async def test_mcp_tool_call_end_to_end(replay_fixture: Callable[[str, str], res
         510000,
         None,
     )
+    assert (first["cv_percent"], first["cv_percent_number"]) == ("", None)
     assert payload["meta"]["published_at"] is None
     with pytest.raises(AssertionError, match=r"InvalidRequestError.*comodity_desc"):
         await mcp_call(server, "usda_nass_count_data", {"filters": {"comodity_desc": "CORN"}})
