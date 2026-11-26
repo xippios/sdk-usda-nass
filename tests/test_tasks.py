@@ -42,12 +42,12 @@ from xippios.core.testing import (
     sent_urls,
 )
 
-from xippios.usda.nass import api, enums, tasks
+from xippios.usda.nass import api, tasks
 from xippios.usda.nass._client import BASE_URL, config
 from xippios.usda.nass.errors import MCP_SPLIT_YEARS, SPLIT_CEILING, QueryTooLarge
 from xippios.usda.nass.mcp import run, server
 from xippios.usda.nass.models import ApiGetResponse, QuickStatsRecord
-from xippios.usda.nass.params import DERIVED_LISTS, PACKAGE, PACKAGED_PARAMS, columns
+from xippios.usda.nass.params import PACKAGE, PACKAGED_PARAMS, columns
 
 EXAMPLE_FILTERS: dict[str, str | int] = {
     "commodity_desc": "CORN",
@@ -121,58 +121,15 @@ def fetched_as_written(name: str) -> datetime:
     return when
 
 
-@pytest.mark.parametrize("param", PACKAGED_PARAMS)
-def test_enums_match_the_packaged_lists(param: str) -> None:
-    cls = getattr(enums, "".join(part.capitalize() for part in param.split("_")))
-    packaged = PackagedList.load(PACKAGE, param)
-    values = [record[param] for record in packaged.records]
-    assert [member.value for member in cls] == values
-    assert cls.__doc__ == f"Values of ``{param}`` (fetched {packaged.fetched:%Y-%m-%d})."
+def test_the_package_ships_no_enum_of_its_lists() -> None:
+    """A filter takes upstream's text, which ``validate_filters`` checks against the
+    packaged list without regard to case, so no enum of a list ships beside it: the
+    eleven generated in ``xippios.usda.nass.enums`` left in 0.4.0, since nothing in the
+    package read them once the slices left
+    (https://github.com/xippios/sdk-usda-nass/issues/89)."""
+    import importlib.util
 
-
-def test_enum_members_keep_upstream_values_and_the_hand_names() -> None:
-    """Derived names, and the ones the refresh script sets (``member_names``): every dollar
-    unit by the DOLLARS / PER rule, and the two spelled-out landlord domains."""
-    assert {"statisticcat_desc", "unit_desc", "domain_desc"} <= set(PACKAGED_PARAMS)
-    assert enums.StateAlpha.VA.value == "VA"
-    assert enums.SectorDesc.ANIMALS_AND_PRODUCTS.value == "ANIMALS & PRODUCTS"
-    assert enums.AggLevelDesc.REGION_MULTI_STATE.value == "REGION : MULTI-STATE"
-    assert enums.StatisticcatDesc.AREA_PLANTED.value == "AREA PLANTED"
-    assert enums.DomainDesc.TOTAL.value == "TOTAL"
-    assert enums.UnitDesc.ACRES.value == "ACRES"
-    assert enums.UnitDesc.DOLLARS.value == "$"
-    assert enums.UnitDesc.BU.value == "BU"
-    assert enums.UnitDesc.DOLLARS_PER_BU.value == "$ / BU"
-    assert enums.UnitDesc.LB_CHERRY_BASIS.value == "LB, CHERRY BASIS"
-    assert enums.UnitDesc.DOLLARS_PER_LB_CHERRY_BASIS.value == "$ / LB, CHERRY BASIS"
-    assert enums.UnitDesc.ACRE_FEET.value == "ACRE FEET"
-    assert enums.UnitDesc.DOLLARS_PER_ACRE.value == "$ / ACRE"
-    assert enums.UnitDesc.DOLLARS_PER_TON_DRY_BASIS.value == "$ / TON, DRY BASIS"
-    assert enums.UnitDesc.DOLLARS_PER_1_000_EGGS.value == "$ / 1,000 EGGS"
-    assert enums.UnitDesc.DOLLARS_CHERRY_BASIS.value == "$, CHERRY BASIS"
-    for member in enums.UnitDesc:
-        assert member.name.startswith("DOLLARS") == ("$" in member.value), member
-        assert member.name.startswith("DOLLARS_PER_") == member.value.startswith("$ / "), member
-    landlords = "LANDLORDS_NON_OPERATING_VALUE_OF_LAND_AND_BUILDINGS"
-    assert enums.DomainDesc[landlords].value == (
-        "LANDLORDS, NON-OPERATING, VALUE OF LAND & BUILDINGS"
-    )
-    assert enums.DomainDesc[f"{landlords}_SPELLED_OUT"].value == (
-        "LANDLORDS, NON-OPERATING, VALUE OF LAND AND BUILDINGS"
-    )
-    assert sum(member.name.endswith("_SPELLED_OUT") for member in enums.DomainDesc) == 2
-
-
-def test_enum_members_are_accepted_as_filter_values(
-    replay_fixture: Callable[[str, str], respx.Route],
-) -> None:
-    """A member passes the packaged-list check by its value."""
-    route = replay_fixture("get_counts", "corn_va_since_2012")
-    result = tasks.get_counts(
-        {"state_alpha": enums.StateAlpha.VA, "sector_desc": enums.SectorDesc.CROPS}
-    )
-    assert result.meta.request["state_alpha"] == "VA"
-    assert sent_query(route)["sector_desc"] == "CROPS"
+    assert importlib.util.find_spec("xippios.usda.nass.enums") is None
 
 
 @pytest.mark.anyio
@@ -580,27 +537,6 @@ def test_columns_cover_every_record_field() -> None:
         'The "WHEN" (or Time) dimension',
         "The Data Value",
     }
-
-
-def test_derived_enums_match_their_lists_and_provenance() -> None:
-    stages = PackagedList.load(PACKAGE, "progress_stages")
-    categories = PackagedList.load(PACKAGE, "condition_categories")
-    assert [m.value for m in enums.ProgressStage] == [r["unit_desc"] for r in stages.records]
-    assert [m.value for m in enums.ConditionCategory] == [
-        r["unit_desc"] for r in categories.records
-    ]
-    for derived in (stages, categories):
-        assert (derived.param, derived.endpoint) == ("unit_desc", "api_GET")
-    for name in DERIVED_LISTS:
-        assert PackagedList.load(PACKAGE, name).fetched == fetched_as_written(name)
-    assert stages.note is not None
-    assert "statisticcat_desc=PROGRESS" in stages.note
-    assert "agg_level_desc=NATIONAL" in stages.note
-    assert set(DERIVED_LISTS) == {"progress_stages", "condition_categories"}
-    assert enums.ProgressStage.PCT_PLANTED.value == "PCT PLANTED"
-    assert [m.value for m in enums.ConditionCategory] == [
-        "PCT EXCELLENT", "PCT FAIR", "PCT GOOD", "PCT POOR", "PCT VERY POOR",
-    ]  # fmt: skip
 
 
 def test_get_data_keeps_the_count_and_leaves_published_at_empty(

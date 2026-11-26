@@ -1,4 +1,4 @@
-"""``scripts/refresh_reference.py`` offline: its column table parser, its run and its render.
+"""``scripts/refresh_reference.py`` offline: its column table parser and its run.
 
 ``columns.csv`` is rebuilt from the HTML column table the snapshot keeps in
 ``docs/upstream/param_define.md`` (conventions §3). A run sends each request once, waits
@@ -11,8 +11,6 @@ replaced, or a route of respx answers.
 import csv
 import importlib.util
 import shutil
-import subprocess
-import sys
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -38,7 +36,6 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "refresh_reference.py"
 REFERENCE = ROOT / "src" / "xippios" / "usda" / "nass" / "reference"
 COLUMNS = REFERENCE / "columns.csv"
-ENUMS = ROOT / "src" / "xippios" / "usda" / "nass" / "enums.py"
 
 
 def load_script() -> ModuleType:
@@ -75,7 +72,6 @@ def test_refresh_stops_before_any_write_when_the_table_does_not_parse(
     monkeypatch.setattr(script, "PARAM_DEFINE", snapshot)
     monkeypatch.setattr(script, "sync", refused)
     monkeypatch.setattr(script, "write", refused)
-    monkeypatch.setattr(script, "render", refused)
     monkeypatch.setattr(script, "COLUMNS", tmp_path / "columns.csv")
     with pytest.raises(SystemExit, match="no HTML column table"):
         script.refresh()
@@ -97,8 +93,10 @@ def packaged_list(name: str, values: list[str]) -> PackagedList:
 
 @pytest.fixture
 def reference_copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """The packaged files copied under ``tmp_path``, the script pointed at them, and its
-    render replaced: a test reads what a run writes, and nothing in the package moves."""
+    """The packaged files copied under ``tmp_path``, and the script's ``REFERENCE`` and
+    ``COLUMNS`` pointed at the copy: a test reads what a run writes there, and nothing in
+    the package moves. A test that keeps a run from fetching replaces the fetchers
+    itself."""
     reference = tmp_path / "reference"
     shutil.copytree(REFERENCE, reference)
     monkeypatch.setattr(script, "REFERENCE", reference)
@@ -114,7 +112,7 @@ def test_refresh_fetches_every_list_before_it_writes_one(
     reference_copy: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A fetch that fails after others succeeded leaves every packaged file as it was, so
-    a failed run is run again whole, and enums.py is not rendered."""
+    a failed run is run again whole."""
     before = files(reference_copy)
     fetched: list[str] = []
 
@@ -124,11 +122,7 @@ def test_refresh_fetches_every_list_before_it_writes_one(
             raise UpstreamError("503 from upstream", status=503, body="", source="usda-nass")
         return packaged_list(param, ["A NEW VALUE"])
 
-    def rendered() -> None:
-        raise AssertionError("enums.py rendered after a failed fetch")
-
     monkeypatch.setattr(script, "fetch_param", fetch_param)
-    monkeypatch.setattr(script, "render", rendered)
     with pytest.raises(UpstreamError):
         script.refresh()
     assert fetched == list(PACKAGED_PARAMS[:3])
@@ -139,7 +133,7 @@ def test_refresh_writes_every_list_once_all_are_fetched(
     reference_copy: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The nine packaged parameters and the two derived lists, each written once every
-    fetch is done, then enums.py rendered and columns.csv rebuilt from the snapshot."""
+    fetch is done, then columns.csv rebuilt from the snapshot."""
     order: list[str] = []
 
     def fetch_param(param: str) -> PackagedList:
@@ -156,11 +150,10 @@ def test_refresh_writes_every_list_once_all_are_fetched(
     monkeypatch.setattr(script, "fetch_param", fetch_param)
     monkeypatch.setattr(script, "fetch_derived", fetch_derived)
     monkeypatch.setattr(script, "write", write)
-    monkeypatch.setattr(script, "render", lambda: order.append("render"))
     (reference_copy / "columns.csv").unlink()
     script.refresh()
     names = [*PACKAGED_PARAMS, *DERIVED_LISTS]
-    assert order == [*names, *(f"write {name}" for name in names), "render"]
+    assert order == [*names, *(f"write {name}" for name in names)]
     assert (reference_copy / "columns.csv").read_bytes() == COLUMNS.read_bytes()
 
 
@@ -199,29 +192,33 @@ def test_only_refuses_to_keep_a_list_that_is_not_packaged_before_any_request(
 def test_only_fetches_the_named_lists_and_keeps_every_other_file(
     reference_copy: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``--only state_alpha progress_stages`` writes those two files and renders
-    enums.py; the other packaged files and columns.csv keep their bytes."""
+    """``--only state_alpha progress_stages`` writes those two files alone; the other
+    packaged files and columns.csv keep their bytes."""
     before = files(reference_copy)
-    rendered: list[bool] = []
     monkeypatch.setattr(script, "fetch_param", lambda param: packaged_list(param, ["ZZ"]))
     monkeypatch.setattr(
         script, "fetch_derived", lambda name, filters, year: packaged_list(name, ["PCT ZZ"])
     )
-    monkeypatch.setattr(script, "render", lambda: rendered.append(True))
     script.refresh(["state_alpha", "progress_stages"])
     after = files(reference_copy)
     changed = {name for name in after if after[name] != before[name]}
     assert changed == {"state_alpha.json", "progress_stages.json"}
-    assert rendered == [True]
     assert PackagedList.model_validate_json(after["state_alpha.json"]).records == [
         {"state_alpha": "ZZ"}
     ]
 
 
-def test_only_and_render_only_exclude_each_other() -> None:
+def test_the_script_renders_no_module_and_takes_only(capsys: pytest.CaptureFixture[str]) -> None:
+    """The script writes the packaged lists and ``columns.csv`` alone: the package ships
+    no module of enums to render, so ``--render-only`` left with the render, and ``--only``
+    is the one option (https://github.com/xippios/sdk-usda-nass/issues/89)."""
     with pytest.raises(SystemExit) as info:
-        script.main(["--render-only", "--only", "state_alpha"])
-    assert info.value.code == 2
+        script.main(["--help"])
+    assert info.value.code == 0
+    usage = capsys.readouterr().out
+    assert "--only LIST [LIST ...]" in usage
+    assert "--render-only" not in usage
+    assert not hasattr(script, "render")
 
 
 @pytest.mark.anyio
@@ -310,26 +307,3 @@ async def test_metered_sends_a_list_not_answered_in_time_once_and_restores_the_c
     assert route.call_count == 1
     assert [timeout["read"] for timeout in sent] == [300.0]
     assert client.config is configured
-
-
-def test_render_writes_enums_py_as_committed() -> None:
-    """``--render-only``'s text, formatted as the script formats it, is ``enums.py`` byte
-    for byte: core's default names every class but the two the script names, the progress
-    stages and condition categories (https://github.com/xippios/sdk-core/issues/95). The
-    text goes through ruff on stdin with the repository's configuration; nothing is
-    written."""
-    text = script.module()
-    for command in (["format"], ["check", "--fix", "--quiet", "--exit-zero"]):
-        text = subprocess.run(
-            [sys.executable, "-m", "ruff", *command, "--stdin-filename", str(ENUMS), "-"],
-            input=text,
-            capture_output=True,
-            text=True,
-            cwd=ROOT,
-            check=True,
-        ).stdout
-    assert text == ENUMS.read_text(encoding="utf-8")
-    assert script.CLASS_NAMES == {
-        "progress_stages": "ProgressStage",
-        "condition_categories": "ConditionCategory",
-    }
