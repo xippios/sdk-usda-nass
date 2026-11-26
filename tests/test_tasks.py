@@ -56,11 +56,13 @@ EXAMPLE_FILTERS: dict[str, str | int] = {
 }
 
 
-def test_get_counts_replays_the_documented_example(
+def test_count_data_replays_the_documented_example(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
+    """``count_data`` sends upstream's ``get_counts`` and answers its count, ``meta.endpoint``
+    naming the operation as upstream does."""
     route = replay_fixture("get_counts", "corn_va_since_2012")
-    result = tasks.get_counts(EXAMPLE_FILTERS)
+    result = tasks.count_data(EXAMPLE_FILTERS)
     assert result.data == 22345
     assert result.meta.total == 22345
     assert result.meta.source == "usda-nass"
@@ -84,7 +86,7 @@ async def test_unknown_columns_are_ignored_upstream(
 
 def test_unknown_filter_keys_are_rejected_before_any_call(respx_mock: respx.MockRouter) -> None:
     with pytest.raises(InvalidRequestError) as info:
-        tasks.get_counts({"comodity_desc": "CORN", "year__GTE": 2012, "state_alpha": "XX"})
+        tasks.count_data({"comodity_desc": "CORN", "year__GTE": 2012, "state_alpha": "XX"})
     assert not isinstance(info.value, UnknownCode)  # the keys are checked before the values
     message = str(info.value)
     assert "'comodity_desc' is not a Quick Stats column" in message
@@ -106,7 +108,7 @@ def test_every_documented_operator_passes_validation(
     replay_fixture("get_counts", "corn_va_since_2012")
     for key in ["year__LE", "year__LT", "year__GT", "year__GE", "commodity_desc__LIKE",
                 "commodity_desc__NOT_LIKE", "state_alpha__NE", "Value"]:  # fmt: skip
-        assert tasks.get_counts({key: "x"}).data == 22345
+        assert tasks.count_data({key: "x"}).data == 22345
 
 
 def test_query_too_large_is_an_invalid_request_for_http_too() -> None:
@@ -167,13 +169,13 @@ def test_a_packaged_value_in_lower_case_passes_and_is_sent_as_given(
     the packaged-list check accepts ``va`` and sends it unchanged."""
     route = replay_fixture("get_counts", "corn_va_since_2012_lowercase")
     filters = {**EXAMPLE_FILTERS, "state_alpha": "va"}
-    result = tasks.get_counts(filters)
+    result = tasks.count_data(filters)
     assert (result.data, result.meta.total) == (22347, 22347)
     assert result.meta.request == filters
     assert sent_query(route)["state_alpha"] == "va"
 
 
-@pytest.mark.parametrize("task", [tasks.get_counts, tasks.get_data])
+@pytest.mark.parametrize("task", [tasks.count_data, tasks.get_data])
 def test_unknown_packaged_value_is_refused_before_any_call(
     respx_mock: respx.MockRouter, task: Callable[..., object]
 ) -> None:
@@ -230,7 +232,7 @@ def test_unknown_packaged_value_names_the_closest_known_ones(
     assert not respx_mock.calls
 
 
-@pytest.mark.parametrize("task", [tasks.get_counts, tasks.get_data])
+@pytest.mark.parametrize("task", [tasks.count_data, tasks.get_data])
 def test_an_integer_for_a_packaged_list_of_text_is_refused_before_any_call(
     respx_mock: respx.MockRouter, task: Callable[..., object]
 ) -> None:
@@ -259,7 +261,7 @@ def test_each_packaged_list_is_declared_once_with_cores_check() -> None:
 def test_every_packaged_parameter_is_checked(respx_mock: respx.MockRouter) -> None:
     for param in PACKAGED_PARAMS:
         with pytest.raises(UnknownCode) as info:
-            tasks.get_counts({param: "NOT A VALUE"})
+            tasks.count_data({param: "NOT A VALUE"})
         assert (info.value.param, info.value.fetched) == (param, fetched_as_written(param))
     assert not respx_mock.calls
 
@@ -271,7 +273,7 @@ def test_operator_keys_of_packaged_parameters_are_sent_as_given(
     # keys: the test asserts only what was sent and the empty count
     # (conventions §10, kind 3).
     route = replay_fixture("get_counts", "no_match")
-    result = tasks.get_counts({"state_alpha__LIKE": "X", "sector_desc__NE": "NOT A SECTOR"})
+    result = tasks.count_data({"state_alpha__LIKE": "X", "sector_desc__NE": "NOT A SECTOR"})
     assert route.called
     # (0, 0) is the no_match fixture's count, recorded for year=1800, not for this query.
     assert (result.data, result.meta.total) == (0, 0)
@@ -299,7 +301,7 @@ def test_get_data_parses_every_column(replay_fixture: Callable[[str, str], respx
     assert result.meta.endpoint == "api_GET"
     assert result.meta.request == SMALL_FILTERS
     assert len(result.data) == 2
-    # The count get_counts reported, as recorded for EXAMPLE_FILTERS: upstream's statement,
+    # The count count_data reported, as recorded for EXAMPLE_FILTERS: upstream's statement,
     # never len(data) (conventions §4, sdk-core ADR-0034).
     assert result.meta.total == 22345
     record = result.data[0]
@@ -403,7 +405,7 @@ def test_a_task_is_retrieved_at_the_oldest_of_its_answers(
     replay_fixture("get_counts", "corn_va_since_2012")
     replay_fixture("api_get", "corn_va_2012_area_planted")
     before = datetime.now(UTC)
-    counted = tasks.get_counts(EXAMPLE_FILTERS)
+    counted = tasks.count_data(EXAMPLE_FILTERS)
     between = datetime.now(UTC)
     result = tasks.get_data(SMALL_FILTERS)
     after = datetime.now(UTC)
@@ -538,8 +540,8 @@ def test_a_live_list_that_does_not_parse_is_not_cached(
 
 def test_counts_are_never_cached(replay_fixture: Callable[[str, str], respx.Route]) -> None:
     route = replay_fixture("get_counts", "corn_va_since_2012")
-    first = tasks.get_counts(EXAMPLE_FILTERS)
-    second = tasks.get_counts(EXAMPLE_FILTERS)
+    first = tasks.count_data(EXAMPLE_FILTERS)
+    second = tasks.count_data(EXAMPLE_FILTERS)
     assert route.call_count == 2
     assert (first.data, second.data) == (22345, 22345)
     assert isinstance(config.cache, MemoryCache)
@@ -760,7 +762,7 @@ async def test_mcp_tool_call_end_to_end(replay_fixture: Callable[[str, str], res
     )
     assert payload["meta"]["published_at"] is None
     with pytest.raises(AssertionError, match=r"InvalidRequestError.*comodity_desc"):
-        await mcp_call(server, "usda_nass_get_counts", {"filters": {"comodity_desc": "CORN"}})
+        await mcp_call(server, "usda_nass_count_data", {"filters": {"comodity_desc": "CORN"}})
     text = await mcp_call_text(server, "usda_nass_get_data", {"filters": {"state_alpha": "XX"}})
     assert text.startswith(
         "error: UnknownCode: 'XX' is not a state_alpha in the packaged state_alpha list"
@@ -790,10 +792,10 @@ def test_http_route_end_to_end(replay_fixture: Callable[[str, str], respx.Route]
     listed = client.get("/usda-nass/list_param_values", params={"param": "sector_desc"})
     assert listed.status_code == 200, listed.text
     assert "CROPS" in listed.json()["data"]
-    rejected = client.post("/usda-nass/get_counts", json={"filters": {"comodity_desc": "CORN"}})
+    rejected = client.post("/usda-nass/count_data", json={"filters": {"comodity_desc": "CORN"}})
     assert rejected.status_code == 422
     assert rejected.json()["title"] == "InvalidRequestError"
-    unknown = client.post("/usda-nass/get_counts", json={"filters": {"state_alpha": "XX"}})
+    unknown = client.post("/usda-nass/count_data", json={"filters": {"state_alpha": "XX"}})
     assert unknown.status_code == 422
     assert unknown.json()["title"] == "UnknownCode"
     assert "packaged state_alpha list" in unknown.json()["detail"]
@@ -827,7 +829,7 @@ async def test_the_package_serves_its_three_tasks_and_no_slice_of_them() -> None
     from xippios.usda.nass import models
     from xippios.usda.nass.http import router
 
-    assert tasks.__all__ == ["get_counts", "get_data", "list_param_values"]
+    assert tasks.__all__ == ["count_data", "get_data", "list_param_values"]
     assert package.__all__ == ["__version__", *tasks.__all__]
     defined = {name.removesuffix("_async") for name in dir(tasks) if name.endswith("_async")}
     assert defined == set(tasks.__all__)
@@ -843,6 +845,20 @@ async def test_the_package_serves_its_three_tasks_and_no_slice_of_them() -> None
     }
     assert classes == {"ApiGetResponse", "GetCountsResponse", "QuickStatsRecord", "_Published"}
     assert models.__all__ == ["ApiGetResponse", "Filters", "GetCountsResponse", "QuickStatsRecord"]
+
+
+def test_the_count_task_is_count_data_with_no_alias() -> None:
+    """The task of upstream's count operation takes the verb ``count_``, ``count_data``,
+    and ``get_counts`` stands neither as a task nor as an alias of it (conventions §1,
+    sdk-core ADR-0061, decision 3, by the maintainer's decision of 2026-11-26). The wrapper
+    ``api.get_counts`` keeps upstream's name of the operation."""
+    import xippios.usda.nass as package
+
+    for module in (tasks, package):
+        assert not hasattr(module, "get_counts")
+        assert not hasattr(module, "get_counts_async")
+    assert package.count_data is tasks.count_data
+    assert api.get_counts.__name__ == "get_counts"
 
 
 @pytest.mark.usefixtures("restore_split_ceiling")
