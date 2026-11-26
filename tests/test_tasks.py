@@ -534,8 +534,7 @@ def test_a_list_fetched_live_is_cached_and_carries_its_stored_time(
     the hit report one time (https://github.com/xippios/sdk-core/issues/79).
     """
     assert isinstance(config.cache, MemoryCache)
-    # One prefix, the list lookups', kept for a day; no other path is kept (sdk-core ADR-0040).
-    assert config.cache.lifetimes == {"/api/get_param_values/": 24 * 60 * 60}
+    assert config.cache.lifetimes == LIFETIMES
     route = replay_fixture("get_param_values", "commodity_desc")
     before = datetime.now(UTC)
     first = tasks.list_param_values("commodity_desc")
@@ -574,29 +573,85 @@ def test_a_live_list_that_does_not_parse_is_not_cached(
     assert len(config.cache) == 0
 
 
-def test_counts_are_never_cached(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    route = replay_fixture("get_counts", "corn_va_since_2012")
-    first = tasks.count_data(EXAMPLE_FILTERS)
-    second = tasks.count_data(EXAMPLE_FILTERS)
-    assert route.call_count == 2
-    assert (first.data, second.data) == (22345, 22345)
+LIFETIMES = {
+    "/api/get_param_values/": 24 * 60 * 60,
+    "/api/get_counts/": 300,
+    "/api/api_GET/": 300,
+}
+"""The client's cache: a list for a day, a count and the data for 300 seconds, by path
+prefix (conventions §6; sdk-core ADR-0061, decision 11), by the maintainer's decision of
+2026-11-26."""
+
+
+def stored_count_at(filters: dict[str, str | int]) -> datetime:
+    """When the client's cache stored the ``get_counts`` answer for ``filters``."""
+    assert config.cache is not None
+    url = httpx.URL(f"{BASE_URL}/get_counts/", params=filters)
+    entry = config.cache.get(cache_key("GET", url))
+    assert entry is not None
+    return datetime.fromtimestamp(entry.stored_at, UTC)
+
+
+def test_the_client_keeps_the_lists_a_day_and_counts_and_data_300_seconds() -> None:
+    """Quick Stats serves public data to a read-only client, so its answers go through
+    core's response cache: the lists for a day, the counts and the data for 300 seconds.
+    A body over ``cache_max_bytes``, 8 MiB, passes unstored, and a year of data can run past
+    it, which is why ``get_data`` takes no paged cap (sdk-core ADR-0061, decision 9)."""
     assert isinstance(config.cache, MemoryCache)
-    assert len(config.cache) == 0
+    assert config.cache.lifetimes == LIFETIMES
+    assert config.cache_max_bytes == 8 * 1024 * 1024
+    assert "get_data" not in tasks.MCP_CAPS or not tasks.MCP_CAPS["get_data"].paged
 
 
-def test_data_is_never_cached(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+def test_a_repeated_count_within_its_lifetime_sends_nothing(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """The second count is the cache's answer and carries the time the first was stored
+    (sdk-core ADR-0037, decision 5)."""
+    route = replay_fixture("get_counts", "corn_va_since_2012")
+    before = datetime.now(UTC)
+    first = tasks.count_data(EXAMPLE_FILTERS)
+    after = datetime.now(UTC)
+    second = tasks.count_data(EXAMPLE_FILTERS)
+    assert route.call_count == 1
+    assert (first.data, second.data) == (22345, 22345)
+    stored = stored_count_at(EXAMPLE_FILTERS)
+    assert second.meta.retrieved_at == stored == first.meta.retrieved_at
+    assert_time_between(stored, before, after)
+
+
+def test_a_repeated_query_within_its_lifetime_sends_nothing(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """A count that ``count_data`` sent answers the count of ``get_data`` with the same
+    filters, and a second ``get_data`` sends neither its count nor its data."""
     # get_counts/corn_va_since_2012, recorded for EXAMPLE_FILTERS, answers the count of
     # SMALL_FILTERS too, a count within the limit that upstream gives alike for the narrower
     # query (conventions §10, kind 3).
     counted = replay_fixture("get_counts", "corn_va_since_2012")
     fetched = replay_fixture("api_get", "corn_va_2012_area_planted")
+    tasks.count_data(SMALL_FILTERS)
     first = tasks.get_data(SMALL_FILTERS)
     second = tasks.get_data(SMALL_FILTERS)
-    assert fetched.call_count == 2
-    assert counted.call_count == 2
-    assert len(second.data) == len(first.data) == 2
+    assert (counted.call_count, fetched.call_count) == (1, 1)
+    assert second.data == first.data
+    assert len(second.data) == 2
+    assert second.meta == first.meta
     assert isinstance(config.cache, MemoryCache)
-    assert len(config.cache) == 0
+    assert len(config.cache) == 2
+
+
+def test_a_repeated_split_within_its_lifetime_sends_nothing(
+    replay_fixture: ReplayFixture,
+) -> None:
+    """Every yearly count and every year's data of a split is kept, so the same split
+    again is answered whole from the cache."""
+    routes = mount_real_split(replay_fixture)
+    first = tasks.get_data(PRICES_FILTERS, split_by_year=True)
+    second = tasks.get_data(PRICES_FILTERS, split_by_year=True)
+    assert [route.call_count for route in routes.values()] == [1, 1, 1, 1]
+    assert second.data == first.data
+    assert len(second.data) == 26
 
 
 @pytest.mark.anyio
