@@ -20,7 +20,7 @@ operators. A documented choice that a caller cannot make stands here with its pu
   (https://github.com/xippios/sdk-usda-nass/issues/65).
 - The Data Set Download files, which the documentation names as the way past 50,000 records
   beside narrower filters: the package reads no file, and refuses a query over the limit
-  with the filters that narrow it or splits it by year
+  with the filters that narrow it and the split by year that serves a range
   (https://github.com/xippios/sdk-usda-nass/issues/66).
 
 What the package adds is the count before a query, the check of each filter against the
