@@ -507,6 +507,24 @@ def test_packaged_parameters_are_answered_without_a_network_call(
     assert not respx_mock.calls
 
 
+def test_the_package_ships_the_nine_lists_and_the_column_table() -> None:
+    """``reference/`` holds a file for each of the nine parameters that upstream lists by
+    ``get_param_values``, ``columns.csv`` and its README, and no list of the package's own
+    (https://github.com/xippios/sdk-core/issues/474): the progress stages and condition
+    categories, which it derived from one year of data, left in 0.4.0, and the packaged
+    ``unit_desc`` holds each of their 21 values."""
+    from importlib.resources import files
+
+    from xippios.usda.nass import params
+
+    shipped = sorted(entry.name for entry in files(PACKAGE).joinpath("reference").iterdir())
+    lists = [f"{param}.json" for param in PACKAGED_PARAMS]
+    assert shipped == sorted(["README.md", "columns.csv", *lists])
+    assert not hasattr(params, "DERIVED_LISTS")
+    units = set(tasks.list_param_values("unit_desc").data)
+    assert {"PCT PLANTED", "PCT HARVESTED", "PCT EXCELLENT", "PCT VERY POOR"} <= units
+
+
 def test_packaged_answers_hold_known_values(respx_mock: respx.MockRouter) -> None:
     assert "CROPS" in tasks.list_param_values("sector_desc").data
     assert "VA" in tasks.list_param_values("state_alpha").data

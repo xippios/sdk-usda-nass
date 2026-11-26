@@ -30,7 +30,7 @@ from xippios.core.testing import ReplayFixture
 
 from xippios.usda.nass import api
 from xippios.usda.nass._client import BASE_URL, client
-from xippios.usda.nass.params import DERIVED_LISTS, PACKAGED_PARAMS
+from xippios.usda.nass.params import PACKAGED_PARAMS
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "refresh_reference.py"
@@ -84,10 +84,10 @@ def test_refresh_stops_before_any_write_when_the_table_does_not_parse(
 def packaged_list(name: str, values: list[str]) -> PackagedList:
     """A list as a fetch returns it, for the tests that replace the fetchers."""
     return PackagedList(
-        param="unit_desc" if name in DERIVED_LISTS else name,
-        endpoint="api_GET" if name in DERIVED_LISTS else "get_param_values",
+        param=name,
+        endpoint="get_param_values",
         fetched=datetime(2026, 11, 20, 9, 0, 0, tzinfo=UTC),
-        records=[{"unit_desc" if name in DERIVED_LISTS else name: value} for value in values],
+        records=[{name: value} for value in values],
     )
 
 
@@ -132,28 +132,24 @@ def test_refresh_fetches_every_list_before_it_writes_one(
 def test_refresh_writes_every_list_once_all_are_fetched(
     reference_copy: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The nine packaged parameters and the two derived lists, each written once every
-    fetch is done, then columns.csv rebuilt from the snapshot."""
+    """The nine packaged parameters, each fetched by one ``get_param_values`` and written
+    once every fetch is done, then columns.csv rebuilt from the snapshot: a full run sends
+    9 requests, and no list of the package's own derivation is fetched."""
     order: list[str] = []
 
     def fetch_param(param: str) -> PackagedList:
         order.append(param)
         return packaged_list(param, ["X"])
 
-    def fetch_derived(name: str, filters: object, year: int) -> PackagedList:
-        order.append(name)
-        return packaged_list(name, ["PCT X"])
-
     def write(name: str, packaged: PackagedList) -> None:
         order.append(f"write {name}")
 
     monkeypatch.setattr(script, "fetch_param", fetch_param)
-    monkeypatch.setattr(script, "fetch_derived", fetch_derived)
     monkeypatch.setattr(script, "write", write)
     (reference_copy / "columns.csv").unlink()
     script.refresh()
-    names = [*PACKAGED_PARAMS, *DERIVED_LISTS]
-    assert order == [*names, *(f"write {name}" for name in names)]
+    assert order == [*PACKAGED_PARAMS, *(f"write {name}" for name in PACKAGED_PARAMS)]
+    assert len(PACKAGED_PARAMS) == 9
     assert (reference_copy / "columns.csv").read_bytes() == COLUMNS.read_bytes()
 
 
@@ -164,9 +160,10 @@ def test_only_refuses_a_list_it_does_not_package_before_any_request(
         raise AssertionError("a request sent before --only was checked")
 
     monkeypatch.setattr(script, "fetch_param", refused)
-    monkeypatch.setattr(script, "fetch_derived", refused)
-    with pytest.raises(SystemExit, match="--only: no list state_alfa, commodity_desc in "):
-        script.refresh(["state_alfa", "unit_desc", "commodity_desc"])
+    with pytest.raises(
+        SystemExit, match="--only: no list state_alfa, commodity_desc, progress_stages in "
+    ):
+        script.refresh(["state_alfa", "unit_desc", "commodity_desc", "progress_stages"])
 
 
 def test_only_refuses_to_keep_a_list_that_is_not_packaged_before_any_request(
@@ -174,8 +171,8 @@ def test_only_refuses_to_keep_a_list_that_is_not_packaged_before_any_request(
 ) -> None:
     """``--only`` keeps every other list's file, so each must be packaged: with
     ``sector_desc.json`` absent, ``--only state_alpha`` stops before its keyed request and
-    writes nothing, where it fetched, wrote ``state_alpha.json`` and then stopped in the
-    render (finding 3 of the review of https://github.com/xippios/sdk-usda-nass/pull/72)."""
+    writes nothing, where it once fetched and wrote ``state_alpha.json`` before it stopped
+    (finding 3 of the review of https://github.com/xippios/sdk-usda-nass/pull/72)."""
     (reference_copy / "sector_desc.json").unlink()
     before = files(reference_copy)
 
@@ -183,7 +180,6 @@ def test_only_refuses_to_keep_a_list_that_is_not_packaged_before_any_request(
         raise AssertionError("a request sent before the kept lists were checked")
 
     monkeypatch.setattr(script, "fetch_param", refused)
-    monkeypatch.setattr(script, "fetch_derived", refused)
     with pytest.raises(SystemExit, match=r"^sector_desc is not packaged yet: run without --only$"):
         script.refresh(["state_alpha"])
     assert files(reference_copy) == before
@@ -192,17 +188,14 @@ def test_only_refuses_to_keep_a_list_that_is_not_packaged_before_any_request(
 def test_only_fetches_the_named_lists_and_keeps_every_other_file(
     reference_copy: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``--only state_alpha progress_stages`` writes those two files alone; the other
-    packaged files and columns.csv keep their bytes."""
+    """``--only state_alpha unit_desc`` writes those two files alone; the other packaged
+    files and columns.csv keep their bytes."""
     before = files(reference_copy)
     monkeypatch.setattr(script, "fetch_param", lambda param: packaged_list(param, ["ZZ"]))
-    monkeypatch.setattr(
-        script, "fetch_derived", lambda name, filters, year: packaged_list(name, ["PCT ZZ"])
-    )
-    script.refresh(["state_alpha", "progress_stages"])
+    script.refresh(["state_alpha", "unit_desc"])
     after = files(reference_copy)
     changed = {name for name in after if after[name] != before[name]}
-    assert changed == {"state_alpha.json", "progress_stages.json"}
+    assert changed == {"state_alpha.json", "unit_desc.json"}
     assert PackagedList.model_validate_json(after["state_alpha.json"]).records == [
         {"state_alpha": "ZZ"}
     ]
