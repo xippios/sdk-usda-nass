@@ -25,7 +25,6 @@ from xippios.usda.nass._client import SOURCE
 from xippios.usda.nass.models import Filters
 
 __all__ = [
-    "DERIVED_LISTS",
     "OPERATORS",
     "PACKAGED_PARAMS",
     "Column",
@@ -50,18 +49,6 @@ PACKAGED_PARAMS: tuple[str, ...] = (
     "domain_desc",
 )
 """Parameters whose value lists ship inside the package."""
-
-DERIVED_LISTS: dict[str, dict[str, str | int]] = {
-    "progress_stages": {"statisticcat_desc": "PROGRESS", "agg_level_desc": "NATIONAL"},
-    "condition_categories": {"statisticcat_desc": "CONDITION", "agg_level_desc": "NATIONAL"},
-}
-"""Lists of ``unit_desc`` values derived from one year of national weekly data.
-
-Quick Stats has no endpoint for "the stages a progress series uses", so the refresh
-script fetches the national PROGRESS and CONDITION rows of the previous year and keeps
-the distinct ``unit_desc`` values; the file, ``reference/<name>.json`` with ``param``
-``unit_desc``, records the query it came from in its ``note``.
-"""
 
 
 class Column(UpstreamModel):

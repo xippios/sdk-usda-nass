@@ -4,9 +4,7 @@ Writes ``src/xippios/usda/nass/reference/<param>.json`` for every packaged param
 list through the layer-1 wrapper (never the task, which would answer from the package),
 with ``PackagedList.write``: the parameter, the upstream operation, the UTC time of the
 fetch to the second and the values as records of one field named by the parameter
-(conventions §3). The derived lists, progress stages and condition categories, come from
-one national year of weekly ``api_GET`` rows, the query they come from kept as the file's
-``note``. ``columns.csv`` is rebuilt from the column table in
+(conventions §3). ``columns.csv`` is rebuilt from the column table in
 ``docs/upstream/param_define.md``, which the snapshot keeps as HTML (conventions §3). The
 table is parsed before any request, and every list is fetched before the first file is
 written, so a snapshot the parser cannot read, or a fetch that fails, leaves every
@@ -18,9 +16,9 @@ in the environment, the API key, since every Quick Stats endpoint takes it::
 The package's client sends each request once, ``RetryPolicy(max_attempts=1)``, so a 5xx
 or a 429 spends no second keyed call: a run that fails writes nothing and is run again.
 After the fetches it prints the requests it sent, a failed run's too; Quick Stats reports
-no quota left (``QUOTA_HEADER``). A full run sends 11: one ``get_param_values`` per
-packaged parameter and one ``api_GET`` per derived list. ``--only <list> [<list> ...]``
-fetches the named lists of ``LISTS`` alone, writes their files and keeps every other
+no quota left (``QUOTA_HEADER``). A full run sends 9: one ``get_param_values`` per
+packaged parameter. ``--only <list> [<list> ...]`` fetches the named lists of
+``PACKAGED_PARAMS`` alone, writes their files and keeps every other
 file as it is, ``columns.csv`` among them, as a change that packages a new list does;
 since the package reads every list, each list it keeps must be packaged already, which
 is checked before the first request.
@@ -30,10 +28,9 @@ import argparse
 import csv
 import io
 import re
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import replace
-from datetime import UTC, datetime
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -42,7 +39,7 @@ from xippios.core import AsyncClient, PackagedList, RetryPolicy, sync
 
 from xippios.usda.nass import api
 from xippios.usda.nass._client import client
-from xippios.usda.nass.params import DERIVED_LISTS, PACKAGED_PARAMS
+from xippios.usda.nass.params import PACKAGED_PARAMS
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_DIR = ROOT / "src/xippios/usda/nass"
@@ -51,8 +48,6 @@ PARAM_DEFINE = ROOT / "docs/upstream/param_define.md"
 
 COLUMNS = REFERENCE / "columns.csv"
 
-LISTS: tuple[str, ...] = (*PACKAGED_PARAMS, *DERIVED_LISTS)
-"""Every list the run fetches and writes, in its order: the names ``--only`` takes."""
 
 QUOTA_HEADER: str | None = None
 """The response header in which upstream reports the requests left in its quota: none,
@@ -222,12 +217,6 @@ def write(name: str, packaged: PackagedList) -> None:
     print(f"{path.name}: {len(packaged.records)} values from {packaged.endpoint}")  # noqa: T201
 
 
-def note(query: Mapping[str, str | int]) -> str:
-    """A derived list's ``note``: the ``api_GET`` query its ``unit_desc`` values come from."""
-    filters = ", ".join(f"{key}={value}" for key, value in query.items())
-    return f"distinct unit_desc of api_GET with {filters}"
-
-
 def fetch_param(param: str) -> PackagedList:
     """A packaged parameter's values, fetched by one ``get_param_values`` call."""
     answer = sync(api.get_param_values)(param)
@@ -236,20 +225,6 @@ def fetch_param(param: str) -> PackagedList:
         endpoint="get_param_values",
         fetched=answer.retrieved_at,
         records=[{param: value} for value in answer.payload],
-    )
-
-
-def fetch_derived(name: str, filters: Mapping[str, str | int], year: int) -> PackagedList:
-    """Distinct ``unit_desc`` values of one national year of weekly rows, one ``api_GET``."""
-    query: dict[str, str | int] = {**filters, "freq_desc": "WEEKLY", "year": year}
-    rows = sync(api.api_get)(query).data
-    print(f"{name}: {len(rows)} rows")  # noqa: T201
-    return PackagedList(
-        param="unit_desc",
-        endpoint="api_GET",
-        fetched=datetime.now(UTC),
-        note=note(query),
-        records=[{"unit_desc": value} for value in sorted({row.unit_desc for row in rows})],
     )
 
 
@@ -263,22 +238,14 @@ def refresh(only: Sequence[str] = ()) -> None:
     list is fetched before the first file is written, each request sent once and counted.
     """
     columns = columns_csv(columns_from_snapshot())
-    if unknown := [name for name in only if name not in LISTS]:
-        raise SystemExit(f"--only: no list {', '.join(unknown)} in {', '.join(LISTS)}")
-    chosen = set(only or LISTS)
-    kept = [name for name in LISTS if name not in chosen]
+    if unknown := [name for name in only if name not in PACKAGED_PARAMS]:
+        raise SystemExit(f"--only: no list {', '.join(unknown)} in {', '.join(PACKAGED_PARAMS)}")
+    chosen = set(only or PACKAGED_PARAMS)
+    kept = [name for name in PACKAGED_PARAMS if name not in chosen]
     if missing := [name for name in kept if not (REFERENCE / f"{name}.json").is_file()]:
         raise SystemExit(f"{', '.join(missing)} is not packaged yet: run without --only")
-    year = datetime.now(UTC).year - 1
     with metered(client):
-        lists = [
-            *((param, fetch_param(param)) for param in PACKAGED_PARAMS if param in chosen),
-            *(
-                (name, fetch_derived(name, filters, year))
-                for name, filters in DERIVED_LISTS.items()
-                if name in chosen
-            ),
-        ]
+        lists = [(param, fetch_param(param)) for param in PACKAGED_PARAMS if param in chosen]
     for name, packaged in lists:
         write(name, packaged)
     if not only:

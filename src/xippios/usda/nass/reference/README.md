@@ -12,10 +12,9 @@ states = PackagedList.load(PACKAGE, "state_alpha")
 [c.column for c in columns()]  # every Quick Stats column, from param_define.md
 ```
 
-Each `reference/<name>.json` holds `{"param", "endpoint", "fetched", "records"}` and an
-optional `"note"`: upstream's records under upstream's field names, a value list as records
-of one field named by its Quick Stats parameter (`unit_desc` for the two derived lists),
-written by `/refresh-reference-data`'s script with `PackagedList.write`, never by hand, and
+Each `reference/<name>.json` holds `{"param", "endpoint", "fetched", "records"}`:
+upstream's records under upstream's field names, a value list as records of one field named
+by its Quick Stats parameter, written by `/refresh-reference-data`'s script with `PackagedList.write`, never by hand, and
 read with `PackagedList.load`; `columns.csv` is the column table of
 `docs/upstream/param_define.md`, rebuilt by the same script. One row per file: Origin is the
 endpoint or URL it was fetched from, or the `docs/upstream/` file it was rebuilt from;
@@ -32,9 +31,4 @@ Fetched is the UTC time of that fetch, or the snapshot's `Fetched` time for a re
 | `statisticcat_desc.json` | `GET /api/get_param_values?param=statisticcat_desc` | 2026-10-28T21:38:14Z |
 | `unit_desc.json` | `GET /api/get_param_values?param=unit_desc` | 2026-10-28T21:38:16Z |
 | `domain_desc.json` | `GET /api/get_param_values?param=domain_desc` | 2026-10-28T21:38:18Z |
-| `progress_stages.json` | distinct `unit_desc` of `GET /api/api_GET` with statisticcat_desc=PROGRESS, agg_level_desc=NATIONAL, freq_desc=WEEKLY, year=2025 | 2026-10-28T21:38:21Z |
-| `condition_categories.json` | distinct `unit_desc` of `GET /api/api_GET` with statisticcat_desc=CONDITION, agg_level_desc=NATIONAL, freq_desc=WEEKLY, year=2025 | 2026-10-28T21:38:24Z |
 | `columns.csv` | `docs/upstream/param_define.md` (snapshot of https://quickstats.nass.usda.gov/param_define) | 2026-10-28T13:44:34Z |
-
-The two derived lists come from the year before the fetch; each file records the query
-under `note`.
