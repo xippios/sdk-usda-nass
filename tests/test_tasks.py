@@ -1035,6 +1035,25 @@ async def test_the_package_serves_its_three_tasks_and_no_slice_of_them() -> None
     assert models.__all__ == ["ApiGetResponse", "Filters", "GetCountsResponse", "QuickStatsRecord"]
 
 
+def test_the_readme_scope_names_what_no_caller_reaches() -> None:
+    """The README's ``## Scope`` names the three operations of Quick Stats and each
+    documented choice that a caller cannot make in a bullet of its own with its public
+    issue (https://github.com/xippios/sdk-faostat/issues/58, part 2): ``format`` and
+    ``callback`` of ``api_GET``, and the Data Set Download files that the documentation
+    names past 50,000 records. A query of a task that left stays one ``get_data`` call."""
+    readme = (Path(__file__).parents[1] / "README.md").read_text(encoding="utf-8")
+    assert "\n## Scope\n" in readme
+    scope = readme.split("\n## Scope\n", 1)[1].split("\n## ", 1)[0]
+    for operation in ("`api_GET`", "`get_counts`", "`get_param_values`"):
+        assert operation in scope, operation
+    bullets = [" ".join(item.split()) for item in scope.split("\n- ")[1:]]
+    issue = "https://github.com/xippios/sdk-usda-nass/issues/"
+    for names, number in ((("`format`", "`callback`"), 65), (("Data Set Download",), 66)):
+        (bullet,) = [item for item in bullets if all(name in item for name in names)]
+        assert f"{issue}{number})" in bullet, names
+    assert "one `get_data` call with the same filters" in " ".join(scope.split())
+
+
 def test_the_count_task_is_count_data_with_no_alias() -> None:
     """The task of upstream's count operation takes the verb ``count_``, ``count_data``,
     and ``get_counts`` stands neither as a task nor as an alias of it (conventions §1,
