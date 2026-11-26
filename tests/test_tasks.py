@@ -135,6 +135,19 @@ def test_every_documented_operator_passes_validation(
         assert tasks.count_data({key: "x"}).data == 22345
 
 
+def test_the_operators_are_those_the_snapshot_lists() -> None:
+    """``OPERATORS``, written by hand, holds the operators of the snapshot's section
+    ``Operators`` in ``docs/upstream/api.md``, in its order, so an operator that the
+    document adds or drops fails here (conventions §10; sdk-core ADR-0061, decision 12)."""
+    from xippios.usda.nass.params import OPERATORS
+
+    snapshot = Path(__file__).parents[1] / "docs" / "upstream" / "api.md"
+    section = snapshot.read_text(encoding="utf-8").partition("\n### Operators\n")[2]
+    assert section, "the snapshot has a section Operators"
+    documented = tuple(re.findall(r"^__([A-Z_]+) = ", section, flags=re.MULTILINE))
+    assert documented == OPERATORS == ("LE", "LT", "GT", "GE", "LIKE", "NOT_LIKE", "NE")
+
+
 def test_query_too_large_is_an_invalid_request_for_http_too() -> None:
     """The package's ``QueryTooLarge`` is core's, kept as a subclass for ``year``, so a
     caller catches either (https://github.com/xippios/sdk-core/issues/317)."""
