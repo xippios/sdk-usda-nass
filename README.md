@@ -28,13 +28,13 @@ filters = {
     "state_alpha": "VA",
     "year": 2012,
 }
-tasks.get_counts(filters).data  # 2 records would come back from api_GET
+tasks.count_data(filters).data  # 2 records would come back from api_GET
 records = tasks.get_data(filters).data
 records[0].short_desc  # 'CORN - ACRES PLANTED'
 records[0].value, records[0].value_number  # '510,000', Decimal('510000'); JSON: 510000
 ```
 
-`get_data` calls `get_counts` first: zero matches return an empty result, more than
+`get_data` counts the records first: zero matches return an empty result, more than
 50,000 raise `QueryTooLarge` with the count and a hint, narrower filters or a split by
 year, before anything is fetched. `list_param_values("sector_desc")` lists the values a
 filter can take.
@@ -106,7 +106,7 @@ exactly tasks.__all__, and tasks_write.__all__ where the package has write tasks
 
 | Upstream operation | Task function | MCP tool | Status |
 | --- | --- | --- | --- |
-| `get_counts` | `tasks.get_counts(filters)` | `usda_nass_get_counts` | alpha |
+| `get_counts` | `tasks.count_data(filters)` | `usda_nass_count_data` | alpha |
 | `api_GET` | `tasks.get_data(filters, split_by_year=)` | `usda_nass_get_data` | alpha |
 | `get_param_values` | `tasks.list_param_values(param)` | `usda_nass_list_param_values` | alpha |
 

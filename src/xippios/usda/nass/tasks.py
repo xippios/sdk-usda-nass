@@ -49,7 +49,7 @@ from xippios.usda.nass.errors import (
 from xippios.usda.nass.models import Filters, QuickStatsRecord
 from xippios.usda.nass.params import PACKAGE, PACKAGED_PARAMS, validate_filters
 
-__all__ = ["get_counts", "get_data", "list_param_values"]
+__all__ = ["count_data", "get_data", "list_param_values"]
 
 # A task named here is Python-only: no tool, no route; the adapters skip it (sdk-core ADR-0040,
 # decision 4).
@@ -68,7 +68,7 @@ MCP_CAPS: Mapping[str, ResultCap] = {
         max_rows=1000,
         note=(
             "a value past the cap is still accepted as a filter value by "
-            "usda_nass_get_counts and usda_nass_get_data"
+            "usda_nass_count_data and usda_nass_get_data"
         ),
         paged=True,
     ),
@@ -142,7 +142,7 @@ def _meta(
     )
 
 
-async def get_counts_async(filters: Filters) -> Result[int]:
+async def count_data_async(filters: Filters) -> Result[int]:
     """Count the Quick Stats records a set of filters would return, before fetching them.
 
     ``api_GET`` returns at most 50,000 records; check the count first and narrow the
@@ -339,7 +339,7 @@ async def get_data_async(
     Counts the records first: a count of 0 returns an empty result without a second call,
     and a count above 50,000 raises ``QueryTooLarge`` with the count and a hint before
     anything is fetched. For one ``year``, a zero may be a year without records or one not
-    yet published: Quick Stats names no release. ``meta.total`` is the count ``get_counts``
+    yet published: Quick Stats names no release. ``meta.total`` is the count ``count_data``
     reported, the yearly counts summed for a split. Each record carries every Quick Stats
     column; ``value`` is the published figure as a string (``"510,000"``, or a suppression
     code such as ``"(D)"``) and ``value_number`` the parsed number. ``split_by_year`` fetches
@@ -347,7 +347,7 @@ async def get_data_async(
 
     Args:
         filters: Quick Stats columns, optionally suffixed with an operator, mapped to
-            values; the same shape and the same checks as for ``get_counts``: an
+            values; the same shape and the same checks as for ``count_data``: an
             unknown value of a packaged parameter raises ``UnknownCode`` naming the
             list, its fetch date and the closest known values, or pointing at
             ``list_param_values`` (the tool ``usda_nass_list_param_values``) when none
@@ -454,6 +454,6 @@ async def list_param_values_async(param: str) -> Result[list[str]]:
     return Result(data=answer.payload, meta=meta)
 
 
-get_counts = sync(get_counts_async)
+count_data = sync(count_data_async)
 get_data = sync(get_data_async)
 list_param_values = sync(list_param_values_async)
