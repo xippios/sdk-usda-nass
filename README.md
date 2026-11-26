@@ -37,7 +37,9 @@ records[0].value, records[0].value_number  # '510,000', Decimal('510000'); JSON:
 `get_data` counts the records first: zero matches return an empty result, more than
 50,000 raise `QueryTooLarge` with the count and a hint, narrower filters or a split by
 year, before anything is fetched. `list_param_values("sector_desc")` lists the values a
-filter can take.
+filter can take. The client keeps a count and the data for 300 seconds and a list fetched
+live for a day, so the same call within that time sends nothing, and a year that Quick
+Stats publishes within those 300 seconds reads as none until they pass.
 
 `get_data(filters, split_by_year=True)` fetches the years one at a time where one call
 cannot serve them, when its filters bound the years as `year`, `year__GE` with

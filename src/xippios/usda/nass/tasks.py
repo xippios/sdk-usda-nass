@@ -173,7 +173,8 @@ async def count_data_async(filters: Filters) -> Result[int]:
 
     ``api_GET`` returns at most 50,000 records; check the count first and narrow the
     filters when it is higher. ``data`` is the count, and ``meta.total`` carries the
-    same number.
+    same number. The client keeps a count for 300 seconds, so the same count within them
+    sends nothing, and ``get_data`` with the same filters reads it.
 
     Args:
         filters: Quick Stats columns, optionally suffixed with an operator, mapped to

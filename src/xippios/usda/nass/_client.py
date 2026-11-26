@@ -1,11 +1,15 @@
 """The package's one configured ``AsyncClient``, its error mapping and its cache (conventions §6).
 
-The client keeps core's bounded memory cache with a lifetime per path prefix, one prefix
-here: a ``get_param_values`` answer is kept for a day in the process, and a lookup within it
-sends nothing; ``api_GET`` and ``get_counts`` match no prefix and are never kept (sdk-core
-ADR-0040). A cached answer's ``retrieved_at`` is the time it was stored, which
-``get_answer`` reads, and an answer is stored only once ``get_answer`` parsed it (sdk-core
-ADR-0037, decision 5; conventions §4).
+The client keeps core's bounded memory cache with a lifetime per path prefix, since Quick
+Stats serves public data to a read-only client (conventions §6; sdk-core ADR-0061, decision
+11): a ``get_param_values`` answer is kept for a day in the process, and an answer of
+``get_counts`` or ``api_GET`` for 300 seconds, by the maintainer's decision of 2026-11-26. A
+lookup, a count or a query repeated within its lifetime sends nothing, a split's yearly
+counts and data among them, so a year that Quick Stats publishes within those 300 seconds
+reads as none until its entry expires. A body over ``cache_max_bytes``, core's 8 MiB, passes
+unstored, as a year of data can (sdk-core ADR-0040). A cached answer's ``retrieved_at`` is
+the time it was stored, which ``get_answer`` reads, and an answer is stored only once
+``get_answer`` parsed it (sdk-core ADR-0037, decision 5; conventions §4).
 """
 
 from typing import Any
@@ -38,10 +42,15 @@ RATE_LIMIT = RateLimit(per_minute=30, burst=1)
 
 _NO_MATCH = "bad request - invalid query"
 
-# The path as the cache's prefixes see it: the base URL's ``/api``, then the wrapper's path.
+# The paths as the cache's prefixes see them: the base URL's ``/api``, then the wrapper's.
 _LIST_PATH = "/api/get_param_values/"
 # A parameter's values change rarely: a list is kept for a day, then fetched again.
 _LIST_TTL = 24 * 60 * 60.0
+_COUNT_PATH = "/api/get_counts/"
+_DATA_PATH = "/api/api_GET/"
+# A count and the data it counts are kept as long as each other, so a repeated query reads
+# its count and its records from one moment of upstream's.
+_DATA_TTL = 300.0
 
 
 def _payload(response: httpx.Response) -> Any:
@@ -82,11 +91,14 @@ config = ClientConfig(
     version=__version__,
     base_url=BASE_URL,
     rate_limit=RATE_LIMIT,
-    # Core's default bounds hold: 256 entries outnumber the 39 Quick Stats columns,
-    # and ``cache_max_bytes`` (8 MiB) is far above the lists measured (``domain_desc``,
-    # 22,194 bytes of compact JSON, the largest; ``commodity_desc``, a list fetched live,
-    # 6,792 bytes as recorded on 2026-10-28); a larger answer is returned and not kept.
-    cache=MemoryCache(lifetimes={_LIST_PATH: _LIST_TTL}),
+    # Core's default bounds hold: 256 entries outnumber the 39 Quick Stats columns and a
+    # split's 41 answers, and ``cache_max_bytes`` (8 MiB) is far above the lists measured
+    # (``domain_desc``, 22,194 bytes of compact JSON, the largest; ``commodity_desc``, a list
+    # fetched live, 6,792 bytes as recorded on 2026-10-28); a larger answer, a year of data
+    # among them, is returned and not kept.
+    cache=MemoryCache(
+        lifetimes={_LIST_PATH: _LIST_TTL, _COUNT_PATH: _DATA_TTL, _DATA_PATH: _DATA_TTL}
+    ),
     classify=classify,
 )
 # The key is read from the environment on the first request, never at import.
