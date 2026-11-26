@@ -73,6 +73,22 @@ where it changes them.
 
 ## USDA NASS Quick Stats specifics
 
+What Quick Stats does that `docs/upstream/` does not state stands in
+`docs/upstream/OBSERVED.md` once, each note with the probe that showed it: its date, its
+operation and its recording under `tests/fixtures/`. This section holds what the package
+does with it and cites a note by its heading.
+
+- `validate_filters` checks every key against `columns.csv` and the value of each packaged
+  parameter against its list before a request, since Quick Stats ignores a column it does
+  not know and counts no record for a value it does not know ("An unknown column is
+  ignored", "An unknown value counts 0"). It compares a value without regard to case, as
+  Quick Stats does ("A value's case is ignored"), and sends it as given.
+- `classify` maps the three refusals once ("Refusals"): HTTP 413 to `QueryTooLarge`, HTTP
+  400 `bad request - invalid query` to `NotFoundError`, and HTTP 400 `no value` of
+  `get_param_values` to `NotFoundError` naming the parameter.
+- `get_data(split_by_year=True)` splits a two-sided year range by year and never counts it
+  whole, since Quick Stats counts `year__GE` with `year__LE` as `year__GE` alone ("One bound
+  on year a query"); the docstrings of `count_data` and `get_data` say so to a caller.
 - The packaged lists are declared as `PACKAGED_PARAMS` in `params.py`, the nine parameters
   that `get_param_values` lists, which the reference script hands core's frame as
   `packaged`: where `/refresh-reference-data` names `PACKAGED_LISTS`, read `PACKAGED_PARAMS`.
@@ -81,5 +97,9 @@ where it changes them.
   core's `Ceiling`: 20 in Python and over HTTP, 11 on the MCP server by default, whose
   `--split-years` sets 1 to 20. One year costs two keyed requests, its count and its data,
   and `year__GE` alone a first count more, so 11 years send at most 23 requests.
-- The client keeps the `get_param_values` lookups for a day in core's cache and no other
-  answer.
+- The client keeps the `get_param_values` lookups for a day and the counts and the data for
+  300 seconds in core's cache, by the maintainer's decision of 2026-11-26. An answer over
+  core's 8 MiB passes unstored, as one of about 9,000 records or more does ("A record is
+  about 900 bytes"), so `get_data` stays unpaged over MCP.
+- The reference script waits 300 seconds for an answer, where the client waits 60 ("A list
+  can take more than a minute").
