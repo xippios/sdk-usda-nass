@@ -30,7 +30,7 @@ packaged files without a request and without a key.
 import csv
 import io
 import re
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import replace
 from functools import partial
@@ -228,11 +228,6 @@ def read_timeout(target: AsyncClient) -> Iterator[None]:
         target.config = configured
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    """Refresh from upstream, some lists with ``--only``, or the provenance rows alone."""
-    with read_timeout(client):
-        return run(LISTS, argv)
-
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    with read_timeout(client):
+        raise SystemExit(run(LISTS))
