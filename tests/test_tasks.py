@@ -49,6 +49,12 @@ from xippios.usda.nass.mcp import run, server
 from xippios.usda.nass.models import ApiGetResponse, GetCountsResponse, QuickStatsRecord
 from xippios.usda.nass.params import PACKAGE, PACKAGED_PARAMS, columns
 
+NO_MATCH = (
+    "no Quick Stats record matches the filters of GET /api/api_GET/ (upstream: bad request "
+    "- invalid query)"
+)
+"""What ``classify`` maps Quick Stats' HTTP 400 for filters without a record to."""
+
 EXAMPLE_FILTERS: dict[str, str | int] = {
     "commodity_desc": "CORN",
     "year__GE": 2012,
@@ -401,8 +407,11 @@ async def test_api_get_maps_no_match_to_not_found(
     # api_get/no_match answers the query without its state, an answer that upstream
     # gives alike to every query that matches nothing (conventions §10, kind 3).
     replay_fixture("api_get", "no_match")
-    with pytest.raises(NotFoundError, match="invalid query"):
+    with pytest.raises(NotFoundError) as info:
         await api.api_get({"commodity_desc": "CORN", "year": 1800})
+    # classify names the request by core's request_description, never its host or query
+    # (conventions §5; https://github.com/xippios/sdk-usda-nass/issues/83).
+    assert str(info.value) == NO_MATCH
 
 
 @pytest.mark.anyio
@@ -819,8 +828,13 @@ def test_list_param_values_unknown_parameter_is_not_found(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
     replay_fixture("get_param_values", "unknown_param")
-    with pytest.raises(NotFoundError, match="not_a_column"):
+    with pytest.raises(NotFoundError) as info:
         tasks.list_param_values("not_a_column")
+    # The request by core's request_description (https://github.com/xippios/sdk-usda-nass/issues/83).
+    assert str(info.value) == (
+        "Quick Stats has no parameter 'not_a_column': GET /api/get_param_values/ answered "
+        'HTTP 400 with "no value"'
+    )
 
 
 @pytest.mark.parametrize("param", PACKAGED_PARAMS)
@@ -1225,8 +1239,7 @@ def test_a_split_whose_later_fetch_fails_returns_nothing_and_names_the_years_ans
     with pytest.raises(NotFoundError) as info:
         tasks.get_data(IA_FILTERS, split_by_year=True)
     assert str(info.value) == (
-        "no Quick Stats record matches these filters (upstream: bad request - invalid "
-        "query). The series stopped at 2024 after 1 period answered, 2023, and returns "
+        f"{NO_MATCH}. The series stopped at 2024 after 1 period answered, 2023, and returns "
         "nothing."
     )
     assert failed.call_count == 1
