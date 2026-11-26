@@ -97,10 +97,12 @@ Tools are read-only and named `usda_nass_<verb>_<noun>`. Results are capped, at
 `usda_nass_list_param_values` returns up to 1,000 values, since its lists run longer than
 200 (`domain_desc`, packaged, has 616; `commodity_desc`, fetched live, 467), and takes
 `offset`, the values already shown, which continues a cut list from the package or the
-client's cache without a request. `--http`
+client's cache without a request. `usda_nass_get_data` keeps 200 rows or 64 KB, and its
+note names the filters that narrow a query; it takes no `offset`, since a continuation
+would send its count and its data again once an answer passes the cache's 8 MiB. `--http`
 serves streamable HTTP instead of stdio. `--split-years YEARS`, 1 to 20 and 11 by default,
 is the most years one `usda_nass_get_data` call with `split_by_year` splits into, at most
-23 keyed calls at 11; the setting holds for the whole process.
+23 keyed requests in 92 attempts at 11; the setting holds for the whole process.
 
 ## Status
 

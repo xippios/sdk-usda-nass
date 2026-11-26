@@ -64,6 +64,12 @@ MCP_INSTRUCTIONS = (
 """The read server's instructions for agents, which core's tool set reads from here."""
 
 MCP_CAPS: Mapping[str, ResultCap] = {
+    "get_data": ResultCap(
+        note=(
+            "narrow the filters to see the rest, e.g. by year, state_alpha, agg_level_desc, "
+            "statisticcat_desc or short_desc"
+        ),
+    ),
     "list_param_values": ResultCap(
         max_rows=1000,
         note=(
@@ -87,7 +93,9 @@ shown, the task runs again and the note of a cut answer ends with the call for t
 rows. A second run sends upstream nothing, since nine lists are packaged and the client
 keeps every other for a day (ADR-0061, decision 9). ``get_data`` stays unpaged: a
 continuation would send its count and its data again, and its answer can pass the cache's
-bound. Every other tool keeps the default, 200 rows or 64 KB, with core's note.
+bound. Its cap keeps the family's 200 rows or 64 KB, with a note of its own that names
+the filters that narrow a query, since the default note promises none (sdk-core ADR-0038,
+decision 3). ``count_data`` keeps the default, 200 rows or 64 KB, with core's note.
 """
 
 SPLIT = Ceiling(
@@ -382,9 +390,11 @@ async def get_data_async(
     anything is fetched. For one ``year``, a zero may be a year without records or one not
     yet published: Quick Stats names no release. ``meta.notes`` says so. ``meta.total`` is
     the count ``count_data`` reported; a split sums no yearly counts into it and notes the
-    years it passed over. Each record carries every Quick Stats column; ``value`` is the published figure as a string (``"510,000"``, or a suppression
-    code such as ``"(D)"``) and ``value_number`` the parsed number. ``split_by_year`` fetches
-    a range that one call cannot serve year by year, as its argument says.
+    years it passed over. Each record carries every Quick Stats column, ``value`` as printed
+    (``"510,000"`` or a code such as ``"(D)"``) beside ``value_number``. One call sends at
+    most 2 requests in 8 attempts, retries counted; ``split_by_year``, which fetches a range
+    year by year, at most 23 requests in 92 attempts at the MCP server's 11 years and 41
+    requests in 164 attempts at the 20 years of Python and HTTP.
 
     Args:
         filters: Quick Stats columns, optionally suffixed with an operator, mapped to
@@ -427,11 +437,10 @@ async def get_data_async(
             the years passed over; ``meta.vintage`` stays ``None``, since Quick Stats names
             no release. ``meta.total`` is ``None`` for a two-sided range, which Quick Stats
             counts as ``year__GE`` alone, and upstream's count of the range for
-            ``year__GE`` alone. Cost: up to two keyed calls per year, plus
-            the first count for ``year__GE`` alone, paced at 30 a minute, so 11 years take
-            up to 23 calls and 20 years up to 41, about 80 seconds. ``meta.request``
-            carries ``split_by_year`` beside the filters. ``False``, the default, never
-            splits.
+            ``year__GE`` alone. Cost: up to two keyed requests per year, plus the first
+            count for ``year__GE`` alone, paced at 30 a minute, so 20 years take about 80
+            seconds. ``meta.request`` carries ``split_by_year`` beside the filters.
+            ``False``, the default, never splits.
     """
     checked = validate_filters(filters)
     years = _years(checked) if split_by_year else None
