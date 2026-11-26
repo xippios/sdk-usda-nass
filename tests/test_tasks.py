@@ -1989,3 +1989,59 @@ async def test_get_data_says_a_zero_for_one_year_may_be_a_year_not_yet_published
     tools = {tool.name: tool for tool in await server.list_tools()}
     description = tools["usda_nass_get_data"].description or ""
     assert UNPUBLISHED_COUNT in " ".join(description.split())
+
+
+# --- what one get_data call spends, and the note of its cut answer ---
+
+
+def test_get_data_states_the_most_requests_one_call_spends() -> None:
+    """A task that spends more than one request states in its tool's description, the
+    docstring before ``Args:``, the most that one call spends, retries counted (conventions
+    §8; sdk-core ADR-0061, decision 8): a count and the data, and a split's first count of
+    ``year__GE`` alone and two requests a year, at the client's four attempts each."""
+    import inspect
+
+    attempts = config.retry.max_attempts
+    assert attempts == 4
+    at_mcp, at_most = 2 * MCP_SPLIT_YEARS + 1, 2 * SPLIT_CEILING + 1
+    assert (at_mcp, at_most) == (23, 41)
+    bound = (
+        f"One call sends at most 2 requests in {2 * attempts} attempts, retries counted; "
+        f"split_by_year, which fetches a range year by year, at most {at_mcp} requests in "
+        f"{at_mcp * attempts} attempts at the MCP server's {MCP_SPLIT_YEARS} years and "
+        f"{at_most} requests in {at_most * attempts} attempts at the {SPLIT_CEILING} years of "
+        "Python and HTTP."
+    )
+    lead = (inspect.getdoc(tasks.get_data) or "").partition("\n\nArgs:")[0]
+    assert bound in " ".join(lead.replace("``", "").split())
+
+
+@pytest.mark.anyio
+async def test_a_cut_answer_of_get_data_names_the_filters_that_narrow_it(
+    replay_fixture: ReplayFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``usda_nass_get_data`` keeps the family's bounds and a note of its own that names the
+    filters that narrow a query, since the default note promises none (conventions §8;
+    sdk-core ADR-0038, decision 3). The tool stays unpaged: a continuation would send its
+    count and its data again once the cache's bound is passed, which a year of data can
+    pass (sdk-core ADR-0061, decision 9). The recorded split of 26 records goes through the
+    cap with its rows lowered to 10 for this test alone."""
+    from xippios.core import ResultCap
+    from xippios.core.mcp import ToolSet, build_server
+
+    own = tasks.MCP_CAPS["get_data"]
+    assert (own.max_rows, own.max_bytes, own.paged) == (200, 65_536, False)
+    assert own.note is not None
+    for name in ("year", "state_alpha", "agg_level_desc", "statisticcat_desc"):
+        assert name in own.note
+    lowered = ResultCap(max_rows=10, note=own.note)
+    monkeypatch.setattr(tasks, "MCP_CAPS", {**tasks.MCP_CAPS, "get_data": lowered})
+    hosted = build_server(ToolSet.from_tasks("usda-nass", tasks))
+    mount_real_split(replay_fixture)
+    payload = await mcp_call(
+        hosted, "usda_nass_get_data", {"filters": PRICES_FILTERS, "split_by_year": True}
+    )
+    assert len(payload["data"]) == 10
+    assert payload["note"].startswith("showing 10 of 26 rows")
+    assert payload["note"].endswith(own.note)
+    assert "offset" not in payload["note"]
