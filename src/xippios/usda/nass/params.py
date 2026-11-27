@@ -36,6 +36,7 @@ __all__ = [
     "PACKAGED_PARAMS",
     "Column",
     "codes",
+    "column_hint",
     "columns",
     "validate_filters",
 ]
@@ -135,6 +136,20 @@ def _column_names() -> frozenset[str]:
     return frozenset(column.column for column in columns())
 
 
+def column_hint(name: str) -> str:
+    """What a refusal of ``name`` as a Quick Stats column names in its place (conventions §5).
+
+    Args:
+        name: A name that no column of the packaged table holds, e.g. ``"comodity_desc"``.
+
+    Returns:
+        ``"; did you mean a, b, c?"``, the closest columns of the packaged table, or ``"."``
+        where none is close, to follow ``'<name>' is not a Quick Stats column``.
+    """
+    close = difflib.get_close_matches(name, sorted(_column_names()), n=3)
+    return f"; did you mean {', '.join(close)}?" if close else "."
+
+
 @functools.cache
 def codes(param: str) -> PackagedCodes:
     """The packaged list of ``param``, declared once per process with core's check (§5).
@@ -188,11 +203,9 @@ def validate_filters(filters: Filters) -> dict[str, str | int]:
     for key in filters:
         column, _, operator = key.partition("__")
         if column not in known:
-            close = difflib.get_close_matches(column, sorted(known), n=3)
-            hint = f"; did you mean {', '.join(close)}?" if close else "."
             raise InvalidRequestError(
-                f"{key!r} is not a Quick Stats column{hint} Nothing was sent. Columns are "
-                "defined in docs/upstream/param_define.md.",
+                f"{key!r} is not a Quick Stats column{column_hint(column)} Nothing was sent. "
+                "Columns are defined in docs/upstream/param_define.md.",
                 source=SOURCE,
             )
         if operator and operator not in OPERATORS:

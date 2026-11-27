@@ -65,12 +65,13 @@ def _no_value(param: str, request: str) -> XippiosError:
     """Quick Stats' HTTP 400 ``{"<param>": ["no value"]}``, by the name it answers.
 
     A name that no column of the packaged table holds is upstream's refusal of the call as
-    given, an ``InvalidRequestError`` (conventions §5; sdk-core ADR-0007, amendment
-    2026-11-18, point b). A column of the table that upstream lists no values of is a code
-    the packaged table holds and upstream's live answer lacks, a ``NotFoundError``.
+    given, an ``InvalidRequestError`` that names the closest columns as ``validate_filters``
+    does (conventions §5; sdk-core ADR-0007, amendment 2026-11-18, point b). A column of the
+    table that upstream lists no values of is a code the packaged table holds and upstream's
+    live answer lacks, a ``NotFoundError``.
     """
     # Imported here, as ``QueryTooLarge`` is: ``params`` imports ``SOURCE`` from this module.
-    from xippios.usda.nass.params import columns
+    from xippios.usda.nass.params import column_hint, columns
 
     if any(column.column == param for column in columns()):
         return NotFoundError(
@@ -79,7 +80,8 @@ def _no_value(param: str, request: str) -> XippiosError:
             source=SOURCE,
         )
     return InvalidRequestError(
-        f'{param!r} is not a Quick Stats column: {request} answered HTTP 400 with "no value"',
+        f"{param!r} is not a Quick Stats column{column_hint(param)} {request} answered HTTP 400 "
+        'with "no value". Columns are defined in docs/upstream/param_define.md.',
         source=SOURCE,
     )
 
