@@ -19,6 +19,7 @@ from xippios.core import (
     AsyncClient,
     ClientConfig,
     EnvVar,
+    InvalidRequestError,
     KeyAuth,
     MemoryCache,
     NotFoundError,
@@ -60,17 +61,41 @@ def _payload(response: httpx.Response) -> Any:
         return None
 
 
+def _no_value(param: str, request: str) -> XippiosError:
+    """Quick Stats' HTTP 400 ``{"<param>": ["no value"]}``, by the name it answers.
+
+    A name that no column of the packaged table holds is upstream's refusal of the call as
+    given, an ``InvalidRequestError`` (conventions §5; sdk-core ADR-0007, amendment
+    2026-11-18, point b). A column of the table that upstream lists no values of is a code
+    the packaged table holds and upstream's live answer lacks, a ``NotFoundError``.
+    """
+    # Imported here, as ``QueryTooLarge`` is: ``params`` imports ``SOURCE`` from this module.
+    from xippios.usda.nass.params import columns
+
+    if any(column.column == param for column in columns()):
+        return NotFoundError(
+            f"Quick Stats lists no values of the column {param!r}: {request} answered HTTP 400 "
+            'with "no value"',
+            source=SOURCE,
+        )
+    return InvalidRequestError(
+        f'{param!r} is not a Quick Stats column: {request} answered HTTP 400 with "no value"',
+        source=SOURCE,
+    )
+
+
 def classify(response: httpx.Response) -> XippiosError | None:
     """Quick Stats' error shapes, mapped once (sdk-core ADR-0031).
 
-    The three refusals as Quick Stats sends them, beyond the messages that
-    ``docs/upstream/api.md`` lists, stand in ``docs/upstream/OBSERVED.md`` under "Refusals":
-    HTTP 413 ``{"error": ["exceeds limit=50000"]}`` is ``QueryTooLarge``, HTTP 400
-    ``{"error": ["bad request - invalid query"]}`` from filters that match no record a
-    ``NotFoundError``, and HTTP 400 ``{"<param>": ["no value"]}`` from ``get_param_values``
-    a ``NotFoundError`` naming the parameter. Each error names the request by core's
-    ``request_description``, its method and path, never its host or its query, which carries
-    the key (conventions §5; sdk-core ADR-0030).
+    The three error answers as Quick Stats sends them, beyond the messages that
+    ``docs/upstream/api.md`` lists, stand in ``docs/upstream/OBSERVED.md`` under
+    "Error answers": HTTP 413 ``{"error": ["exceeds limit=50000"]}`` is ``QueryTooLarge``,
+    HTTP 400 ``{"error": ["bad request - invalid query"]}`` from filters that match no record
+    a ``NotFoundError``, and HTTP 400 ``{"<param>": ["no value"]}`` from ``get_param_values``
+    an ``InvalidRequestError`` naming the parameter where the packaged column table lacks
+    it, else a ``NotFoundError`` naming the column (``_no_value``). Each error names the
+    request by core's ``request_description``, its method and path, never its host or its
+    query, which carries the key (conventions §5; sdk-core ADR-0030).
     """
     request = request_description(response)
     if response.status_code == 413:
@@ -88,11 +113,7 @@ def classify(response: httpx.Response) -> XippiosError | None:
                 )
             missing = [name for name, value in payload.items() if value == ["no value"]]
             if missing:
-                return NotFoundError(
-                    f"Quick Stats has no parameter {missing[0]!r}: {request} answered HTTP 400 "
-                    'with "no value"',
-                    source=SOURCE,
-                )
+                return _no_value(missing[0], request)
     return None
 
 

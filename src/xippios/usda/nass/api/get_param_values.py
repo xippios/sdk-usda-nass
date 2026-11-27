@@ -28,7 +28,10 @@ async def get_param_values(param: str) -> Answer[list[str]]:
         stored, else the time it arrived; a task's ``ResultMeta.retrieved_at``.
 
     Raises:
-        NotFoundError: Quick Stats has no parameter of that name.
+        InvalidRequestError: Quick Stats answered HTTP 400 ``no value`` for a name that no
+            column of the packaged table holds, its refusal of the call as given.
+        NotFoundError: Quick Stats answered HTTP 400 ``no value`` for a column of the
+            packaged table.
         ValidationError: The answer is no mapping of names to lists of texts, which the
             cache does not keep, so the next call asks again; or it holds no list under
             the parameter's name.
