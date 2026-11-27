@@ -2,8 +2,9 @@
 
 Conventions §3 and ``/add-endpoint`` give the rules.
 
-Quick Stats sends every value as a string; the models coerce the numeric and temporal
-ones and keep the rest verbatim, empty strings included. ``value`` stays the published
+Quick Stats sends every value of a record as a string but ``year``, an integer
+(``docs/upstream/OBSERVED.md``, "A record's fields"); the models coerce the numeric and
+temporal ones and keep the rest verbatim, empty strings included. ``value`` stays the published
 string, because a suppression code such as ``"(D)"`` is information; ``value_number``
 is its parsed form and travels as a JSON number, and ``cv_percent`` and
 ``cv_percent_number`` stand so too (conventions §3). Each code field declares by

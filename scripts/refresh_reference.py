@@ -52,13 +52,14 @@ COLUMNS = REFERENCE / "columns.csv"
 
 QUOTA_HEADER: str | None = None
 """The response header in which upstream reports the requests left in its quota: none,
-since Quick Stats documents no quota and its recorded answers carry no such header."""
+since Quick Stats documents no quota and its answers carry no such header
+(``docs/upstream/OBSERVED.md``, "No header of a quota")."""
 
 READ_TIMEOUT = 300.0
 """The run's read timeout in seconds, how long a request waits for its answer to arrive,
-where the client's own configuration waits 60 (conventions §6): two runs on 2026-11-20 got
-no answer for ``agg_level_desc`` within 60 seconds, and one request for it with this
-timeout was answered in 7.5 (https://github.com/xippios/sdk-usda-nass/issues/78)."""
+where the client's own configuration waits 60 (conventions §6), since a list can take
+more than a minute to answer (``docs/upstream/OBSERVED.md``, "A list can take more than a
+minute"; https://github.com/xippios/sdk-usda-nass/issues/78)."""
 
 # The snapshot's column names where they differ from the columns' names in the data: the
 # stray space upstream prints in one key, and the two data value columns as api_GET names

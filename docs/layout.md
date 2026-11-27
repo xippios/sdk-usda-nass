@@ -14,7 +14,7 @@ instead, named after the service, and this file says so (conventions §2).
 ```
 src/xippios/usda/nass/
   _client.py         the client's cache, core's MemoryCache, keeps the get_param_values
-                     lookups for a day and no other answer
+                     lookups for a day and the counts and the data for 300 seconds
   errors.py          QueryTooLarge, core's with the year, NARROW, RECORD_LIMIT,
                      SPLIT_CEILING (20) and MCP_SPLIT_YEARS (11)
   models.py          ApiGetResponse, GetCountsResponse and QuickStatsRecord, the records of
@@ -22,7 +22,7 @@ src/xippios/usda/nass/
   api/api_get.py     api_GET, the records for a set of filters, core's Answer
   api/get_counts.py  get_counts, the count of a set of filters, core's Answer
   api/get_param_values.py  get_param_values, the values of one parameter, core's Answer
-  tasks.py           get_counts, get_data and list_param_values; SPLIT, core's Ceiling of
+  tasks.py           count_data, get_data and list_param_values; SPLIT, core's Ceiling of
                      the split by year, with its two option hooks for --split-years
   params.py          PACKAGED_PARAMS, the nine packaged lists, codes() with core's check,
                      validate_filters, and columns() over load_table, the package's own
@@ -35,5 +35,8 @@ tests/
                      column table's parse and write, the read timeout of 300 seconds
   test_refresh_upstream.py   the snapshot script's declaration: its two pages, the
                      converter, the attribution and the package's client
-docs/upstream/       api.md and param_define.md, the two pages converted to Markdown
+  test_observed.py   docs/upstream/OBSERVED.md: each note's probe and the dates of its
+                     samples, and no date of an answer in the package's own text
+docs/upstream/       api.md and param_define.md, the two pages converted to Markdown, and
+                     OBSERVED.md, the notes written by hand on what neither states
 ```

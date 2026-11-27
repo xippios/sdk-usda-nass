@@ -77,10 +77,11 @@ nothing new, each in its context, as the frame's search reads the page's visible
 The first three are its references to the recorded terms: the label of the Terms of
 Service tab between the Introduction and Usage tabs of its tab menu, read from the tab's
 markup, ``<div class="menu" ...> Terms of Service <br clear="all"> <br clear="all">
-</div>``, which the first fetching run after the port confirms; the Introduction's "agree
-to the NASS Terms of Service"; and the key form's question "Do you agree with Terms of
-Service?". The last two are sentences of the terms themselves, which the frame's search
-reads where the script's own check did not.
+</div>``, which the frame's search reads as declared, since the capture on core's frame
+that wrote ``FETCHED.md`` ran through with it; the Introduction's "agree to the NASS Terms
+of Service"; and the key form's question "Do you agree with Terms of Service?". The last
+two are sentences of the terms themselves, which the frame's search reads where the
+script's own check did not.
 """
 
 CONTENT_ID = "indexbody"

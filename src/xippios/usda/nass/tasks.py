@@ -82,11 +82,9 @@ MCP_CAPS: Mapping[str, ResultCap] = {
 """MCP result caps of their own, by task function name (conventions §8, sdk-core ADR-0038).
 
 ``list_param_values`` is the reference lookup an agent needs whole to form valid filters,
-and its lists run past the family's default of 200 rows. Of the nine packaged lists
-(fetched 2026-10-28), ``statisticcat_desc`` has 278 values, ``unit_desc`` 373 and
-``domain_desc`` 616 (22,194 bytes of compact JSON, the largest), the other six fewer than
-60; lists fetched live run longer too (``commodity_desc`` has 467 values, 6,773 bytes,
-recorded 2026-10-28). Its cap keeps the default 64 KB.
+and its lists run past the family's default of 200 rows, three of the nine packaged lists
+and lists fetched live among them (``docs/upstream/OBSERVED.md``, "The lists' lengths").
+Its cap keeps the default 64 KB.
 
 Its cap is paged (sdk-core ADR-0047): the tool takes core's ``offset``, the rows already
 shown, the task runs again and the note of a cut answer ends with the call for the next
@@ -202,10 +200,10 @@ async def count_data_async(filters: Filters) -> Result[int]:
             ``__LE``, ``__LT``, ``__GT``, ``__GE``, ``__LIKE``, ``__NOT_LIKE``, ``__NE``,
             so ``{"commodity_desc": "CORN", "year__GE": 2012, "state_alpha": "VA"}``
             counts corn records for Virginia from 2012 on. Quick Stats keeps one bound on
-            ``year`` per query (recorded 2026-10-28): it counts ``year__GE`` with
-            ``year__LE`` as ``year__GE`` alone, in either order, and drops ``year__GE``
-            beside ``year__LT``; ``get_data`` with ``split_by_year`` fetches a two-sided
-            year range year by year and splits an over-limit ``year__GE`` range.
+            ``year`` per query: it counts ``year__GE`` with ``year__LE`` as ``year__GE``
+            alone, in either order, and drops ``year__GE`` beside ``year__LT``;
+            ``get_data`` with ``split_by_year`` fetches a two-sided year range year by year
+            and splits an over-limit ``year__GE`` range.
     """
     checked = validate_filters(filters)
     answer = await api.get_counts(checked)
@@ -406,10 +404,10 @@ async def get_data_async(
             statistic, the level and the time, e.g.
             ``{"commodity_desc": "CORN", "statisticcat_desc": "AREA PLANTED",
             "agg_level_desc": "STATE", "state_alpha": "VA", "year": 2012}``. Quick Stats
-            keeps one bound on ``year`` per query (recorded 2026-10-28): it counts
-            ``year__GE`` with ``year__LE`` as ``year__GE`` alone, in either order, and
-            drops ``year__GE`` beside ``year__LT``, so a two-sided year range is served
-            only by ``split_by_year``.
+            keeps one bound on ``year`` per query: it counts ``year__GE`` with
+            ``year__LE`` as ``year__GE`` alone, in either order, and drops ``year__GE``
+            beside ``year__LT``, so a two-sided year range is served only by
+            ``split_by_year``.
         split_by_year: ``True`` fetches the years one at a time where one call cannot serve
             them, splitting one call into at most 20 years in Python and over HTTP and 11
             by default on the MCP server, whose ``--split-years`` sets 1 to 20. The filters
@@ -447,7 +445,8 @@ async def get_data_async(
     request: dict[str, Any] = {**checked, "split_by_year": True} if split_by_year else checked
     if years is not None and "year__LE" in checked:
         # Two-sided: Quick Stats keeps one bound on year per query and would count the
-        # range as year__GE alone (recorded 2026-10-28), so it is split without that count.
+        # range as year__GE alone (docs/upstream/OBSERVED.md, "One bound on year a query"),
+        # so it is split without that count.
         return await _split_by_year(checked, years, request)
     retrieved: list[datetime] = []
 
