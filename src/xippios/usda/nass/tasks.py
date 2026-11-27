@@ -49,7 +49,7 @@ from xippios.usda.nass.errors import (
 from xippios.usda.nass.models import Filters, QuickStatsRecord
 from xippios.usda.nass.params import PACKAGE, PACKAGED_PARAMS, validate_filters
 
-__all__ = ["get_counts", "get_data", "list_param_values"]
+__all__ = ["count_data", "get_data", "list_param_values"]
 
 # A task named here is Python-only: no tool, no route; the adapters skip it (sdk-core ADR-0040,
 # decision 4).
@@ -64,11 +64,17 @@ MCP_INSTRUCTIONS = (
 """The read server's instructions for agents, which core's tool set reads from here."""
 
 MCP_CAPS: Mapping[str, ResultCap] = {
+    "get_data": ResultCap(
+        note=(
+            "narrow the filters to see the rest, e.g. by year, state_alpha, agg_level_desc, "
+            "statisticcat_desc or short_desc"
+        ),
+    ),
     "list_param_values": ResultCap(
         max_rows=1000,
         note=(
             "a value past the cap is still accepted as a filter value by "
-            "usda_nass_get_counts and usda_nass_get_data"
+            "usda_nass_count_data and usda_nass_get_data"
         ),
         paged=True,
     ),
@@ -87,7 +93,9 @@ shown, the task runs again and the note of a cut answer ends with the call for t
 rows. A second run sends upstream nothing, since nine lists are packaged and the client
 keeps every other for a day (ADR-0061, decision 9). ``get_data`` stays unpaged: a
 continuation would send its count and its data again, and its answer can pass the cache's
-bound. Every other tool keeps the default, 200 rows or 64 KB, with core's note.
+bound. Its cap keeps the family's 200 rows or 64 KB, with a note of its own that names
+the filters that narrow a query, since the default note promises none (sdk-core ADR-0038,
+decision 3). ``count_data`` keeps the default, 200 rows or 64 KB, with core's note.
 """
 
 SPLIT = Ceiling(
@@ -125,29 +133,56 @@ def _meta(
     retrieved: Sequence[datetime],
     *,
     total: int | None = None,
+    notes: Sequence[str] = (),
 ) -> ResultMeta:
     """The envelope, retrieved at the oldest of the call's answers (conventions §4).
 
     ``retrieved`` holds the ``retrieved_at`` of each answer the call read; empty for none,
-    where core stamps the time the result is built.
+    where core stamps the time the result is built. ``notes`` holds what the task says of
+    its answer that no record states (sdk-core ADR-0067, decision 1).
     """
     if not retrieved:
-        return ResultMeta(source=SOURCE, endpoint=endpoint, request=request, total=total)
+        return ResultMeta(
+            source=SOURCE, endpoint=endpoint, request=request, total=total, notes=list(notes)
+        )
     return ResultMeta(
         source=SOURCE,
         endpoint=endpoint,
         request=request,
         total=total,
         retrieved_at=min(retrieved),
+        notes=list(notes),
     )
 
 
-async def get_counts_async(filters: Filters) -> Result[int]:
+_NOT_YET_PUBLISHED = "the count it also gives a year not yet published"
+"""Why a count of 0 says no more than that: Quick Stats names no release, so a year it has
+not published counts 0 as a year without records does (conventions §4;
+https://github.com/xippios/sdk-usda-esr/issues/88)."""
+
+
+def _one_year_note(year: str | int) -> str:
+    """The note of an answer of one ``year`` that Quick Stats counted no record for."""
+    return f"Quick Stats counted no record for year {year}, {_NOT_YET_PUBLISHED}."
+
+
+def _passed_over_note(years: Sequence[int]) -> str:
+    """The note of a split that passed over ``years``, each counted 0, in year order."""
+    named = [str(year) for year in years]
+    joined = named[0] if len(named) == 1 else f"{', '.join(named[:-1])} and {named[-1]}"
+    return (
+        f"split_by_year passed over {joined}, for which Quick Stats counted no record, "
+        f"{_NOT_YET_PUBLISHED}."
+    )
+
+
+async def count_data_async(filters: Filters) -> Result[int]:
     """Count the Quick Stats records a set of filters would return, before fetching them.
 
     ``api_GET`` returns at most 50,000 records; check the count first and narrow the
     filters when it is higher. ``data`` is the count, and ``meta.total`` carries the
-    same number.
+    same number. The client keeps a count for 300 seconds, so the same count within them
+    sends nothing, and ``get_data`` with the same filters reads it.
 
     Args:
         filters: Quick Stats columns, optionally suffixed with an operator, mapped to
@@ -245,8 +280,9 @@ def _refuse_after_the_count(years: range) -> None:
 
     Core's ``SPLIT.check`` says that nothing was sent, which holds before any request of the
     call, as for a two-sided range; ``year__GE`` alone is counted first and split only over
-    the limit, so its refusal is worded here, without that sentence (sdk-core ADR-0054,
-    amendment 2026-11-22).
+    the limit, so its refusal is worded here and says what was sent in place of that
+    sentence: the count of the range, and no yearly count or fetch (conventions §4 and §5;
+    sdk-core ADR-0054, amendment 2026-11-22).
 
     Raises:
         InvalidRequestError: ``years`` holds more than ``SPLIT.value`` years.
@@ -262,32 +298,43 @@ def _refuse_after_the_count(years: range) -> None:
             f"default; {SPLIT.option} raises it, up to {SPLIT.most})"
         )
     raise InvalidRequestError(
-        f"{bound}; the years run from {first} to {last}, {len(years)} years. Give a "
-        f"shorter range, e.g. year__GE={last - ceiling + 1} with year__LE={last}.",
+        f"{bound}; the years run from {first} to {last}, {len(years)} years. The count of "
+        f"year__GE={first} was sent, and no year was counted or fetched. Give a shorter "
+        f"range, e.g. year__GE={last - ceiling + 1} with year__LE={last}.",
         source=SOURCE,
     )
 
 
 async def _split_by_year(
-    filters: dict[str, str | int], years: range, request: dict[str, Any], *, counted: bool
+    filters: dict[str, str | int],
+    years: range,
+    request: dict[str, Any],
+    *,
+    first_count: int | None = None,
+    retrieved: Sequence[datetime] = (),
 ) -> Result[list[QuickStatsRecord]]:
     """Count every year of ``years``, then fetch the years that hold records, in year order.
 
     Each year's query is ``filters`` with ``year=<y>`` in place of the year filters. Both
     passes go through core's ``fetch_periods``: every year is counted before the first
     fetch, so a year over the limit raises ``QueryTooLarge`` naming it before anything is
-    fetched; a year counting 0 is not fetched. A request after the first that fails
-    raises its error, its message naming the years answered before it, and returns
-    nothing. ``meta.total`` is the yearly counts summed, and ``meta.retrieved_at`` the
-    oldest answer's time.
+    fetched; a year counting 0 is passed over, and one note of ``meta.notes`` names the
+    years passed over. A request after the first that fails raises its error, its message
+    naming the years answered before it, and returns nothing. The yearly counts are not
+    summed into ``meta.total`` (conventions §4): it is ``first_count``, upstream's count of
+    the open range, or ``None`` for a two-sided range, which Quick Stats counts as
+    ``year__GE`` alone. ``meta.retrieved_at`` is the oldest answer's time.
 
     Args:
         filters: The checked filters, their year filters among them.
         years: The years to split into, from ``_years``.
         request: What ``meta.request`` records.
-        counted: ``True`` where the range was counted first, ``year__GE`` alone over the
-            limit, so its refusal over the ceiling comes after that count; ``False`` for a
-            two-sided range, refused by core's check before any request.
+        first_count: Upstream's count of ``year__GE`` alone, where the range was counted
+            first and is over the limit, so its refusal over the ceiling comes after that
+            count; ``None`` for a two-sided range, refused by core's check before any
+            request.
+        retrieved: The ``retrieved_at`` of the answers read before the split, the first
+            count's.
 
     Raises:
         InvalidRequestError: ``years`` holds more than ``SPLIT.value`` years, the most one
@@ -296,7 +343,7 @@ async def _split_by_year(
             and names the MCP server's default and ``--split-years``.
         QueryTooLarge: A year alone is over the limit.
     """
-    if counted:
+    if first_count is not None:
         _refuse_after_the_count(years)
     else:
         first, last = years[0], years[-1]
@@ -307,28 +354,30 @@ async def _split_by_year(
             advice=f"Give a shorter range, e.g. year__GE={start} with year__LE={last}.",
         )
     rest = {key: value for key, value in filters.items() if not _is_year(key)}
-    retrieved: list[datetime] = []
+    answered = list(retrieved)
 
     def chunk(year: int) -> dict[str, str | int]:
         return {**rest, "year": year}
 
     async def count(year: int) -> int:
         answer = await api.get_counts(chunk(year))
-        retrieved.append(answer.retrieved_at)
+        answered.append(answer.retrieved_at)
         if answer.payload.count > RECORD_LIMIT:
             raise QueryTooLarge(answer.payload.count, year=year)
         return answer.payload.count
 
     async def fetch(year: int) -> list[QuickStatsRecord]:
         answer = await api.api_get(chunk(year))
-        retrieved.append(answer.retrieved_at)
+        answered.append(answer.retrieved_at)
         return answer.payload.data
 
     counts = await fetch_periods(years, count)
     fetched = await fetch_periods([year for year, number in counts if number], fetch)
     data = [record for _, records in fetched for record in records]
-    total = sum(number for _, number in counts)
-    return Result(data=data, meta=_meta("api_GET", request, retrieved, total=total))
+    passed = [year for year, number in counts if not number]
+    notes = [_passed_over_note(passed)] if passed else []
+    meta = _meta("api_GET", request, answered, total=first_count, notes=notes)
+    return Result(data=data, meta=meta)
 
 
 async def get_data_async(
@@ -339,15 +388,17 @@ async def get_data_async(
     Counts the records first: a count of 0 returns an empty result without a second call,
     and a count above 50,000 raises ``QueryTooLarge`` with the count and a hint before
     anything is fetched. For one ``year``, a zero may be a year without records or one not
-    yet published: Quick Stats names no release. ``meta.total`` is the count ``get_counts``
-    reported, the yearly counts summed for a split. Each record carries every Quick Stats
-    column; ``value`` is the published figure as a string (``"510,000"``, or a suppression
-    code such as ``"(D)"``) and ``value_number`` the parsed number. ``split_by_year`` fetches
-    a range that one call cannot serve year by year, as its argument says.
+    yet published: Quick Stats names no release. ``meta.notes`` says so. ``meta.total`` is
+    the count ``count_data`` reported; a split sums no yearly counts into it and notes the
+    years it passed over. Each record carries every Quick Stats column, ``value`` as printed
+    (``"510,000"`` or a code such as ``"(D)"``) beside ``value_number``. One call sends at
+    most 2 requests in 8 attempts, retries counted; ``split_by_year``, which fetches a range
+    year by year, at most 23 requests in 92 attempts at the MCP server's 11 years and 41
+    requests in 164 attempts at the 20 years of Python and HTTP.
 
     Args:
         filters: Quick Stats columns, optionally suffixed with an operator, mapped to
-            values; the same shape and the same checks as for ``get_counts``: an
+            values; the same shape and the same checks as for ``count_data``: an
             unknown value of a packaged parameter raises ``UnknownCode`` naming the
             list, its fetch date and the closest known values, or pointing at
             ``list_param_values`` (the tool ``usda_nass_list_param_values``) when none
@@ -381,13 +432,15 @@ async def get_data_async(
             is fetched; it then fetches each year holding records, the records in year
             order, each year's in upstream's order. A request after the first that fails
             raises its error naming the years answered before it, and the call returns
-            nothing. A year counting 0 is skipped: it has no records, or none published
-            yet, which Quick Stats does not tell apart; ``meta.vintage`` stays ``None``,
-            since Quick Stats names no release. Cost: up to two keyed calls per year, plus
-            the first count for ``year__GE`` alone, paced at 30 a minute, so 11 years take
-            up to 23 calls and 20 years up to 41, about 80 seconds. ``meta.request``
-            carries ``split_by_year`` beside the filters. ``False``, the default, never
-            splits.
+            nothing. A year counting 0 is passed over: it has no records, or none published
+            yet, which Quick Stats does not tell apart, and one note of ``meta.notes`` names
+            the years passed over; ``meta.vintage`` stays ``None``, since Quick Stats names
+            no release. ``meta.total`` is ``None`` for a two-sided range, which Quick Stats
+            counts as ``year__GE`` alone, and upstream's count of the range for
+            ``year__GE`` alone. Cost: up to two keyed requests per year, plus the first
+            count for ``year__GE`` alone, paced at 30 a minute, so 20 years take about 80
+            seconds. ``meta.request`` carries ``split_by_year`` beside the filters.
+            ``False``, the default, never splits.
     """
     checked = validate_filters(filters)
     years = _years(checked) if split_by_year else None
@@ -395,7 +448,7 @@ async def get_data_async(
     if years is not None and "year__LE" in checked:
         # Two-sided: Quick Stats keeps one bound on year per query and would count the
         # range as year__GE alone (recorded 2026-10-28), so it is split without that count.
-        return await _split_by_year(checked, years, request, counted=False)
+        return await _split_by_year(checked, years, request)
     retrieved: list[datetime] = []
 
     async def count() -> int:
@@ -419,8 +472,13 @@ async def get_data_async(
             raise QueryTooLarge(refused.count) from None
         if "year" in checked:  # one year, already counted: alone over the limit
             raise QueryTooLarge(refused.count, year=years[0]) from None
-        return await _split_by_year(checked, years, request, counted=True)
-    return Result(data=data, meta=_meta("api_GET", request, retrieved, total=total))
+        return await _split_by_year(
+            checked, years, request, first_count=refused.count, retrieved=retrieved
+        )
+    # One year without records: Quick Stats names no release, so the note says what its
+    # count of 0 may also mean (https://github.com/xippios/sdk-usda-esr/issues/88).
+    notes = [_one_year_note(checked["year"])] if total == 0 and "year" in checked else []
+    return Result(data=data, meta=_meta("api_GET", request, retrieved, total=total, notes=notes))
 
 
 async def list_param_values_async(param: str) -> Result[list[str]]:
@@ -454,6 +512,6 @@ async def list_param_values_async(param: str) -> Result[list[str]]:
     return Result(data=answer.payload, meta=meta)
 
 
-get_counts = sync(get_counts_async)
+count_data = sync(count_data_async)
 get_data = sync(get_data_async)
 list_param_values = sync(list_param_values_async)

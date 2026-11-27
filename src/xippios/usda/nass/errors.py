@@ -4,7 +4,15 @@ from xippios.core import QueryTooLarge as CoreQueryTooLarge
 
 from xippios.usda.nass._client import SOURCE
 
-__all__ = ["MCP_SPLIT_YEARS", "NARROW", "RECORD_LIMIT", "SPLIT_CEILING", "QueryTooLarge"]
+__all__ = [
+    "COUNTS_SENT",
+    "COUNT_SENT",
+    "MCP_SPLIT_YEARS",
+    "NARROW",
+    "RECORD_LIMIT",
+    "SPLIT_CEILING",
+    "QueryTooLarge",
+]
 
 RECORD_LIMIT = 50_000
 """Most records ``api_GET`` returns for one query (``docs/upstream/api.md``)."""
@@ -36,6 +44,13 @@ NARROW = (
 )
 """What narrows a whole query over the limit, the sentences that end its refusal (§8)."""
 
+COUNT_SENT = "The count was sent, and no record was asked for."
+"""What a refusal after the count of a whole query says was sent (conventions §5)."""
+
+COUNTS_SENT = "Only counts were sent, and no record was asked for."
+"""What a refusal of one year over the limit says was sent: its count, after any count of
+the call before it, which a split's refusal names by the years answered (conventions §5)."""
+
 
 class QueryTooLarge(CoreQueryTooLarge):
     """The query would return more than Quick Stats' 50,000-record maximum (HTTP 422).
@@ -44,10 +59,12 @@ class QueryTooLarge(CoreQueryTooLarge):
     ``year``. Raised by ``get_data`` before fetching, from the count ``get_counts``
     reports, for the whole query or, with ``split_by_year``, for the one year that alone
     is over the limit; and by ``classify`` when upstream answers HTTP 413 ``exceeds
-    limit=50000``, naming the request it refused. The message for the whole query ends
-    with ``NARROW``, narrower filters or a split by year; the one for a year names
-    narrower filters only. The hint is static: it names the defaults, not a ceiling set
-    for the process.
+    limit=50000``, naming the request it refused. A refusal from a count says what was
+    sent after its first sentence, ``COUNT_SENT`` for the whole query and ``COUNTS_SENT``
+    for a year, and upstream's HTTP 413, which refused the data request itself, names that
+    request alone (conventions §5). The message for the whole query ends with ``NARROW``,
+    narrower filters or a split by year; the one for a year names narrower filters only.
+    The hint is static: it names the defaults, not a ceiling set for the process.
 
     Args:
         count: Records the query, or the year, would return, e.g. ``85_535``; ``None``
@@ -69,14 +86,15 @@ class QueryTooLarge(CoreQueryTooLarge):
     def __init__(
         self, count: int | None, *, year: int | None = None, request: str | None = None
     ) -> None:
-        narrow = (
-            NARROW
-            if year is None
-            else (
+        if year is not None:
+            narrow = (
                 f"Year {year} alone is over the limit, so split_by_year cannot fetch it. "
-                "Narrow the filters, for example by state_alpha, agg_level_desc or "
-                "statisticcat_desc."
+                f"{COUNTS_SENT} Narrow the filters, for example by state_alpha, "
+                "agg_level_desc or statisticcat_desc."
             )
-        )
+        elif count is not None:
+            narrow = f"{COUNT_SENT} {NARROW}"
+        else:
+            narrow = NARROW
         super().__init__(count, limit=RECORD_LIMIT, narrow=narrow, request=request, source=SOURCE)
         self.year = year

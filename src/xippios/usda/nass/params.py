@@ -173,32 +173,34 @@ def validate_filters(filters: Filters) -> dict[str, str | int]:
         The filters as a plain dict, unchanged.
 
     Raises:
-        InvalidRequestError: Naming every unknown column, with the closest valid names,
-            and every unknown operator, then that nothing was sent; or, when the keys are
-            known, for a packaged parameter given an integer, since every packaged list
-            holds text: core's check names the text codes to pass.
+        InvalidRequestError: Naming the first key, in the caller's order, whose column is
+            unknown, with the closest valid names, or whose operator is, with the operators
+            to use, then that nothing was sent: one refusal names the first problem
+            (conventions §5); or, when the keys are known, for a packaged parameter given an
+            integer, since every packaged list holds text: core's check names the text
+            codes to pass.
         UnknownCode: When the keys are known, for the first packaged parameter whose
             value its packaged list lacks, naming the list, its fetch date, that nothing
             was sent and the closest known values, or pointing at ``list_param_values``
             (the MCP tool ``usda_nass_list_param_values``) when none is close.
     """
     known = _column_names()
-    problems: list[str] = []
     for key in filters:
         column, _, operator = key.partition("__")
         if column not in known:
             close = difflib.get_close_matches(column, sorted(known), n=3)
-            hint = f"; did you mean {', '.join(close)}?" if close else ""
-            problems.append(f"{key!r} is not a Quick Stats column{hint}")
-        elif operator and operator not in OPERATORS:
+            hint = f"; did you mean {', '.join(close)}?" if close else "."
+            raise InvalidRequestError(
+                f"{key!r} is not a Quick Stats column{hint} Nothing was sent. Columns are "
+                "defined in docs/upstream/param_define.md.",
+                source=SOURCE,
+            )
+        if operator and operator not in OPERATORS:
             allowed = ", ".join(f"__{op}" for op in OPERATORS)
-            problems.append(f"{key!r}: unknown operator {operator!r}; use one of {allowed}")
-    if problems:
-        raise InvalidRequestError(
-            "; ".join(problems)
-            + ". Nothing was sent. Columns are defined in docs/upstream/param_define.md.",
-            source=SOURCE,
-        )
+            raise InvalidRequestError(
+                f"{key!r}: unknown operator {operator!r}; use one of {allowed}. Nothing was sent.",
+                source=SOURCE,
+            )
     for key, value in filters.items():
         if key in PACKAGED_PARAMS:
             # The caller's spelling is sent; the refusal names the closest known values in

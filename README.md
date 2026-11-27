@@ -28,16 +28,18 @@ filters = {
     "state_alpha": "VA",
     "year": 2012,
 }
-tasks.get_counts(filters).data  # 2 records would come back from api_GET
+tasks.count_data(filters).data  # 2 records would come back from api_GET
 records = tasks.get_data(filters).data
 records[0].short_desc  # 'CORN - ACRES PLANTED'
 records[0].value, records[0].value_number  # '510,000', Decimal('510000'); JSON: 510000
 ```
 
-`get_data` calls `get_counts` first: zero matches return an empty result, more than
+`get_data` counts the records first: zero matches return an empty result, more than
 50,000 raise `QueryTooLarge` with the count and a hint, narrower filters or a split by
 year, before anything is fetched. `list_param_values("sector_desc")` lists the values a
-filter can take.
+filter can take. The client keeps a count and the data for 300 seconds and a list fetched
+live for a day, so the same call within that time sends nothing, and a year that Quick
+Stats publishes within those 300 seconds reads as none until they pass.
 
 `get_data(filters, split_by_year=True)` fetches the years one at a time where one call
 cannot serve them, when its filters bound the years as `year`, `year__GE` with
@@ -52,11 +54,15 @@ the limit. One call splits into at most 20 years in Python and over HTTP, and 11
 default on the MCP server, whose `--split-years` sets 1 to 20: a longer split raises
 `InvalidRequestError` naming the ceiling, for a two-sided range before any call, for
 `year__GE` alone after its count, while an open range within the limit is fetched whole
-however far back it starts. A year counting 0 is skipped: it has no records, or none
-published yet, which Quick Stats does not tell apart, and `meta.vintage` stays `None`,
-since Quick Stats names no release. A year over 50,000 on its own still raises
-`QueryTooLarge` naming it, and the records come in year order with `meta.total` the
-yearly counts summed. A split costs up to two keyed calls per year.
+however far back it starts. A year counting 0 is passed over: it has no records, or none
+published yet, which Quick Stats does not tell apart, so one note of `meta.notes` names
+the years passed over, and `meta.vintage` stays `None`, since Quick Stats names no
+release. A year over 50,000 on its own still raises `QueryTooLarge` naming it, and the
+records come in year order. A split sums no yearly counts: `meta.total` stays `None` for a
+two-sided range, which Quick Stats counts as `year__GE` alone, and keeps upstream's count
+of the range for `year__GE` alone. A split costs up to two keyed calls per year. An answer
+of one `year` without records says in its note that Quick Stats counted none, the count it
+also gives a year not yet published.
 
 Each record carries every column of Quick Stats under its upstream name; `value` stays
 the published string and `value_number` its parsed form. `meta.published_at` stays
@@ -91,10 +97,12 @@ Tools are read-only and named `usda_nass_<verb>_<noun>`. Results are capped, at
 `usda_nass_list_param_values` returns up to 1,000 values, since its lists run longer than
 200 (`domain_desc`, packaged, has 616; `commodity_desc`, fetched live, 467), and takes
 `offset`, the values already shown, which continues a cut list from the package or the
-client's cache without a request. `--http`
+client's cache without a request. `usda_nass_get_data` keeps 200 rows or 64 KB, and its
+note names the filters that narrow a query; it takes no `offset`, since a continuation
+would send its count and its data again once an answer passes the cache's 8 MiB. `--http`
 serves streamable HTTP instead of stdio. `--split-years YEARS`, 1 to 20 and 11 by default,
 is the most years one `usda_nass_get_data` call with `split_by_year` splits into, at most
-23 keyed calls at 11; the setting holds for the whole process.
+23 keyed requests in 92 attempts at 11; the setting holds for the whole process.
 
 ## Status
 
@@ -106,7 +114,7 @@ exactly tasks.__all__, and tasks_write.__all__ where the package has write tasks
 
 | Upstream operation | Task function | MCP tool | Status |
 | --- | --- | --- | --- |
-| `get_counts` | `tasks.get_counts(filters)` | `usda_nass_get_counts` | alpha |
+| `get_counts` | `tasks.count_data(filters)` | `usda_nass_count_data` | alpha |
 | `api_GET` | `tasks.get_data(filters, split_by_year=)` | `usda_nass_get_data` | alpha |
 | `get_param_values` | `tasks.list_param_values(param)` | `usda_nass_list_param_values` | alpha |
 

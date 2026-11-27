@@ -28,8 +28,8 @@ NO_LIVE_LIST: dict[str, str] = {}
 """No packaged list goes uncompared: the package ships the nine parameter lists alone."""
 
 
-async def test_get_counts_live() -> None:
-    result = await tasks.get_counts_async(
+async def test_count_data_live() -> None:
+    result = await tasks.count_data_async(
         {"commodity_desc": "CORN", "year__GE": 2012, "state_alpha": "VA"}
     )
     assert result.data > 0

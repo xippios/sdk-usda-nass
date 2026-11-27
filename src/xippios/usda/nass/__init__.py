@@ -4,6 +4,6 @@ Upstream: USDA NASS Quick Stats.
 """
 
 from xippios.usda.nass._version import __version__
-from xippios.usda.nass.tasks import get_counts, get_data, list_param_values
+from xippios.usda.nass.tasks import count_data, get_data, list_param_values
 
-__all__ = ["__version__", "get_counts", "get_data", "list_param_values"]
+__all__ = ["__version__", "count_data", "get_data", "list_param_values"]

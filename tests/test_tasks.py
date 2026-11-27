@@ -7,7 +7,7 @@ import argparse
 import json
 import re
 import sys
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -49,6 +49,12 @@ from xippios.usda.nass.mcp import run, server
 from xippios.usda.nass.models import ApiGetResponse, GetCountsResponse, QuickStatsRecord
 from xippios.usda.nass.params import PACKAGE, PACKAGED_PARAMS, columns
 
+NO_MATCH = (
+    "no Quick Stats record matches the filters of GET /api/api_GET/ (upstream: bad request "
+    "- invalid query)"
+)
+"""What ``classify`` maps Quick Stats' HTTP 400 for filters without a record to."""
+
 EXAMPLE_FILTERS: dict[str, str | int] = {
     "commodity_desc": "CORN",
     "year__GE": 2012,
@@ -56,11 +62,13 @@ EXAMPLE_FILTERS: dict[str, str | int] = {
 }
 
 
-def test_get_counts_replays_the_documented_example(
+def test_count_data_replays_the_documented_example(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
+    """``count_data`` sends upstream's ``get_counts`` and answers its count, ``meta.endpoint``
+    naming the operation as upstream does."""
     route = replay_fixture("get_counts", "corn_va_since_2012")
-    result = tasks.get_counts(EXAMPLE_FILTERS)
+    result = tasks.count_data(EXAMPLE_FILTERS)
     assert result.data == 22345
     assert result.meta.total == 22345
     assert result.meta.source == "usda-nass"
@@ -82,19 +90,37 @@ async def test_unknown_columns_are_ignored_upstream(
     assert (await api.get_counts({"not_a_column": "x"})).payload.count == 57873464
 
 
-def test_unknown_filter_keys_are_rejected_before_any_call(respx_mock: respx.MockRouter) -> None:
+UNKNOWN_COLUMN = (
+    "'comodity_desc' is not a Quick Stats column; did you mean commodity_desc, domaincat_desc, "
+    "domain_desc? Nothing was sent. Columns are defined in docs/upstream/param_define.md."
+)
+UNKNOWN_OPERATOR = (
+    "'year__GTE': unknown operator 'GTE'; use one of __LE, __LT, __GT, __GE, __LIKE, "
+    "__NOT_LIKE, __NE. Nothing was sent."
+)
+
+
+@pytest.mark.parametrize(
+    ("filters", "refusal"),
+    [
+        ({"comodity_desc": "CORN", "year__GTE": 2012, "state_alpha": "XX"}, UNKNOWN_COLUMN),
+        ({"year__GTE": 2012, "comodity_desc": "CORN", "state_alpha": "XX"}, UNKNOWN_OPERATOR),
+        ({"commodity_desc": "CORN", "year__GTE": 2012}, UNKNOWN_OPERATOR),
+    ],
+    ids=["column-first", "operator-first", "operator-alone"],
+)
+def test_unknown_filter_keys_are_rejected_before_any_call(
+    respx_mock: respx.MockRouter, filters: dict[str, str | int], refusal: str
+) -> None:
+    """A refusal of the call as given names the first problem that it finds, the first
+    unknown column or operator in the caller's order, and gathers no list of every problem
+    (conventions §5, sdk-core ADR-0061, decision 7). The keys are checked before the values,
+    so ``state_alpha=XX`` is not reached, and the refusal comes before any request and says
+    so (sdk-core ADR-0045)."""
     with pytest.raises(InvalidRequestError) as info:
-        tasks.get_counts({"comodity_desc": "CORN", "year__GTE": 2012, "state_alpha": "XX"})
-    assert not isinstance(info.value, UnknownCode)  # the keys are checked before the values
-    message = str(info.value)
-    assert "'comodity_desc' is not a Quick Stats column" in message
-    assert "did you mean commodity_desc" in message
-    assert "'year__GTE': unknown operator 'GTE'" in message
-    assert "__GE" in message
-    # The refusal comes before any request and says so (conventions §5, sdk-core ADR-0045).
-    assert message.endswith(
-        ". Nothing was sent. Columns are defined in docs/upstream/param_define.md."
-    )
+        tasks.count_data(filters)
+    assert not isinstance(info.value, UnknownCode)
+    assert str(info.value) == refusal
     assert not respx_mock.calls
 
 
@@ -106,7 +132,20 @@ def test_every_documented_operator_passes_validation(
     replay_fixture("get_counts", "corn_va_since_2012")
     for key in ["year__LE", "year__LT", "year__GT", "year__GE", "commodity_desc__LIKE",
                 "commodity_desc__NOT_LIKE", "state_alpha__NE", "Value"]:  # fmt: skip
-        assert tasks.get_counts({key: "x"}).data == 22345
+        assert tasks.count_data({key: "x"}).data == 22345
+
+
+def test_the_operators_are_those_the_snapshot_lists() -> None:
+    """``OPERATORS``, written by hand, holds the operators of the snapshot's section
+    ``Operators`` in ``docs/upstream/api.md``, in its order, so an operator that the
+    document adds or drops fails here (conventions §10; sdk-core ADR-0061, decision 12)."""
+    from xippios.usda.nass.params import OPERATORS
+
+    snapshot = Path(__file__).parents[1] / "docs" / "upstream" / "api.md"
+    section = snapshot.read_text(encoding="utf-8").partition("\n### Operators\n")[2]
+    assert section, "the snapshot has a section Operators"
+    documented = tuple(re.findall(r"^__([A-Z_]+) = ", section, flags=re.MULTILINE))
+    assert documented == OPERATORS == ("LE", "LT", "GT", "GE", "LIKE", "NOT_LIKE", "NE")
 
 
 def test_query_too_large_is_an_invalid_request_for_http_too() -> None:
@@ -167,13 +206,13 @@ def test_a_packaged_value_in_lower_case_passes_and_is_sent_as_given(
     the packaged-list check accepts ``va`` and sends it unchanged."""
     route = replay_fixture("get_counts", "corn_va_since_2012_lowercase")
     filters = {**EXAMPLE_FILTERS, "state_alpha": "va"}
-    result = tasks.get_counts(filters)
+    result = tasks.count_data(filters)
     assert (result.data, result.meta.total) == (22347, 22347)
     assert result.meta.request == filters
     assert sent_query(route)["state_alpha"] == "va"
 
 
-@pytest.mark.parametrize("task", [tasks.get_counts, tasks.get_data])
+@pytest.mark.parametrize("task", [tasks.count_data, tasks.get_data])
 def test_unknown_packaged_value_is_refused_before_any_call(
     respx_mock: respx.MockRouter, task: Callable[..., object]
 ) -> None:
@@ -230,7 +269,7 @@ def test_unknown_packaged_value_names_the_closest_known_ones(
     assert not respx_mock.calls
 
 
-@pytest.mark.parametrize("task", [tasks.get_counts, tasks.get_data])
+@pytest.mark.parametrize("task", [tasks.count_data, tasks.get_data])
 def test_an_integer_for_a_packaged_list_of_text_is_refused_before_any_call(
     respx_mock: respx.MockRouter, task: Callable[..., object]
 ) -> None:
@@ -259,7 +298,7 @@ def test_each_packaged_list_is_declared_once_with_cores_check() -> None:
 def test_every_packaged_parameter_is_checked(respx_mock: respx.MockRouter) -> None:
     for param in PACKAGED_PARAMS:
         with pytest.raises(UnknownCode) as info:
-            tasks.get_counts({param: "NOT A VALUE"})
+            tasks.count_data({param: "NOT A VALUE"})
         assert (info.value.param, info.value.fetched) == (param, fetched_as_written(param))
     assert not respx_mock.calls
 
@@ -271,7 +310,7 @@ def test_operator_keys_of_packaged_parameters_are_sent_as_given(
     # keys: the test asserts only what was sent and the empty count
     # (conventions §10, kind 3).
     route = replay_fixture("get_counts", "no_match")
-    result = tasks.get_counts({"state_alpha__LIKE": "X", "sector_desc__NE": "NOT A SECTOR"})
+    result = tasks.count_data({"state_alpha__LIKE": "X", "sector_desc__NE": "NOT A SECTOR"})
     assert route.called
     # (0, 0) is the no_match fixture's count, recorded for year=1800, not for this query.
     assert (result.data, result.meta.total) == (0, 0)
@@ -299,7 +338,7 @@ def test_get_data_parses_every_column(replay_fixture: Callable[[str, str], respx
     assert result.meta.endpoint == "api_GET"
     assert result.meta.request == SMALL_FILTERS
     assert len(result.data) == 2
-    # The count get_counts reported, as recorded for EXAMPLE_FILTERS: upstream's statement,
+    # The count count_data reported, as recorded for EXAMPLE_FILTERS: upstream's statement,
     # never len(data) (conventions §4, sdk-core ADR-0034).
     assert result.meta.total == 22345
     record = result.data[0]
@@ -312,6 +351,7 @@ def test_get_data_parses_every_column(replay_fixture: Callable[[str, str], respx
     assert record.load_time == datetime(2015, 6, 3, 15, 8, 31)
     assert record.short_desc == "CORN - ACRES PLANTED"
     assert sent_query(fetched)["format"] == "JSON"
+    assert result.meta.notes == []  # an answer with records says nothing of a year without
 
 
 def test_get_data_refuses_before_fetching_when_over_the_limit(
@@ -337,6 +377,23 @@ def test_get_data_returns_empty_without_fetching_when_nothing_matches(
     result = tasks.get_data({"commodity_desc": "CORN", "year": 1800, "state_alpha": "VA"})
     assert result.data == []
     assert result.meta.total == 0
+    # One year without records says so in its note, since a year Quick Stats has not
+    # published counts 0 too and it names no release
+    # (https://github.com/xippios/sdk-usda-esr/issues/88).
+    assert result.meta.notes == [one_year_note(1800)]
+    assert not fetched.called
+
+
+def test_get_data_without_a_year_answers_no_records_without_a_note(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """A query that names no one ``year`` and counts 0 answers the empty list alone: the
+    note speaks of one year. ``get_counts/no_match`` answers the query, a count of 0 that
+    upstream gives alike to every query without records (conventions §10, kind 3)."""
+    replay_fixture("get_counts", "no_match")
+    fetched = replay_fixture("api_get", "no_match")
+    result = tasks.get_data({"commodity_desc": "CORN", "year__GE": 2030})
+    assert (result.data, result.meta.total, result.meta.notes) == ([], 0, [])
     assert not fetched.called
 
 
@@ -363,8 +420,11 @@ async def test_api_get_maps_no_match_to_not_found(
     # api_get/no_match answers the query without its state, an answer that upstream
     # gives alike to every query that matches nothing (conventions §10, kind 3).
     replay_fixture("api_get", "no_match")
-    with pytest.raises(NotFoundError, match="invalid query"):
+    with pytest.raises(NotFoundError) as info:
         await api.api_get({"commodity_desc": "CORN", "year": 1800})
+    # classify names the request by core's request_description, never its host or query
+    # (conventions §5; https://github.com/xippios/sdk-usda-nass/issues/83).
+    assert str(info.value) == NO_MATCH
 
 
 @pytest.mark.anyio
@@ -403,7 +463,7 @@ def test_a_task_is_retrieved_at_the_oldest_of_its_answers(
     replay_fixture("get_counts", "corn_va_since_2012")
     replay_fixture("api_get", "corn_va_2012_area_planted")
     before = datetime.now(UTC)
-    counted = tasks.get_counts(EXAMPLE_FILTERS)
+    counted = tasks.count_data(EXAMPLE_FILTERS)
     between = datetime.now(UTC)
     result = tasks.get_data(SMALL_FILTERS)
     after = datetime.now(UTC)
@@ -419,6 +479,75 @@ def test_value_number_handles_suppression_codes() -> None:
     )
     assert record.value == "(D)"
     assert record.value_number is None
+
+
+@pytest.mark.parametrize(
+    ("printed", "number"),
+    [("(L)", None), ("(H)", None), ("", None), ("1.9", Decimal("1.9"))],
+)
+def test_cv_percent_keeps_its_text_beside_its_number(printed: str, number: Decimal | None) -> None:
+    """``EXAMPLE_RECORD`` with each ``CV (%)`` is an input of the test, not an answer from
+    Quick Stats. Quick Stats prints a coefficient of variation or a code such as ``(L)`` in
+    the column, so ``cv_percent`` keeps the text as printed and ``cv_percent_number`` stands
+    beside it, the number or ``None``, as ``value_number`` beside ``value`` (conventions §3;
+    sdk-core ADR-0060, decision 8; https://github.com/xippios/sdk-usda-nass/issues/36)."""
+    record = QuickStatsRecord.model_validate({**EXAMPLE_RECORD, "CV (%)": printed})
+    assert record.cv_percent == printed
+    assert record.cv_percent_number == number
+    dumped = record.model_dump(mode="json")
+    assert (dumped["cv_percent"], dumped["cv_percent_number"]) == (
+        printed,
+        None if number is None else float(number),
+    )
+
+
+CODE_LABELS = {
+    "state_alpha": "state_name",
+    "state_ansi": "state_name",
+    "state_fips_code": "state_name",
+    "asd_code": "asd_desc",
+    "county_ansi": "county_name",
+    "county_code": "county_name",
+    "watershed_code": "watershed_desc",
+    "country_code": "country_name",
+}
+"""Each code field of the record and the field beside it in which Quick Stats sends its
+name, as ``docs/upstream/param_define.md`` defines them."""
+
+
+def test_each_code_field_declares_the_label_beside_it() -> None:
+    """A record's code field names its codes by ``NamedBy``, here the field of the same
+    record in which Quick Stats sends the name, since the nine packaged lists hold values
+    that are their own names (conventions §4; sdk-core ADR-0067, decision 6). A code that
+    no field names, ``congr_district_code``, ``begin_code`` and ``end_code``, and the ZIP
+    code carry none."""
+    from xippios.core import NamedBy
+
+    marked = {
+        field: [mark.by for mark in info.metadata if isinstance(mark, NamedBy)]
+        for field, info in QuickStatsRecord.model_fields.items()
+    }
+    assert {field: by for field, by in marked.items() if by} == {
+        field: [label] for field, label in CODE_LABELS.items()
+    }
+
+
+def test_a_replayed_record_names_its_codes_beside_them(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """The recorded Virginia answer carries each code beside its name, so ``meta.names``
+    takes nothing for them, and ``cv_percent`` keeps the empty text that Quick Stats sent,
+    with ``cv_percent_number`` ``None`` beside it."""
+    # get_counts/corn_va_since_2012, recorded for EXAMPLE_FILTERS, answers the count of
+    # SMALL_FILTERS too, a count within the limit that upstream gives alike for the narrower
+    # query (conventions §10, kind 3).
+    replay_fixture("get_counts", "corn_va_since_2012")
+    replay_fixture("api_get", "corn_va_2012_area_planted")
+    result = tasks.get_data(SMALL_FILTERS)
+    record = result.data[0]
+    assert (record.state_alpha, record.state_ansi, record.state_name) == ("VA", "51", "VIRGINIA")
+    assert (record.cv_percent, record.cv_percent_number) == ("", None)
+    assert result.meta.names == {}
 
 
 EXAMPLE_RECORD = {
@@ -496,8 +625,7 @@ def test_a_list_fetched_live_is_cached_and_carries_its_stored_time(
     the hit report one time (https://github.com/xippios/sdk-core/issues/79).
     """
     assert isinstance(config.cache, MemoryCache)
-    # One prefix, the list lookups', kept for a day; no other path is kept (sdk-core ADR-0040).
-    assert config.cache.lifetimes == {"/api/get_param_values/": 24 * 60 * 60}
+    assert config.cache.lifetimes == LIFETIMES
     route = replay_fixture("get_param_values", "commodity_desc")
     before = datetime.now(UTC)
     first = tasks.list_param_values("commodity_desc")
@@ -536,29 +664,85 @@ def test_a_live_list_that_does_not_parse_is_not_cached(
     assert len(config.cache) == 0
 
 
-def test_counts_are_never_cached(replay_fixture: Callable[[str, str], respx.Route]) -> None:
-    route = replay_fixture("get_counts", "corn_va_since_2012")
-    first = tasks.get_counts(EXAMPLE_FILTERS)
-    second = tasks.get_counts(EXAMPLE_FILTERS)
-    assert route.call_count == 2
-    assert (first.data, second.data) == (22345, 22345)
+LIFETIMES = {
+    "/api/get_param_values/": 24 * 60 * 60,
+    "/api/get_counts/": 300,
+    "/api/api_GET/": 300,
+}
+"""The client's cache: a list for a day, a count and the data for 300 seconds, by path
+prefix (conventions §6; sdk-core ADR-0061, decision 11), by the maintainer's decision of
+2026-11-26."""
+
+
+def stored_count_at(filters: dict[str, str | int]) -> datetime:
+    """When the client's cache stored the ``get_counts`` answer for ``filters``."""
+    assert config.cache is not None
+    url = httpx.URL(f"{BASE_URL}/get_counts/", params=filters)
+    entry = config.cache.get(cache_key("GET", url))
+    assert entry is not None
+    return datetime.fromtimestamp(entry.stored_at, UTC)
+
+
+def test_the_client_keeps_the_lists_a_day_and_counts_and_data_300_seconds() -> None:
+    """Quick Stats serves public data to a read-only client, so its answers go through
+    core's response cache: the lists for a day, the counts and the data for 300 seconds.
+    A body over ``cache_max_bytes``, 8 MiB, passes unstored, and a year of data can run past
+    it, which is why ``get_data`` takes no paged cap (sdk-core ADR-0061, decision 9)."""
     assert isinstance(config.cache, MemoryCache)
-    assert len(config.cache) == 0
+    assert config.cache.lifetimes == LIFETIMES
+    assert config.cache_max_bytes == 8 * 1024 * 1024
+    assert "get_data" not in tasks.MCP_CAPS or not tasks.MCP_CAPS["get_data"].paged
 
 
-def test_data_is_never_cached(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+def test_a_repeated_count_within_its_lifetime_sends_nothing(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """The second count is the cache's answer and carries the time the first was stored
+    (sdk-core ADR-0037, decision 5)."""
+    route = replay_fixture("get_counts", "corn_va_since_2012")
+    before = datetime.now(UTC)
+    first = tasks.count_data(EXAMPLE_FILTERS)
+    after = datetime.now(UTC)
+    second = tasks.count_data(EXAMPLE_FILTERS)
+    assert route.call_count == 1
+    assert (first.data, second.data) == (22345, 22345)
+    stored = stored_count_at(EXAMPLE_FILTERS)
+    assert second.meta.retrieved_at == stored == first.meta.retrieved_at
+    assert_time_between(stored, before, after)
+
+
+def test_a_repeated_query_within_its_lifetime_sends_nothing(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """A count that ``count_data`` sent answers the count of ``get_data`` with the same
+    filters, and a second ``get_data`` sends neither its count nor its data."""
     # get_counts/corn_va_since_2012, recorded for EXAMPLE_FILTERS, answers the count of
     # SMALL_FILTERS too, a count within the limit that upstream gives alike for the narrower
     # query (conventions §10, kind 3).
     counted = replay_fixture("get_counts", "corn_va_since_2012")
     fetched = replay_fixture("api_get", "corn_va_2012_area_planted")
+    tasks.count_data(SMALL_FILTERS)
     first = tasks.get_data(SMALL_FILTERS)
     second = tasks.get_data(SMALL_FILTERS)
-    assert fetched.call_count == 2
-    assert counted.call_count == 2
-    assert len(second.data) == len(first.data) == 2
+    assert (counted.call_count, fetched.call_count) == (1, 1)
+    assert second.data == first.data
+    assert len(second.data) == 2
+    assert second.meta == first.meta
     assert isinstance(config.cache, MemoryCache)
-    assert len(config.cache) == 0
+    assert len(config.cache) == 2
+
+
+def test_a_repeated_split_within_its_lifetime_sends_nothing(
+    replay_fixture: ReplayFixture,
+) -> None:
+    """Every yearly count and every year's data of a split is kept, so the same split
+    again is answered whole from the cache."""
+    routes = mount_real_split(replay_fixture)
+    first = tasks.get_data(PRICES_FILTERS, split_by_year=True)
+    second = tasks.get_data(PRICES_FILTERS, split_by_year=True)
+    assert [route.call_count for route in routes.values()] == [1, 1, 1, 1]
+    assert second.data == first.data
+    assert len(second.data) == 26
 
 
 @pytest.mark.anyio
@@ -657,8 +841,13 @@ def test_list_param_values_unknown_parameter_is_not_found(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
     replay_fixture("get_param_values", "unknown_param")
-    with pytest.raises(NotFoundError, match="not_a_column"):
+    with pytest.raises(NotFoundError) as info:
         tasks.list_param_values("not_a_column")
+    # The request by core's request_description (https://github.com/xippios/sdk-usda-nass/issues/83).
+    assert str(info.value) == (
+        "Quick Stats has no parameter 'not_a_column': GET /api/get_param_values/ answered "
+        'HTTP 400 with "no value"'
+    )
 
 
 @pytest.mark.parametrize("param", PACKAGED_PARAMS)
@@ -758,9 +947,10 @@ async def test_mcp_tool_call_end_to_end(replay_fixture: Callable[[str, str], res
         510000,
         None,
     )
+    assert (first["cv_percent"], first["cv_percent_number"]) == ("", None)
     assert payload["meta"]["published_at"] is None
     with pytest.raises(AssertionError, match=r"InvalidRequestError.*comodity_desc"):
-        await mcp_call(server, "usda_nass_get_counts", {"filters": {"comodity_desc": "CORN"}})
+        await mcp_call(server, "usda_nass_count_data", {"filters": {"comodity_desc": "CORN"}})
     text = await mcp_call_text(server, "usda_nass_get_data", {"filters": {"state_alpha": "XX"}})
     assert text.startswith(
         "error: UnknownCode: 'XX' is not a state_alpha in the packaged state_alpha list"
@@ -790,10 +980,10 @@ def test_http_route_end_to_end(replay_fixture: Callable[[str, str], respx.Route]
     listed = client.get("/usda-nass/list_param_values", params={"param": "sector_desc"})
     assert listed.status_code == 200, listed.text
     assert "CROPS" in listed.json()["data"]
-    rejected = client.post("/usda-nass/get_counts", json={"filters": {"comodity_desc": "CORN"}})
+    rejected = client.post("/usda-nass/count_data", json={"filters": {"comodity_desc": "CORN"}})
     assert rejected.status_code == 422
     assert rejected.json()["title"] == "InvalidRequestError"
-    unknown = client.post("/usda-nass/get_counts", json={"filters": {"state_alpha": "XX"}})
+    unknown = client.post("/usda-nass/count_data", json={"filters": {"state_alpha": "XX"}})
     assert unknown.status_code == 422
     assert unknown.json()["title"] == "UnknownCode"
     assert "packaged state_alpha list" in unknown.json()["detail"]
@@ -827,7 +1017,7 @@ async def test_the_package_serves_its_three_tasks_and_no_slice_of_them() -> None
     from xippios.usda.nass import models
     from xippios.usda.nass.http import router
 
-    assert tasks.__all__ == ["get_counts", "get_data", "list_param_values"]
+    assert tasks.__all__ == ["count_data", "get_data", "list_param_values"]
     assert package.__all__ == ["__version__", *tasks.__all__]
     defined = {name.removesuffix("_async") for name in dir(tasks) if name.endswith("_async")}
     assert defined == set(tasks.__all__)
@@ -843,6 +1033,20 @@ async def test_the_package_serves_its_three_tasks_and_no_slice_of_them() -> None
     }
     assert classes == {"ApiGetResponse", "GetCountsResponse", "QuickStatsRecord", "_Published"}
     assert models.__all__ == ["ApiGetResponse", "Filters", "GetCountsResponse", "QuickStatsRecord"]
+
+
+def test_the_count_task_is_count_data_with_no_alias() -> None:
+    """The task of upstream's count operation takes the verb ``count_``, ``count_data``,
+    and ``get_counts`` stands neither as a task nor as an alias of it (conventions §1,
+    sdk-core ADR-0061, decision 3, by the maintainer's decision of 2026-11-26). The wrapper
+    ``api.get_counts`` keeps upstream's name of the operation."""
+    import xippios.usda.nass as package
+
+    for module in (tasks, package):
+        assert not hasattr(module, "get_counts")
+        assert not hasattr(module, "get_counts_async")
+    assert package.count_data is tasks.count_data
+    assert api.get_counts.__name__ == "get_counts"
 
 
 @pytest.mark.usefixtures("restore_split_ceiling")
@@ -881,12 +1085,36 @@ CORN_COUNTY_FILTERS: dict[str, str | int] = {
     "year__LE": 2021,
 }
 
+COUNT_SENT = "The count was sent, and no record was asked for."
+"""What a refusal after the count of a whole query says was sent (conventions §5)."""
+COUNTS_SENT = "Only counts were sent, and no record was asked for."
+"""What a refusal of a year over the limit says was sent: its count, after any before it."""
+
 THROUGH_THE_LIMIT = (  # QueryTooLarge's hint for a whole query (conventions §8)
     "Narrow the filters, for example by year, state_alpha, agg_level_desc or "
     "statisticcat_desc, or call get_data with split_by_year=True (over MCP, the tool "
     "usda_nass_get_data) on a bounded year range of at most 20 years in Python and over "
     "HTTP, 11 by default on the MCP server (--split-years)."
 )
+
+
+def one_year_note(year: int) -> str:
+    """The note of ``get_data`` for one ``year`` that Quick Stats counted 0 for
+    (https://github.com/xippios/sdk-usda-esr/issues/88)."""
+    return (
+        f"Quick Stats counted no record for year {year}, the count it also gives a year not "
+        "yet published."
+    )
+
+
+def passed_over_note(years: Iterable[int]) -> str:
+    """The note of a split that passed over ``years``, each counted 0 (conventions §4)."""
+    named = [str(year) for year in years]
+    joined = named[0] if len(named) == 1 else f"{', '.join(named[:-1])} and {named[-1]}"
+    return (
+        f"split_by_year passed over {joined}, for which Quick Stats counted no record, the "
+        "count it also gives a year not yet published."
+    )
 
 
 def sent_in_order(router: respx.MockRouter) -> list[tuple[str, str | None]]:
@@ -962,7 +1190,10 @@ def test_split_by_year_is_real_end_to_end(
         year: recorded_chunk(fixtures_dir, f"corn_price_received_ia_{year}")
         for year in PRICES_COUNTS
     }
-    assert len(result.data) == result.meta.total == sum(PRICES_COUNTS.values()) == 26
+    assert len(result.data) == sum(PRICES_COUNTS.values()) == 26
+    # Quick Stats counts no two-sided range whole, so the split sums no counts into total
+    # (conventions §4, sdk-core ADR-0060, decision 8), and no year was passed over.
+    assert (result.meta.total, result.meta.notes) == (None, [])
     assert result.data == chunks[2023] + chunks[2024]  # year order, each in upstream's order
     assert [row.year for row in result.data] == [2023] * 13 + [2024] * 13
     assert result.meta.endpoint == "api_GET"
@@ -976,8 +1207,8 @@ def test_get_data_splits_a_two_sided_year_range_by_year(
     routes = mount_ia_split(replay_fixture)
     result = tasks.get_data(IA_FILTERS, split_by_year=True)
     chunks = {year: recorded_chunk(fixtures_dir, case) for year, case in IA_CHUNKS.items()}
-    # Upstream's yearly counts summed, never len(data): the chunks replay slices (§4).
-    assert result.meta.total == IA_COUNTS[2023] + IA_COUNTS[2024] == 21434
+    # No count of the range stands, and the yearly counts are not summed (conventions §4).
+    assert result.meta.total is None
     assert len(result.data) == len(chunks[2023]) + len(chunks[2024]) == 24
     assert [row.year for row in result.data] == [2023] * 13 + [2024] * 11
     keys = [(row.year, row.reference_period_desc, row.week_ending) for row in result.data]
@@ -1021,8 +1252,7 @@ def test_a_split_whose_later_fetch_fails_returns_nothing_and_names_the_years_ans
     with pytest.raises(NotFoundError) as info:
         tasks.get_data(IA_FILTERS, split_by_year=True)
     assert str(info.value) == (
-        "no Quick Stats record matches these filters (upstream: bad request - invalid "
-        "query). The series stopped at 2024 after 1 period answered, 2023, and returns "
+        f"{NO_MATCH}. The series stopped at 2024 after 1 period answered, 2023, and returns "
         "nothing."
     )
     assert failed.call_count == 1
@@ -1064,7 +1294,10 @@ def test_split_of_year_ge_alone_keeps_the_first_count(
     assert sent_later == [str(year) for year in years if year not in IA_COUNTS]
     assert (routes["fetch_2023"].call_count, routes["fetch_2024"].call_count) == (1, 1)
     assert [row.year for row in result.data] == [2023] * 13 + [2024] * 11
-    assert result.meta.total == sum(IA_COUNTS.values()) == 21434  # the years counted 0 add 0
+    # Quick Stats' own count of the open range, the first count, which the split kept; the
+    # years after 2024 counted 0 and are named in the note (conventions §4).
+    assert result.meta.total == 85535
+    assert result.meta.notes == [passed_over_note(year for year in years if year not in IA_COUNTS)]
     assert result.meta.request == {**IA_SINCE_FILTERS, "split_by_year": True}
 
 
@@ -1078,8 +1311,8 @@ def test_get_data_without_split_refuses_the_two_year_query(
     assert (info.value.count, info.value.year) == (85535, None)
     assert str(info.value) == (
         "query would return 85,535 records; upstream serves at most 50,000 per call. "
-        f"{THROUGH_THE_LIMIT}"
-    )
+        f"{COUNT_SENT} {THROUGH_THE_LIMIT}"
+    )  # refused after the count, so it says what was sent (conventions §5)
     assert counted.call_count == 1
     assert not fetched.called
 
@@ -1089,13 +1322,20 @@ async def test_query_too_large_names_the_way_through_the_limit(
     replay_fixture: ReplayFixture,
 ) -> None:
     """Narrower filters, or ``get_data`` with ``split_by_year`` on at most 20 years
-    (conventions §8); a year over the limit on its own names narrower filters only."""
+    (conventions §8); a year over the limit on its own names narrower filters only. A
+    refusal from a count says that the count was sent and no record asked for, and
+    upstream's HTTP 413, which refused the data request itself, says nothing of a count
+    (conventions §5)."""
     assert SPLIT_CEILING == 20
-    assert str(QueryTooLarge(85_535)).endswith(THROUGH_THE_LIMIT)
+    assert str(QueryTooLarge(85_535)).endswith(f"{COUNT_SENT} {THROUGH_THE_LIMIT}")
     assert str(QueryTooLarge(None)).endswith(THROUGH_THE_LIMIT)  # upstream's HTTP 413
     assert str(QueryTooLarge(None)).startswith("upstream refused the query as too large")
+    assert "count" not in str(QueryTooLarge(None)).partition(". ")[2]
     alone = str(QueryTooLarge(57_873_464, year=2021))
-    assert "split_by_year cannot fetch it. Narrow the filters, for example by state_alpha" in alone
+    assert (
+        f"split_by_year cannot fetch it. {COUNTS_SENT} Narrow the filters, for example by "
+        "state_alpha"
+    ) in alone
     assert "split_by_year=True" not in alone
     replay_fixture("get_counts", "corn_county_2020_2021")
     text = await mcp_call_text(server, "usda_nass_get_data", {"filters": CORN_COUNTY_FILTERS})
@@ -1122,9 +1362,9 @@ def test_split_refuses_a_year_over_the_limit_before_fetching(
     assert (info.value.count, info.value.year) == (57873464, 2021)
     assert str(info.value) == (
         "query would return 57,873,464 records; upstream serves at most 50,000 per call. "
-        "Year 2021 alone is over the limit, so split_by_year cannot fetch it. Narrow the "
-        "filters, for example by state_alpha, agg_level_desc or statisticcat_desc. The series "
-        "stopped at 2021 after 1 period answered, 2020, and returns nothing."
+        f"Year 2021 alone is over the limit, so split_by_year cannot fetch it. {COUNTS_SENT} "
+        "Narrow the filters, for example by state_alpha, agg_level_desc or statisticcat_desc. "
+        "The series stopped at 2021 after 1 period answered, 2020, and returns nothing."
     )  # core's fetch_periods names the years answered before the refusal
     assert (count_2020.call_count, count_2021.call_count) == (1, 1)
     # No count of the range, and nothing fetched before every year is counted, though 2020 fits.
@@ -1142,6 +1382,11 @@ def test_split_of_one_year_over_the_limit_refuses_after_the_first_count(
     with pytest.raises(QueryTooLarge) as info:
         tasks.get_data({"commodity_desc": "CORN", "year": 2021}, split_by_year=True)
     assert (info.value.count, info.value.year) == (57873464, 2021)
+    assert str(info.value) == (
+        "query would return 57,873,464 records; upstream serves at most 50,000 per call. "
+        f"Year 2021 alone is over the limit, so split_by_year cannot fetch it. {COUNTS_SENT} "
+        "Narrow the filters, for example by state_alpha, agg_level_desc or statisticcat_desc."
+    )
     assert counted.call_count == 1  # the year's count is the first count
     assert not fetched.called
 
@@ -1168,6 +1413,7 @@ def test_split_counts_a_year_past_the_current_one_without_refusing_it(
     }
     result = tasks.get_data(filters, split_by_year=True)
     assert (result.data, result.meta.total) == ([], 0)
+    assert result.meta.notes == [one_year_note(next_year)]
     assert result.meta.request == {**filters, "split_by_year": True}
     assert sent_query(counted) == {
         "commodity_desc": "CORN",
@@ -1277,17 +1523,20 @@ def test_split_bounds_year_ge_alone_at_the_current_utc_year(
     sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
     assert sent == [str(start), str(start + 1)]
     assert sent[-1] == str(datetime.now(UTC).year)
-    assert (result.data, result.meta.total) == ([], 0)
+    assert (result.data, result.meta.total) == ([], 85535)  # the first count, kept
+    assert result.meta.notes == [passed_over_note([start, start + 1])]
     assert not fetched.called
 
 
 def ceiling_message(first: int, last: int) -> str:
     """The refusal of ``year__GE`` alone over the ceiling, which the package words after
-    its count, so without core's ``Nothing was sent.``."""
+    its count, so without core's ``Nothing was sent.`` and with what was sent: the count of
+    the range, and no yearly count or fetch (conventions §4 and §5)."""
     return (
         f"split_by_year covers at most 20 years per call; the years run from {first} to "
-        f"{last}, {last - first + 1} years. Give a shorter range, e.g. year__GE={last - 19} "
-        f"with year__LE={last}."
+        f"{last}, {last - first + 1} years. The count of year__GE={first} was sent, and no "
+        f"year was counted or fetched. Give a shorter range, e.g. year__GE={last - 19} with "
+        f"year__LE={last}."
     )
 
 
@@ -1384,7 +1633,8 @@ def test_split_accepts_twenty_years_of_a_two_sided_range(
     result = tasks.get_data(filters, split_by_year=True)
     sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
     assert sent == [str(year) for year in range(2001, 2021)]
-    assert (result.data, result.meta.total) == ([], 0)
+    assert (result.data, result.meta.total) == ([], None)
+    assert result.meta.notes == [passed_over_note(range(2001, 2021))]
     assert not fetched.called
 
 
@@ -1410,7 +1660,8 @@ def test_split_accepts_twenty_years_from_year_ge_on(
     sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
     assert sent == [str(year) for year in range(start, now + 1)]
     assert len(sent) == 20
-    assert (result.data, result.meta.total) == ([], 0)
+    assert (result.data, result.meta.total) == ([], 85535)
+    assert result.meta.notes == [passed_over_note(range(start, now + 1))]
     assert not fetched.called
 
 
@@ -1517,7 +1768,7 @@ async def test_split_by_year_over_mcp(replay_fixture: ReplayFixture) -> None:
         server, "usda_nass_get_data", {"filters": PRICES_FILTERS, "split_by_year": True}
     )
     assert [row["year"] for row in payload["data"]] == [2023] * 13 + [2024] * 13
-    assert payload["meta"]["total"] == 26
+    assert payload["meta"].get("total") is None
     assert payload["meta"]["request"] == {**PRICES_FILTERS, "split_by_year": True}
     assert "note" not in payload  # 26 rows, under the default cap
     text = await mcp_call_text(
@@ -1542,7 +1793,7 @@ def test_split_by_year_over_http(replay_fixture: ReplayFixture) -> None:
     assert response.status_code == 200
     body = response.json()
     assert [row["year"] for row in body["data"]] == [2023] * 13 + [2024] * 13
-    assert body["meta"]["total"] == 26
+    assert body["meta"].get("total") is None
     assert body["meta"]["request"] == {**PRICES_FILTERS, "split_by_year": True}
     refused = client.post(
         "/usda-nass/get_data", json={"filters": {"year__LE": 2021}, "split_by_year": True}
@@ -1704,7 +1955,8 @@ async def test_the_mcp_server_refuses_a_split_beyond_its_ceiling_before_any_call
         "usda_nass_get_data",
         {"filters": {**six, "year__GE": 2010}, "split_by_year": True},
     )
-    assert (payload["data"], payload["meta"]["total"]) == ([], 0)
+    assert (payload["data"], payload["meta"].get("total")) == ([], None)
+    assert payload["meta"]["notes"] == [passed_over_note(range(2010, 2021))]
     sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
     assert sent == [str(year) for year in range(2010, 2021)]
     assert not fetched.called
@@ -1750,3 +2002,59 @@ async def test_get_data_says_a_zero_for_one_year_may_be_a_year_not_yet_published
     tools = {tool.name: tool for tool in await server.list_tools()}
     description = tools["usda_nass_get_data"].description or ""
     assert UNPUBLISHED_COUNT in " ".join(description.split())
+
+
+# --- what one get_data call spends, and the note of its cut answer ---
+
+
+def test_get_data_states_the_most_requests_one_call_spends() -> None:
+    """A task that spends more than one request states in its tool's description, the
+    docstring before ``Args:``, the most that one call spends, retries counted (conventions
+    §8; sdk-core ADR-0061, decision 8): a count and the data, and a split's first count of
+    ``year__GE`` alone and two requests a year, at the client's four attempts each."""
+    import inspect
+
+    attempts = config.retry.max_attempts
+    assert attempts == 4
+    at_mcp, at_most = 2 * MCP_SPLIT_YEARS + 1, 2 * SPLIT_CEILING + 1
+    assert (at_mcp, at_most) == (23, 41)
+    bound = (
+        f"One call sends at most 2 requests in {2 * attempts} attempts, retries counted; "
+        f"split_by_year, which fetches a range year by year, at most {at_mcp} requests in "
+        f"{at_mcp * attempts} attempts at the MCP server's {MCP_SPLIT_YEARS} years and "
+        f"{at_most} requests in {at_most * attempts} attempts at the {SPLIT_CEILING} years of "
+        "Python and HTTP."
+    )
+    lead = (inspect.getdoc(tasks.get_data) or "").partition("\n\nArgs:")[0]
+    assert bound in " ".join(lead.replace("``", "").split())
+
+
+@pytest.mark.anyio
+async def test_a_cut_answer_of_get_data_names_the_filters_that_narrow_it(
+    replay_fixture: ReplayFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``usda_nass_get_data`` keeps the family's bounds and a note of its own that names the
+    filters that narrow a query, since the default note promises none (conventions §8;
+    sdk-core ADR-0038, decision 3). The tool stays unpaged: a continuation would send its
+    count and its data again once the cache's bound is passed, which a year of data can
+    pass (sdk-core ADR-0061, decision 9). The recorded split of 26 records goes through the
+    cap with its rows lowered to 10 for this test alone."""
+    from xippios.core import ResultCap
+    from xippios.core.mcp import ToolSet, build_server
+
+    own = tasks.MCP_CAPS["get_data"]
+    assert (own.max_rows, own.max_bytes, own.paged) == (200, 65_536, False)
+    assert own.note is not None
+    for name in ("year", "state_alpha", "agg_level_desc", "statisticcat_desc"):
+        assert name in own.note
+    lowered = ResultCap(max_rows=10, note=own.note)
+    monkeypatch.setattr(tasks, "MCP_CAPS", {**tasks.MCP_CAPS, "get_data": lowered})
+    hosted = build_server(ToolSet.from_tasks("usda-nass", tasks))
+    mount_real_split(replay_fixture)
+    payload = await mcp_call(
+        hosted, "usda_nass_get_data", {"filters": PRICES_FILTERS, "split_by_year": True}
+    )
+    assert len(payload["data"]) == 10
+    assert payload["note"].startswith("showing 10 of 26 rows")
+    assert payload["note"].endswith(own.note)
+    assert "offset" not in payload["note"]
