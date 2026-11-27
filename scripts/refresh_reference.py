@@ -1,51 +1,52 @@
 """Refresh the packaged reference data from upstream (``/refresh-reference-data``).
 
-Writes ``src/xippios/usda/nass/reference/<param>.json`` for every packaged parameter
-list through the layer-1 wrapper (never the task, which would answer from the package),
-with ``PackagedList.write``: the parameter, the upstream operation, the UTC time of the
-fetch to the second and the values as records of one field named by the parameter
-(conventions §3). ``columns.csv`` is rebuilt from the column table in
-``docs/upstream/param_define.md``, which the snapshot keeps as HTML (conventions §3). The
-table is parsed before any request, and every list is fetched before the first file is
-written, so a snapshot the parser cannot read, or a fetch that fails, leaves every
-packaged file as it was. Run from the repository root with what the list endpoints need
-in the environment, the API key, since every Quick Stats endpoint takes it::
+The script declares its lists to core's frame, ``xippios.core.refresh``, in one ``Lists``
+(sdk-core ADR-0062): one ``Listed`` per packaged list, the nine parameter lists of
+``PACKAGED_PARAMS``, each fetched by one ``get_param_values`` call through the layer-1
+wrapper (never the task, which would answer from the package) and stamped with the
+wrapper's ``retrieved_at``, its values as records of one field named by the parameter
+(conventions §3). The frame fetches every list before it writes one, each request sent
+once and counted, and writes the packaged files with ``PackagedList.write`` and the
+provenance rows of ``reference/README.md``; no list declares an enum, so the frame leaves
+``enums.py`` alone and the package ships none.
+
+The script's own code is the fetch, ``columns.csv`` and the read timeout. ``columns.csv`` is
+rebuilt from the column table in ``docs/upstream/param_define.md``, which the snapshot keeps
+as HTML (conventions §3): the declaration's ``before`` parses the table before the first
+request, so a snapshot the parser cannot read stops the run before anything is sent, and
+its ``after`` writes the file once every list was fetched, on a full run alone. The client
+waits ``READ_TIMEOUT`` for an answer around the run. Run from the repository root with the
+API key in the environment, since every Quick Stats endpoint takes it::
 
     uv run python scripts/refresh_reference.py
 
-The package's client sends each request once, ``RetryPolicy(max_attempts=1)``, so a 5xx
-or a 429 spends no second keyed call: a run that fails writes nothing and is run again.
-After the fetches it prints the requests it sent, a failed run's too; Quick Stats reports
-no quota left (``QUOTA_HEADER``). A full run sends 9: one ``get_param_values`` per
-packaged parameter. ``--only <list> [<list> ...]`` fetches the named lists of
-``PACKAGED_PARAMS`` alone, writes their files and keeps every other
-file as it is, ``columns.csv`` among them, as a change that packages a new list does;
-since the package reads every list, each list it keeps must be packaged already, which
-is checked before the first request.
+A full run sends 9 requests, one ``get_param_values`` per packaged parameter, each sent
+once with no retry; Quick Stats reports no quota left (``QUOTA_HEADER``). The frame's
+``--only <list> [<list> ...]`` fetches the named lists alone and keeps every other file,
+``columns.csv`` among them, and its ``--render-only`` writes the provenance rows from the
+packaged files without a request and without a key.
 """
 
-import argparse
 import csv
 import io
 import re
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import replace
+from functools import partial
 from html.parser import HTMLParser
 from pathlib import Path
 
-import httpx
-from xippios.core import AsyncClient, PackagedList, RetryPolicy, sync
+from xippios.core import AsyncClient, PackagedList
+from xippios.core.refresh import Listed, Lists, run
 
 from xippios.usda.nass import api
 from xippios.usda.nass._client import client
-from xippios.usda.nass.params import PACKAGED_PARAMS
+from xippios.usda.nass.params import PACKAGE, PACKAGED_PARAMS
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE_DIR = ROOT / "src/xippios/usda/nass"
-REFERENCE = PACKAGE_DIR / "reference"
+REFERENCE = ROOT / "src/xippios/usda/nass/reference"
 PARAM_DEFINE = ROOT / "docs/upstream/param_define.md"
-
 COLUMNS = REFERENCE / "columns.csv"
 
 
@@ -154,72 +155,9 @@ def columns_csv(rows: list[dict[str, str]]) -> str:
     return buffer.getvalue()
 
 
-class Meter:
-    """What a run spent: the requests it sent and the quota left that upstream reported.
-
-    The client's ``observe`` hook, which core calls with every response from the wire. It
-    calls the hook the client had first, a quota policy's say (sdk-core ADR-0037), and keeps
-    the last count that upstream sent in ``QUOTA_HEADER``. A request is counted by its
-    response: with no retry each has one, but for one that fails in transport, whose error
-    ends the run.
-    """
-
-    def __init__(self, observe: Callable[[httpx.Response], None] | None) -> None:
-        self.sent = 0
-        self.left: int | None = None
-        self._observe = observe
-
-    def __call__(self, response: httpx.Response) -> None:
-        """Count ``response`` and keep the quota it reports, after the hook it replaces."""
-        if self._observe is not None:
-            self._observe(response)
-        self.sent += 1
-        value = response.headers.get(QUOTA_HEADER) if QUOTA_HEADER else None
-        if value is not None and value.isascii() and value.isdigit():
-            self.left = int(value)
-
-    def report(self) -> str:
-        """The requests sent and the quota left, as upstream last reported it, one line."""
-        left = "not reported" if self.left is None else f"{self.left} ({QUOTA_HEADER})"
-        return f"requests sent: {self.sent}; quota left: {left}"
-
-
-@contextmanager
-def metered(target: AsyncClient) -> Iterator[Meter]:
-    """``target`` for the block: one attempt per request, each counted, then the report.
-
-    ``RetryPolicy(max_attempts=1)`` keeps a 5xx, a 429 or a timeout from spending a second
-    keyed call, and the read timeout is ``READ_TIMEOUT``, the other timeouts ``target``'s.
-    Core builds the client's pool, and with it the timeouts, at the first request in an
-    event loop: the run sends the script's first request, so its pool takes them.
-    ``target``'s configuration is restored after the block, and the report is printed, a
-    failed run's too.
-    """
-    configured = target.config
-    meter = Meter(configured.observe)
-    target.config = replace(
-        configured,
-        timeouts=replace(configured.timeouts, read=READ_TIMEOUT),
-        retry=RetryPolicy(max_attempts=1),
-        observe=meter,
-    )
-    try:
-        yield meter
-    finally:
-        target.config = configured
-        print(meter.report())  # noqa: T201
-
-
-def write(name: str, packaged: PackagedList) -> None:
-    """Write ``reference/<name>.json``: the list as ``PackagedList.write`` writes it."""
-    path = REFERENCE / f"{name}.json"
-    packaged.write(path)
-    print(f"{path.name}: {len(packaged.records)} values from {packaged.endpoint}")  # noqa: T201
-
-
-def fetch_param(param: str) -> PackagedList:
+async def fetch_param(param: str) -> PackagedList:
     """A packaged parameter's values, fetched by one ``get_param_values`` call."""
-    answer = sync(api.get_param_values)(param)
+    answer = await api.get_param_values(param)
     return PackagedList(
         param=param,
         endpoint="get_param_values",
@@ -228,44 +166,68 @@ def fetch_param(param: str) -> PackagedList:
     )
 
 
-def refresh(only: Sequence[str] = ()) -> None:
-    """Fetch the lists, then write their files and, on a full run, columns.csv.
+class ColumnsCsv:
+    """``columns.csv``, made from the snapshot's column table and written on a full run.
 
-    The column table is parsed, ``only``, the lists ``--only`` names, checked, and every
-    list it keeps found packaged, before the first request: a snapshot the parser cannot
-    read, a list the script does not package, or a kept list whose file is absent stops
-    the run before anything is sent or written, since the package reads every list. Every
-    list is fetched before the first file is written, each request sent once and counted.
+    The declaration's ``before`` hook parses the table before the first request, and its
+    ``after`` hook writes the file once every list was fetched, so ``--only`` keeps it as it
+    is.
     """
-    columns = columns_csv(columns_from_snapshot())
-    if unknown := [name for name in only if name not in PACKAGED_PARAMS]:
-        raise SystemExit(f"--only: no list {', '.join(unknown)} in {', '.join(PACKAGED_PARAMS)}")
-    chosen = set(only or PACKAGED_PARAMS)
-    kept = [name for name in PACKAGED_PARAMS if name not in chosen]
-    if missing := [name for name in kept if not (REFERENCE / f"{name}.json").is_file()]:
-        raise SystemExit(f"{', '.join(missing)} is not packaged yet: run without --only")
-    with metered(client):
-        lists = [(param, fetch_param(param)) for param in PACKAGED_PARAMS if param in chosen]
-    for name, packaged in lists:
-        write(name, packaged)
-    if not only:
-        COLUMNS.write_text(columns, encoding="utf-8", newline="")
+
+    def __init__(self) -> None:
+        self.text: str | None = None
+
+    def before(self) -> None:
+        """Parse the snapshot's column table; a table the parser cannot read stops the run."""
+        self.text = columns_csv(columns_from_snapshot())
+
+    def after(self, written: Mapping[str, PackagedList]) -> None:
+        """Write ``columns.csv`` once every list was fetched, else keep it as it is."""
+        if self.text is None or set(written) != set(PACKAGED_PARAMS):
+            return
+        COLUMNS.write_text(self.text, encoding="utf-8", newline="")
         print("columns.csv rebuilt from docs/upstream/param_define.md")  # noqa: T201
 
 
-def main(argv: Sequence[str] | None = None) -> None:
-    """Refresh from upstream, every list or some lists alone with ``--only``."""
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
-    parser.add_argument(
-        "--only",
-        nargs="+",
-        default=[],
-        metavar="LIST",
-        help="fetch these lists alone and keep every other file",
-    )
-    args = parser.parse_args(argv)
-    refresh(args.only)
+COLUMNS_CSV = ColumnsCsv()
+
+LISTS = Lists(
+    package=PACKAGE,
+    lists=tuple(
+        Listed(
+            param,
+            partial(fetch_param, param),
+            endpoint="get_param_values",
+            origin=f"`GET /api/get_param_values?param={param}`",
+        )
+        for param in PACKAGED_PARAMS
+    ),
+    packaged=PACKAGED_PARAMS,
+    client=client,
+    quota_header=QUOTA_HEADER,
+    before=COLUMNS_CSV.before,
+    after=COLUMNS_CSV.after,
+)
+"""The nine packaged parameter lists as the frame fetches and writes them, none with an enum,
+and ``columns.csv`` beside them through the two hooks (sdk-core ADR-0062)."""
+
+
+@contextmanager
+def read_timeout(target: AsyncClient) -> Iterator[None]:
+    """``target`` for the block with the read timeout ``READ_TIMEOUT``, then as it was.
+
+    The other timeouts and the retry stay ``target``'s; the frame sends each request once.
+    Core builds the client's pool, and with it the timeouts, at the first request in an
+    event loop: the run sends the script's first request, so its pool takes them.
+    """
+    configured = target.config
+    target.config = replace(configured, read_timeout=READ_TIMEOUT)
+    try:
+        yield
+    finally:
+        target.config = configured
 
 
 if __name__ == "__main__":
-    main()
+    with read_timeout(client):
+        raise SystemExit(run(LISTS))

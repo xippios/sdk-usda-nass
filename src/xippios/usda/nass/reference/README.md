@@ -14,11 +14,12 @@ states = PackagedList.load(PACKAGE, "state_alpha")
 
 Each `reference/<name>.json` holds `{"param", "endpoint", "fetched", "records"}`:
 upstream's records under upstream's field names, a value list as records of one field named
-by its Quick Stats parameter, written by `/refresh-reference-data`'s script with `PackagedList.write`, never by hand, and
-read with `PackagedList.load`; `columns.csv` is the column table of
-`docs/upstream/param_define.md`, rebuilt by the same script. One row per file: Origin is the
-endpoint or URL it was fetched from, or the `docs/upstream/` file it was rebuilt from;
-Fetched is the UTC time of that fetch, or the snapshot's `Fetched` time for a rebuilt file.
+by its Quick Stats parameter, written by `/refresh-reference-data`'s script on core's frame
+with `PackagedList.write`, never by hand, and read with `PackagedList.load`; `columns.csv`
+is the column table of `docs/upstream/param_define.md`, rebuilt by the same script. One row
+per file: Origin is the endpoint or URL it was fetched from, or the `docs/upstream/` file it
+was rebuilt from; Fetched is the UTC time of that fetch, or the snapshot's `Fetched` time
+for a rebuilt file.
 
 | File | Origin | Fetched |
 | --- | --- | --- |

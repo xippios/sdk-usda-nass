@@ -4,21 +4,28 @@ Nine parameter lists ship inside the package so the common lookups need no netwo
 call and ``validate_filters`` refuses a value they lack before one, and the column table
 from ``docs/upstream/param_define.md`` ships as ``columns.csv``. Files are produced by
 ``scripts/refresh_reference.py`` (``/refresh-reference-data``), never by hand, and a list
-is read with ``PackagedList.load(PACKAGE, name)``; ``reference/README.md`` carries the
-provenance.
+is read with ``PackagedList.load(PACKAGE, name)`` and checked through its declaration,
+``codes(name)``; ``reference/README.md`` carries the provenance. ``columns.csv`` is read
+by ``load_table``, the package's own since core 0.5.0 left it to its one consumer
+(https://github.com/xippios/sdk-core/issues/473).
 """
 
+import csv
 import difflib
 import functools
+import io
+from importlib import resources
+from typing import Any
 
-from pydantic import Field, field_validator
+import pydantic
+from pydantic import Field, TypeAdapter, field_validator
 from xippios.core import (
     InvalidRequestError,
+    PackagedCodes,
     PackagedList,
-    UnknownCode,
     UpstreamModel,
-    closest,
-    load_table,
+    ValidationError,
+    load_json,
 )
 
 from xippios.usda.nass._client import SOURCE
@@ -28,6 +35,7 @@ __all__ = [
     "OPERATORS",
     "PACKAGED_PARAMS",
     "Column",
+    "codes",
     "columns",
     "validate_filters",
 ]
@@ -72,6 +80,51 @@ class Column(UpstreamModel):
         return None if raw == "" else raw
 
 
+def load_csv(package: str, name: str) -> list[dict[str, str]]:
+    """Rows of a packaged CSV file as dicts keyed by the header row.
+
+    Copied from xippios-core 0.4.1's ``reference.py``, which 0.5.0 left to this package,
+    its one consumer (https://github.com/xippios/sdk-core/issues/473).
+
+    Args:
+        package: Import path of the source package, e.g. ``"xippios.usda.nass"``.
+        name: File name under ``reference/``, e.g. ``"columns.csv"``.
+
+    Raises:
+        FileNotFoundError: The package ships no such file.
+    """
+    path = resources.files(package).joinpath("reference", name)
+    if not path.is_file():
+        raise FileNotFoundError(f"reference file {name!r} not found in package {package!r}")
+    return [dict(row) for row in csv.DictReader(io.StringIO(path.read_text(encoding="utf-8")))]
+
+
+def load_table[T](package: str, name: str, model: type[T]) -> list[T]:
+    """Rows of a packaged CSV or JSON file validated into ``model`` instances.
+
+    Copied from xippios-core 0.4.1's ``reference.py`` with ``load_csv``. The format is
+    chosen by extension: ``.csv`` rows are strings coerced by the model, ``.json`` must
+    hold a list of objects.
+
+    Args:
+        package: Import path of the source package, e.g. ``"xippios.usda.nass"``.
+        name: File name under ``reference/``, e.g. ``"columns.csv"``.
+        model: The row model, e.g. ``Column``.
+
+    Raises:
+        ValidationError: A row does not fit ``model``, naming the package, the file and
+            the first failure's location and message, the rows on ``raw``.
+    """
+    raw: Any = load_csv(package, name) if name.endswith(".csv") else load_json(package, name)
+    try:
+        return TypeAdapter(list[model]).validate_python(raw)  # type: ignore[valid-type]
+    except pydantic.ValidationError as exc:
+        first = exc.errors()[0]
+        where = ".".join(str(part) for part in first["loc"])
+        message = f"{package} reference/{name}: {where}: {first['msg']}"
+        raise ValidationError(message, raw=raw, source=SOURCE) from None
+
+
 def columns() -> list[Column]:
     """Every Quick Stats column, from the packaged ``columns.csv``."""
     return load_table(PACKAGE, "columns.csv", Column)
@@ -83,50 +136,24 @@ def _column_names() -> frozenset[str]:
 
 
 @functools.cache
-def _packaged(param: str) -> tuple[PackagedList, frozenset[str]]:
-    """A packaged parameter's list and its values upper-cased, loaded once per process."""
-    packaged = PackagedList.load(PACKAGE, param)
-    return packaged, frozenset(record[param].upper() for record in packaged.records)
+def codes(param: str) -> PackagedCodes:
+    """The packaged list of ``param``, declared once per process with core's check (§5).
 
+    Each value stands for itself, so the list has no name field, and its values are
+    compared without regard to case, as Quick Stats compares them (``state_alpha=va``
+    counts what ``VA`` counts, ``get_counts/corn_va_since_2012_lowercase`` recorded
+    2026-10-28).
 
-def _check_value(param: str, raw: str | int) -> None:
-    """Refuse a value of a packaged parameter that its packaged list lacks (conventions §5).
-
-    The comparison ignores case, as Quick Stats does (``state_alpha=va`` counts what
-    ``VA`` counts, ``get_counts/corn_va_since_2012_lowercase`` recorded 2026-10-28), so a
-    value upstream serves is never refused; the caller's spelling is sent. The refusal
-    names the list, its fetch date and the closest known values in their canonical
-    spelling, or points at ``list_param_values`` and its MCP tool
-    ``usda_nass_list_param_values`` when none is close.
+    Args:
+        param: One of ``PACKAGED_PARAMS``, e.g. ``"state_alpha"``.
     """
-    packaged, values = _packaged(param)
-    if str(raw).upper() in values:
-        return
-    # A value list has no upstream names: each value stands for itself.
-    close = closest(str(raw), {record[param]: record[param] for record in packaged.records})
-    # Core words the closest values itself, each once; the hint stands where none is close.
-    hint = (
-        None
-        if close
-        else (
-            f"list_param_values({param!r}) lists the known values (over MCP, the tool "
-            "usda_nass_list_param_values)."
-        )
-    )
-    raise UnknownCode(
-        param,
-        raw,
-        list_name=packaged.param,
-        fetched=packaged.fetched,
-        closest=close,
-        hint=hint,
-        reason=(
-            "Quick Stats ignores case but counts no records for a value it does not "
-            "know, the answer a query without data gets, so the package refuses it "
-            "before the call."
-        ),
-        source=SOURCE,
-    )
+    return PackagedList.load(PACKAGE, param).codes(param, fold_case=True, source=SOURCE)
+
+
+_REASON = (
+    "Quick Stats ignores case but counts no records for a value it does not know, the "
+    "answer a query without data gets, so the package refuses it before the call."
+)
 
 
 def validate_filters(filters: Filters) -> dict[str, str | int]:
@@ -147,11 +174,13 @@ def validate_filters(filters: Filters) -> dict[str, str | int]:
 
     Raises:
         InvalidRequestError: Naming every unknown column, with the closest valid names,
-            and every unknown operator.
+            and every unknown operator, then that nothing was sent; or, when the keys are
+            known, for a packaged parameter given an integer, since every packaged list
+            holds text: core's check names the text codes to pass.
         UnknownCode: When the keys are known, for the first packaged parameter whose
-            value its packaged list lacks, naming the list, its fetch date and the
-            closest known values, or pointing at ``list_param_values`` (the MCP tool
-            ``usda_nass_list_param_values``) when none is close.
+            value its packaged list lacks, naming the list, its fetch date, that nothing
+            was sent and the closest known values, or pointing at ``list_param_values``
+            (the MCP tool ``usda_nass_list_param_values``) when none is close.
     """
     known = _column_names()
     problems: list[str] = []
@@ -166,10 +195,21 @@ def validate_filters(filters: Filters) -> dict[str, str | int]:
             problems.append(f"{key!r}: unknown operator {operator!r}; use one of {allowed}")
     if problems:
         raise InvalidRequestError(
-            "; ".join(problems) + ". Columns are defined in docs/upstream/param_define.md.",
+            "; ".join(problems)
+            + ". Nothing was sent. Columns are defined in docs/upstream/param_define.md.",
             source=SOURCE,
         )
     for key, value in filters.items():
         if key in PACKAGED_PARAMS:
-            _check_value(key, value)
+            # The caller's spelling is sent; the refusal names the closest known values in
+            # their canonical spelling, or points at the list's lookup when none is close.
+            codes(key).check(
+                key,
+                value,
+                otherwise=(
+                    f"list_param_values({key!r}) lists the known values (over MCP, the tool "
+                    "usda_nass_list_param_values)."
+                ),
+                reason=_REASON,
+            )
     return dict(filters)

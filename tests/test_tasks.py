@@ -17,10 +17,10 @@ import pytest
 import respx
 from xippios.core import (
     Answer,
-    EnvVar,
     InvalidRequestError,
     MemoryCache,
     NotFoundError,
+    PackagedCodes,
     PackagedList,
     UnknownCode,
     ValidationError,
@@ -46,7 +46,7 @@ from xippios.usda.nass import api, tasks
 from xippios.usda.nass._client import BASE_URL, config
 from xippios.usda.nass.errors import MCP_SPLIT_YEARS, SPLIT_CEILING, QueryTooLarge
 from xippios.usda.nass.mcp import run, server
-from xippios.usda.nass.models import ApiGetResponse, QuickStatsRecord
+from xippios.usda.nass.models import ApiGetResponse, GetCountsResponse, QuickStatsRecord
 from xippios.usda.nass.params import PACKAGE, PACKAGED_PARAMS, columns
 
 EXAMPLE_FILTERS: dict[str, str | int] = {
@@ -79,7 +79,7 @@ async def test_unknown_columns_are_ignored_upstream(
 ) -> None:
     """Characterisation at layer 1: Quick Stats drops unknown columns and counts everything."""
     replay_fixture("get_counts", "unknown_column")
-    assert (await api.get_counts({"not_a_column": "x"})).count == 57873464
+    assert (await api.get_counts({"not_a_column": "x"})).payload.count == 57873464
 
 
 def test_unknown_filter_keys_are_rejected_before_any_call(respx_mock: respx.MockRouter) -> None:
@@ -91,12 +91,18 @@ def test_unknown_filter_keys_are_rejected_before_any_call(respx_mock: respx.Mock
     assert "did you mean commodity_desc" in message
     assert "'year__GTE': unknown operator 'GTE'" in message
     assert "__GE" in message
+    # The refusal comes before any request and says so (conventions §5, sdk-core ADR-0045).
+    assert message.endswith(
+        ". Nothing was sent. Columns are defined in docs/upstream/param_define.md."
+    )
     assert not respx_mock.calls
 
 
 def test_every_documented_operator_passes_validation(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
+    # One recorded count answers each operator's query: the test asserts that the key
+    # is sent and the count read, as upstream counts alike (conventions §10, kind 3).
     replay_fixture("get_counts", "corn_va_since_2012")
     for key in ["year__LE", "year__LT", "year__GT", "year__GE", "commodity_desc__LIKE",
                 "commodity_desc__NOT_LIKE", "state_alpha__NE", "Value"]:  # fmt: skip
@@ -104,8 +110,17 @@ def test_every_documented_operator_passes_validation(
 
 
 def test_query_too_large_is_an_invalid_request_for_http_too() -> None:
+    """The package's ``QueryTooLarge`` is core's, kept as a subclass for ``year``, so a
+    caller catches either (https://github.com/xippios/sdk-core/issues/317)."""
+    from xippios.core import QueryTooLarge as CoreQueryTooLarge
+
+    assert issubclass(QueryTooLarge, CoreQueryTooLarge)
     assert issubclass(QueryTooLarge, InvalidRequestError)
     assert status_for(QueryTooLarge(70_000)) == 422
+    refused = QueryTooLarge(70_000, year=2021)
+    assert (refused.count, refused.limit, refused.year, refused.request) == (
+        70_000, 50_000, 2021, None,
+    )  # fmt: skip
 
 
 def fetched_as_written(name: str) -> datetime:
@@ -140,7 +155,7 @@ async def test_upstream_counts_no_records_for_an_unknown_packaged_value(
     ``state_alpha`` it does not know with HTTP 200 and a count of 0, the answer a query
     without data gets."""
     route = replay_fixture("get_counts", "unknown_state_alpha")
-    assert (await api.get_counts({"state_alpha": "XX"})).count == 0
+    assert (await api.get_counts({"state_alpha": "XX"})).payload.count == 0
     assert sent_query(route)["state_alpha"] == "XX"
 
 
@@ -169,6 +184,7 @@ def test_unknown_packaged_value_is_refused_before_any_call(
     fetched = fetched_as_written("state_alpha")
     assert str(info.value).startswith(
         f"'XX' is not a state_alpha in the packaged state_alpha list (fetched {fetched:%Y-%m-%d})."
+        " Nothing was sent."
     )
     assert (
         "list_param_values('state_alpha') lists the known values (over MCP, the tool "
@@ -214,6 +230,32 @@ def test_unknown_packaged_value_names_the_closest_known_ones(
     assert not respx_mock.calls
 
 
+@pytest.mark.parametrize("task", [tasks.get_counts, tasks.get_data])
+def test_an_integer_for_a_packaged_list_of_text_is_refused_before_any_call(
+    respx_mock: respx.MockRouter, task: Callable[..., object]
+) -> None:
+    """Every packaged list holds text, so core's check refuses an integer for one with
+    ``InvalidRequestError``, naming the text to pass, where the package's own check
+    refused it as an unknown value (https://github.com/xippios/sdk-core/issues/313)."""
+    with pytest.raises(InvalidRequestError) as info:
+        task({"commodity_desc": "CORN", "state_alpha": 51})
+    assert not isinstance(info.value, UnknownCode)
+    assert "state_alpha" in str(info.value)
+    assert "Nothing was sent." in str(info.value)
+    assert not respx_mock.calls
+
+
+def test_each_packaged_list_is_declared_once_with_cores_check() -> None:
+    """``params.codes`` declares a packaged list once per process, its values compared
+    without regard to case, as Quick Stats compares them."""
+    from xippios.usda.nass import params
+
+    declared = params.codes("state_alpha")
+    assert isinstance(declared, PackagedCodes)
+    assert declared is params.codes("state_alpha")
+    assert declared.check("state_alpha", "va") == "va"
+
+
 def test_every_packaged_parameter_is_checked(respx_mock: respx.MockRouter) -> None:
     for param in PACKAGED_PARAMS:
         with pytest.raises(UnknownCode) as info:
@@ -225,6 +267,9 @@ def test_every_packaged_parameter_is_checked(respx_mock: respx.MockRouter) -> No
 def test_operator_keys_of_packaged_parameters_are_sent_as_given(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
+    # get_counts/no_match, a count of 0 recorded for year=1800, answers the operator
+    # keys: the test asserts only what was sent and the empty count
+    # (conventions §10, kind 3).
     route = replay_fixture("get_counts", "no_match")
     result = tasks.get_counts({"state_alpha__LIKE": "X", "sector_desc__NE": "NOT A SECTOR"})
     assert route.called
@@ -244,6 +289,9 @@ SMALL_FILTERS: dict[str, str | int] = {
 
 
 def test_get_data_parses_every_column(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    # get_counts/corn_va_since_2012, recorded for EXAMPLE_FILTERS, answers the count of
+    # SMALL_FILTERS too, a count within the limit that upstream gives alike for the narrower
+    # query (conventions §10, kind 3).
     replay_fixture("get_counts", "corn_va_since_2012")
     fetched = replay_fixture("api_get", "corn_va_2012_area_planted")
     result = tasks.get_data(SMALL_FILTERS)
@@ -269,6 +317,8 @@ def test_get_data_parses_every_column(replay_fixture: Callable[[str, str], respx
 def test_get_data_refuses_before_fetching_when_over_the_limit(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
+    # get_counts/unknown_column, the whole database's count, answers the corn query,
+    # over the limit alike (conventions §10, kind 3).
     replay_fixture("get_counts", "unknown_column")
     fetched = replay_fixture("api_get", "exceeds_limit")
     with pytest.raises(QueryTooLarge) as info:
@@ -298,18 +348,72 @@ async def test_api_get_maps_upstream_errors(
     with pytest.raises(QueryTooLarge) as info:
         await api.api_get({"commodity_desc": "CORN"})
     assert info.value.count is None
+    # Core words the refusal and names the request upstream refused (conventions §5).
+    assert info.value.request == "GET /api/api_GET/"
+    assert str(info.value).startswith(
+        "upstream refused GET /api/api_GET/ as too large; it serves at most 50,000 records "
+        "per call."
+    )
 
 
 @pytest.mark.anyio
 async def test_api_get_maps_no_match_to_not_found(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
+    # api_get/no_match answers the query without its state, an answer that upstream
+    # gives alike to every query that matches nothing (conventions §10, kind 3).
     replay_fixture("api_get", "no_match")
     with pytest.raises(NotFoundError, match="invalid query"):
         await api.api_get({"commodity_desc": "CORN", "year": 1800})
 
 
+@pytest.mark.anyio
+async def test_the_wrappers_return_cores_answer_with_its_time(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """``api_get`` and ``get_counts`` read through ``get_answer`` and return core's
+    ``Answer``, the parsed payload with the time it arrived (sdk-core ADR-0037;
+    https://github.com/xippios/sdk-core/issues/479)."""
+    replay_fixture("get_counts", "corn_va_since_2012")
+    replay_fixture("api_get", "corn_va_2012_area_planted")
+    before = datetime.now(UTC)
+    counted = await api.get_counts(EXAMPLE_FILTERS)
+    fetched = await api.api_get(SMALL_FILTERS)
+    after = datetime.now(UTC)
+    assert isinstance(counted, Answer)
+    assert isinstance(counted.payload, GetCountsResponse)
+    assert counted.payload.count == 22345
+    assert isinstance(fetched, Answer)
+    assert isinstance(fetched.payload, ApiGetResponse)
+    assert len(fetched.payload.data) == 2
+    for answer in (counted, fetched):
+        assert_time_between(answer.retrieved_at, before, after)
+    assert counted.retrieved_at <= fetched.retrieved_at
+
+
+def test_a_task_is_retrieved_at_the_oldest_of_its_answers(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """``get_data`` reads a count and then the data, and its ``meta.retrieved_at`` is the
+    count's time, the older, as conventions §4 has a task date what it assembles; a count
+    alone is retrieved at its own answer's time."""
+    # get_counts/corn_va_since_2012, recorded for EXAMPLE_FILTERS, answers the count of
+    # SMALL_FILTERS too, a count within the limit that upstream gives alike for the narrower
+    # query (conventions §10, kind 3).
+    replay_fixture("get_counts", "corn_va_since_2012")
+    replay_fixture("api_get", "corn_va_2012_area_planted")
+    before = datetime.now(UTC)
+    counted = tasks.get_counts(EXAMPLE_FILTERS)
+    between = datetime.now(UTC)
+    result = tasks.get_data(SMALL_FILTERS)
+    after = datetime.now(UTC)
+    assert_time_between(counted.meta.retrieved_at, before, between)
+    assert_time_between(result.meta.retrieved_at, between, after)
+
+
 def test_value_number_handles_suppression_codes() -> None:
+    """``EXAMPLE_RECORD`` with a suppression code is an input of the test, not an answer
+    from Quick Stats."""
     record = QuickStatsRecord.model_validate(
         {**EXAMPLE_RECORD, "Value": "(D)"},
     )
@@ -392,7 +496,8 @@ def test_a_list_fetched_live_is_cached_and_carries_its_stored_time(
     the hit report one time (https://github.com/xippios/sdk-core/issues/79).
     """
     assert isinstance(config.cache, MemoryCache)
-    assert config.cache.ttl == 24 * 60 * 60
+    # One prefix, the list lookups', kept for a day; no other path is kept (sdk-core ADR-0040).
+    assert config.cache.lifetimes == {"/api/get_param_values/": 24 * 60 * 60}
     route = replay_fixture("get_param_values", "commodity_desc")
     before = datetime.now(UTC)
     first = tasks.list_param_values("commodity_desc")
@@ -413,8 +518,8 @@ def test_a_live_list_that_does_not_parse_is_not_cached(
 ) -> None:
     """NOT RECORDED: the recorded ``commodity_desc`` answer, changed in memory so that
     the parameter's list is a text, a form upstream was not seen to send (conventions
-    §10). The lookup raises ``ValidationError`` and the cache keeps nothing, so the next
-    lookup asks upstream again rather than answering the failure for 24 hours: core's
+    §10, kind 4). The lookup raises ``ValidationError`` and the cache keeps nothing, so the
+    next lookup asks upstream again rather than answering the failure for a day: core's
     cache stores an answer only once ``get_answer`` parsed it
     (https://github.com/xippios/sdk-core/issues/122)."""
     recorded = load_fixture(fixtures_dir / "get_param_values" / "commodity_desc.json")
@@ -442,6 +547,9 @@ def test_counts_are_never_cached(replay_fixture: Callable[[str, str], respx.Rout
 
 
 def test_data_is_never_cached(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    # get_counts/corn_va_since_2012, recorded for EXAMPLE_FILTERS, answers the count of
+    # SMALL_FILTERS too, a count within the limit that upstream gives alike for the narrower
+    # query (conventions §10, kind 3).
     counted = replay_fixture("get_counts", "corn_va_since_2012")
     fetched = replay_fixture("api_get", "corn_va_2012_area_planted")
     first = tasks.get_data(SMALL_FILTERS)
@@ -481,6 +589,70 @@ async def test_list_param_values_over_mcp_is_whole_for_a_live_list(
     assert "note" not in payload
 
 
+@pytest.mark.anyio
+async def test_list_param_values_over_mcp_continues_by_offset_without_a_request(
+    replay_fixture: Callable[[str, str], respx.Route],
+) -> None:
+    """The list tool's cap is paged: it takes core's ``offset``, the values already shown,
+    and its task runs again, answered from the package or the client's cache, so a
+    continuation sends upstream nothing (https://github.com/xippios/sdk-usda-nass/issues/55;
+    sdk-core ADR-0047). ``get_data`` takes no ``offset``, since its continuation would send
+    its count and its data again."""
+    tools = {tool.name: tool for tool in await server.list_tools()}
+    assert set(tools["usda_nass_list_param_values"].input_schema["properties"]) == {
+        "param",
+        "offset",
+    }
+    assert "offset" not in tools["usda_nass_get_data"].input_schema["properties"]
+    assert tasks.MCP_CAPS["list_param_values"].paged
+    route = replay_fixture("get_param_values", "commodity_desc")
+    whole = await mcp_call(server, "usda_nass_list_param_values", {"param": "commodity_desc"})
+    rest = await mcp_call(
+        server, "usda_nass_list_param_values", {"param": "commodity_desc", "offset": 400}
+    )
+    assert rest["data"] == whole["data"][400:]
+    assert route.call_count == 1, "the continuation is answered from the cache"
+    domains = [
+        record["domain_desc"] for record in PackagedList.load(PACKAGE, "domain_desc").records
+    ]
+    packaged = await mcp_call(
+        server, "usda_nass_list_param_values", {"param": "domain_desc", "offset": 600}
+    )
+    assert packaged["data"] == domains[600:]
+    assert route.call_count == 1
+
+
+@pytest.mark.anyio
+async def test_a_cut_list_answer_names_its_offset_and_the_calls_after_it_return_the_rest(
+    replay_fixture: Callable[[str, str], respx.Route], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The recorded ``commodity_desc`` list, 467 values, through the package's paged cap
+    with its rows lowered to 200 for this test alone, since no recorded list passes the
+    cap's 1,000: the first call returns 200 values and a note that names the ``offset`` to
+    continue with, and the calls that follow return the rest, the client's cache answering
+    them (https://github.com/xippios/sdk-usda-nass/issues/55)."""
+    from xippios.core import ResultCap
+    from xippios.core.mcp import ToolSet, build_server
+
+    own = tasks.MCP_CAPS["list_param_values"]
+    lowered = ResultCap(max_rows=200, note=own.note, paged=own.paged)
+    monkeypatch.setattr(tasks, "MCP_CAPS", {"list_param_values": lowered})
+    hosted = build_server(ToolSet.from_tasks("usda-nass", tasks))
+    route = replay_fixture("get_param_values", "commodity_desc")
+    whole = tasks.list_param_values("commodity_desc").data
+    assert len(whole) == 467
+    pages = []
+    for offset in (0, 200, 400):
+        arguments: dict[str, object] = {"param": "commodity_desc", "offset": offset}
+        pages.append(await mcp_call(hosted, "usda_nass_list_param_values", arguments))
+    assert [len(page["data"]) for page in pages] == [200, 200, 67]
+    assert [value for page in pages for value in page["data"]] == whole
+    assert "offset=200" in pages[0]["note"]
+    assert "offset=400" in pages[1]["note"]
+    assert "offset=" not in pages[2].get("note", "")
+    assert route.call_count == 1
+
+
 def test_list_param_values_unknown_parameter_is_not_found(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
@@ -512,7 +684,7 @@ def test_the_package_ships_the_nine_lists_and_the_column_table() -> None:
     ``get_param_values``, ``columns.csv`` and its README, and no list of the package's own
     (https://github.com/xippios/sdk-core/issues/474): the progress stages and condition
     categories, which it derived from one year of data, left in 0.4.0, and the packaged
-    ``unit_desc`` holds each of their 21 values."""
+    ``unit_desc`` holds their values, among them the four named here."""
     from importlib.resources import files
 
     from xippios.usda.nass import params
@@ -560,6 +732,9 @@ def test_columns_cover_every_record_field() -> None:
 def test_get_data_keeps_the_count_and_leaves_published_at_empty(
     replay_fixture: Callable[[str, str], respx.Route],
 ) -> None:
+    # get_counts/corn_va_since_2012, recorded for EXAMPLE_FILTERS, answers the count of
+    # SMALL_FILTERS too, a count within the limit that upstream gives alike for the narrower
+    # query (conventions §10, kind 3).
     counted = replay_fixture("get_counts", "corn_va_since_2012")
     replay_fixture("api_get", "corn_va_2012_area_planted")
     result = tasks.get_data(SMALL_FILTERS)
@@ -570,6 +745,9 @@ def test_get_data_keeps_the_count_and_leaves_published_at_empty(
 
 @pytest.mark.anyio
 async def test_mcp_tool_call_end_to_end(replay_fixture: Callable[[str, str], respx.Route]) -> None:
+    # get_counts/corn_va_since_2012, recorded for EXAMPLE_FILTERS, answers the count of
+    # SMALL_FILTERS too, a count within the limit that upstream gives alike for the narrower
+    # query (conventions §10, kind 3).
     replay_fixture("get_counts", "corn_va_since_2012")
     replay_fixture("api_get", "corn_va_2012_area_planted")
     payload = await mcp_call(server, "usda_nass_get_data", {"filters": SMALL_FILTERS})
@@ -598,11 +776,17 @@ def test_http_route_end_to_end(replay_fixture: Callable[[str, str], respx.Route]
     app = FastAPI()
     app.include_router(router)
     client = TestClient(app)
+    # get_counts/corn_va_since_2012, recorded for EXAMPLE_FILTERS, answers the count of
+    # SMALL_FILTERS too, a count within the limit that upstream gives alike for the narrower
+    # query (conventions §10, kind 3).
     replay_fixture("get_counts", "corn_va_since_2012")
     replay_fixture("api_get", "corn_va_2012_area_planted")
     response = client.post("/usda-nass/get_data", json={"filters": SMALL_FILTERS})
     assert response.status_code == 200, response.text
     assert response.json()["data"][0]["value_number"] == 510000
+    # A decimal without fractional digits is a JSON integer (https://github.com/xippios/sdk-core/issues/478).
+    assert '"value_number":510000' in response.text
+    assert '"value_number":510000.0' not in response.text
     listed = client.get("/usda-nass/list_param_values", params={"param": "sector_desc"})
     assert listed.status_code == 200, listed.text
     assert "CROPS" in listed.json()["data"]
@@ -615,87 +799,17 @@ def test_http_route_end_to_end(replay_fixture: Callable[[str, str], respx.Route]
     assert "packaged state_alpha list" in unknown.json()["detail"]
 
 
-def test_a_route_answers_a_refused_argument_as_problem_details(
-    respx_mock: respx.MockRouter,
-) -> None:
-    """A value that a parameter's type refuses, a ``split_by_year`` that is no boolean, is
-    refused before the task runs as problem details, the detail worded as the MCP adapter
-    words it and echoing no input, where FastAPI's own 422 listed its error details
-    (https://github.com/xippios/sdk-core/issues/66)."""
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-
-    from xippios.usda.nass.http import router
-
-    app = FastAPI()
-    app.include_router(router)
-    client = TestClient(app)
-    refused = client.post(
-        "/usda-nass/get_data",
-        json={"filters": SMALL_FILTERS, "split_by_year": "every other year"},
-    )
-    assert refused.status_code == 422
-    body = refused.json()
-    assert body["title"] == "InvalidRequestError"
-    assert body["detail"].startswith("split_by_year: ")
-    assert "every other year" not in body["detail"]
-    assert not respx_mock.calls
-
-
-@pytest.mark.anyio
-async def test_a_tool_error_answer_is_flagged_and_an_undeclared_argument_refused(
-    respx_mock: respx.MockRouter,
-) -> None:
-    """Over an in-process MCP client, a tool's error answer sets ``isError`` beside the
-    family's text (https://github.com/xippios/sdk-core/issues/168), and an argument the
-    tool does not declare is refused before it runs, naming the ones it takes, where it
-    was dropped and the tool ran without it (https://github.com/xippios/sdk-core/issues/84).
-    ``sector_desc`` is packaged, so nothing would be sent either way."""
-    from mcp.client import Client
-    from mcp.types import TextContent
-
-    async with Client(server) as client:
-        refused = await client.call_tool(
-            "usda_nass_get_counts", {"filters": {"comodity_desc": "CORN"}}
-        )
-        undeclared = await client.call_tool(
-            "usda_nass_list_param_values", {"param": "sector_desc", "parameter": "unit_desc"}
-        )
-        answered = await client.call_tool("usda_nass_list_param_values", {"param": "sector_desc"})
-    texts = []
-    for result in (refused, undeclared, answered):
-        content = result.content[0]
-        assert isinstance(content, TextContent)
-        texts.append(content.text)
-    assert refused.is_error
-    assert texts[0].startswith("error: InvalidRequestError: 'comodity_desc' is not a Quick")
-    assert undeclared.is_error
-    assert texts[1] == (
-        "error: InvalidRequestError: parameter: Not an argument of this tool; it takes param"
-    )
-    assert not answered.is_error
-    assert "CROPS" in json.loads(texts[2])["data"]
-    assert not respx_mock.calls
-
-
 def test_the_package_contract_for_a_host() -> None:
-    """``mcp.build()`` is the tool set a host serves as the entry point does: every task,
-    the caps, the text and the ``--split-years`` hooks, with the variables the package
-    reads in ``ENV_VARS`` (conventions §8; sdk-core ADR-0026, amendment 2026-11-18,
-    points c and d; https://github.com/xippios/sdk-core/issues/245)."""
-    from xippios.core.mcp import ToolSet
-
-    from xippios.usda.nass import _client
+    """``mcp.build()`` carries what ``tasks.py`` declares for the server: the caps, the
+    instructions and the ``--split-years`` hooks, which core's tool set reads from the
+    module (conventions §8; sdk-core ADR-0063, decision 7). Core's family check holds the
+    rest of the contract, the tasks served and ``ENV_VARS`` among it (decision 8)."""
     from xippios.usda.nass import mcp as entry
 
-    assert entry.ENV_VARS is _client.ENV_VARS
-    key = EnvVar("NASS_API_KEY", secret=True, required=True)
-    assert (key,) == _client.ENV_VARS
     tools = entry.build()
-    assert isinstance(tools, ToolSet)
-    assert [task.__name__ for task in tools.tasks] == list(tasks.__all__)
     assert dict(tools.caps) == dict(tasks.MCP_CAPS)
-    assert tools.instructions == entry.INSTRUCTIONS
+    assert tools.instructions == tasks.MCP_INSTRUCTIONS
+    assert not hasattr(entry, "INSTRUCTIONS")
     assert tools.read_only
     assert not tools.loopback_only
     assert tools.option_defaults().split_years == MCP_SPLIT_YEARS
@@ -733,17 +847,15 @@ async def test_the_package_serves_its_three_tasks_and_no_slice_of_them() -> None
 
 @pytest.mark.usefixtures("restore_split_ceiling")
 def test_a_host_applies_the_options_as_the_entry_point_does() -> None:
-    """A host builds the server from the tool set and applies the defaults of its hooks,
-    so its server splits into 5 years at most, as ``xippios-usda-nass-mcp`` does."""
-    from xippios.core.mcp import build_server
-
+    """A host applies the defaults of the tool set's hooks, under core's signature, the
+    parsed options alone, so its server splits into 11 years at most, as
+    ``xippios-usda-nass-mcp`` does (sdk-core ADR-0063, decision 7)."""
     from xippios.usda.nass import mcp as entry
 
     tools = entry.build()
     assert tools.apply_options is not None
-    hosted = build_server(tools)
-    assert tools.apply_options(tools.option_defaults(), hosted) is hosted
-    assert tasks.split_ceiling() == MCP_SPLIT_YEARS
+    tools.apply_options(tools.option_defaults())
+    assert tasks.SPLIT.value == MCP_SPLIT_YEARS
 
 
 # --- get_data(split_by_year=True) (https://github.com/xippios/sdk-usda-nass/pull/27) ---
@@ -773,7 +885,7 @@ THROUGH_THE_LIMIT = (  # QueryTooLarge's hint for a whole query (conventions §8
     "Narrow the filters, for example by year, state_alpha, agg_level_desc or "
     "statisticcat_desc, or call get_data with split_by_year=True (over MCP, the tool "
     "usda_nass_get_data) on a bounded year range of at most 20 years in Python and over "
-    "HTTP, 5 by default on the MCP server (--split-years)."
+    "HTTP, 11 by default on the MCP server (--split-years)."
 )
 
 
@@ -802,7 +914,8 @@ def mount_ia_split(replay_fixture: ReplayFixture) -> dict[str, respx.Route]:
     chunks replay a real Iowa answer of each year (``api_get/corn_price_received_ia_2023``,
     ``api_get/corn_progress_planted_ia_2024``), a slice of that year's records: a whole
     year's answer runs to megabytes, and the recorder cuts no JSON object (``max_bytes=``,
-    sdk-core ADR-0040, decision 5).
+    sdk-core ADR-0040, decision 5). The slices answer the Iowa queries of their year, as
+    upstream answers alike within one operation (conventions §10, kind 3).
     """
     routes = {
         f"count_{year}": replay_fixture("get_counts", f"ia_2023_2024_{year}", match_params=["year"])
@@ -886,6 +999,41 @@ def test_get_data_splits_a_two_sided_year_range_by_year(
         assert sent_query(routes[f"fetch_{year}"]) == {**sent, "format": "JSON"}
 
 
+def test_a_split_whose_later_fetch_fails_returns_nothing_and_names_the_years_answered(
+    replay_fixture: ReplayFixture, respx_mock: respx.MockRouter
+) -> None:
+    """NOT RECORDED for 2024: ``api_get/no_match``, recorded for a query that matched
+    nothing, answers the Iowa fetch of 2024, the answer upstream gives alike for any query
+    without records (conventions §10, kind 3), so the second year's fetch fails after the
+    first returned its records. Core's ``fetch_periods`` raises the error, its class
+    ``NotFoundError`` kept, naming the years answered before it, and the call returns
+    nothing: the records of 2023 are not handed back on their own
+    (https://github.com/xippios/sdk-usda-nass/issues/56)."""
+    for year in IA_COUNTS:
+        replay_fixture("get_counts", f"ia_2023_2024_{year}", match_params=["year"])
+    replay_fixture("api_get", IA_CHUNKS[2023], match_params=["year"])
+    failed = replay_fixture(
+        "api_get",
+        "no_match",
+        url=f"{BASE_URL}/api_GET/?state_alpha=IA&year=2024",
+        match_params=["year"],
+    )
+    with pytest.raises(NotFoundError) as info:
+        tasks.get_data(IA_FILTERS, split_by_year=True)
+    assert str(info.value) == (
+        "no Quick Stats record matches these filters (upstream: bad request - invalid "
+        "query). The series stopped at 2024 after 1 period answered, 2023, and returns "
+        "nothing."
+    )
+    assert failed.call_count == 1
+    assert sent_in_order(respx_mock) == [
+        ("/api/get_counts/", "2023"),
+        ("/api/get_counts/", "2024"),
+        ("/api/api_GET/", "2023"),
+        ("/api/api_GET/", "2024"),
+    ]
+
+
 def test_split_of_year_ge_alone_keeps_the_first_count(
     replay_fixture: ReplayFixture, respx_mock: respx.MockRouter
 ) -> None:
@@ -893,7 +1041,8 @@ def test_split_of_year_ge_alone_keeps_the_first_count(
     split only over the limit. ``get_counts/corn_county_2020_2021``, which upstream counted
     as ``year__GE=2020`` alone (85,535), stands in for Iowa's count from 2023 on (31,461,
     within the limit) to drive the split; ``get_counts/no_match`` (a count of 0) answers
-    the years from 2025 to the current one, whose counts are not recorded."""
+    the years from 2025 to the current one, whose counts are not recorded: recorded
+    counts served at other filters of their operation (conventions §10, kind 3)."""
     routes = mount_ia_split(replay_fixture)
     first = replay_fixture(
         "get_counts",
@@ -927,8 +1076,10 @@ def test_get_data_without_split_refuses_the_two_year_query(
     with pytest.raises(QueryTooLarge) as info:
         tasks.get_data(CORN_COUNTY_FILTERS)
     assert (info.value.count, info.value.year) == (85535, None)
-    assert str(info.value).startswith("query would return 85,535 records")
-    assert str(info.value).endswith(THROUGH_THE_LIMIT)
+    assert str(info.value) == (
+        "query would return 85,535 records; upstream serves at most 50,000 per call. "
+        f"{THROUGH_THE_LIMIT}"
+    )
     assert counted.call_count == 1
     assert not fetched.called
 
@@ -942,6 +1093,7 @@ async def test_query_too_large_names_the_way_through_the_limit(
     assert SPLIT_CEILING == 20
     assert str(QueryTooLarge(85_535)).endswith(THROUGH_THE_LIMIT)
     assert str(QueryTooLarge(None)).endswith(THROUGH_THE_LIMIT)  # upstream's HTTP 413
+    assert str(QueryTooLarge(None)).startswith("upstream refused the query as too large")
     alone = str(QueryTooLarge(57_873_464, year=2021))
     assert "split_by_year cannot fetch it. Narrow the filters, for example by state_alpha" in alone
     assert "split_by_year=True" not in alone
@@ -955,7 +1107,8 @@ def test_split_refuses_a_year_over_the_limit_before_fetching(
     replay_fixture: ReplayFixture, respx_mock: respx.MockRouter
 ) -> None:
     """2020 counts 7,727 (recorded 2026-10-28); the whole database's count,
-    ``get_counts/unknown_column``, stands in for a 2021 over the limit on its own."""
+    ``get_counts/unknown_column``, stands in for a 2021 over the limit on its own, a
+    recorded count served at another year of its operation (conventions §10, kind 3)."""
     count_2020 = replay_fixture("get_counts", "corn_county_2020_2021_2020", match_params=["year"])
     count_2021 = replay_fixture(
         "get_counts",
@@ -967,10 +1120,12 @@ def test_split_refuses_a_year_over_the_limit_before_fetching(
     with pytest.raises(QueryTooLarge) as info:
         tasks.get_data(CORN_COUNTY_FILTERS, split_by_year=True)
     assert (info.value.count, info.value.year) == (57873464, 2021)
-    assert str(info.value).startswith(
-        "year 2021 alone would return 57,873,464 records; Quick Stats serves at most 50,000"
-    )
-    assert "split_by_year cannot fetch it" in str(info.value)
+    assert str(info.value) == (
+        "query would return 57,873,464 records; upstream serves at most 50,000 per call. "
+        "Year 2021 alone is over the limit, so split_by_year cannot fetch it. Narrow the "
+        "filters, for example by state_alpha, agg_level_desc or statisticcat_desc. The series "
+        "stopped at 2021 after 1 period answered, 2020, and returns nothing."
+    )  # core's fetch_periods names the years answered before the refusal
     assert (count_2020.call_count, count_2021.call_count) == (1, 1)
     # No count of the range, and nothing fetched before every year is counted, though 2020 fits.
     assert sent_in_order(respx_mock) == [("/api/get_counts/", "2020"), ("/api/get_counts/", "2021")]
@@ -980,6 +1135,8 @@ def test_split_refuses_a_year_over_the_limit_before_fetching(
 def test_split_of_one_year_over_the_limit_refuses_after_the_first_count(
     replay_fixture: ReplayFixture,
 ) -> None:
+    # get_counts/unknown_column, the whole database's count, answers the count of
+    # 2021, over the limit alike (conventions §10, kind 3).
     counted = replay_fixture("get_counts", "unknown_column")
     fetched = replay_fixture("api_get", "exceeds_limit")
     with pytest.raises(QueryTooLarge) as info:
@@ -994,7 +1151,8 @@ def test_split_counts_a_year_past_the_current_one_without_refusing_it(
 ) -> None:
     """The ``year`` form keeps no future-year refusal: with the flag, next year is counted
     as without it (https://github.com/xippios/sdk-usda-nass/pull/27). A count of 0
-    (``get_counts/no_match``, recorded for ``year=1800``) answers it at ``url=``: no fetch."""
+    (``get_counts/no_match``, recorded for ``year=1800``) answers it at ``url=``, an empty
+    answer at another year (conventions §10, kind 3): no fetch."""
     next_year = datetime.now(UTC).year + 1
     counted = replay_fixture(
         "get_counts",
@@ -1045,7 +1203,9 @@ def test_split_refuses_an_unbounded_year_range_before_any_call(
         "e.g. 2022), year__GE with year__LE (e.g. 2020 and 2023, neither past the current "
         "UTC year), or year__GE alone (up to the current UTC year); year filters given: "
     )
-    assert str(info.value).endswith(f"given: {', '.join(sorted(years)) or 'none'}.")
+    assert str(info.value).endswith(
+        f"given: {', '.join(sorted(years)) or 'none'}. Nothing was sent."
+    )
     assert status_for(info.value) == 422
     assert not respx_mock.calls
 
@@ -1060,8 +1220,9 @@ def test_split_refuses_an_unbounded_year_range_before_any_call(
 def test_split_refuses_a_range_without_a_year_before_any_call(
     respx_mock: respx.MockRouter, years: dict[str, str | int], text: str
 ) -> None:
-    with pytest.raises(InvalidRequestError, match=text):
+    with pytest.raises(InvalidRequestError, match=text) as info:
         tasks.get_data({"commodity_desc": "CORN", **years}, split_by_year=True)
+    assert "Nothing was sent." in str(info.value)
     assert not respx_mock.calls
 
 
@@ -1088,8 +1249,8 @@ def test_split_refuses_a_bound_past_the_current_utc_year_before_any_call(
         tasks.get_data({"commodity_desc": "CORN", **years}, split_by_year=True)
     assert not isinstance(info.value, QueryTooLarge | UnknownCode)
     assert str(info.value) == (
-        f"split_by_year: {named}={years[named]} is past the current UTC year, {now}; the "
-        f"range must end by {now}."
+        f"split_by_year: {named}={years[named]} is past the current UTC year, {now}. Nothing "
+        f"was sent. The range must end by {now}."
     )
     assert status_for(info.value) == 422
     assert not respx_mock.calls
@@ -1099,7 +1260,9 @@ def test_split_bounds_year_ge_alone_at_the_current_utc_year(
     replay_fixture: ReplayFixture,
 ) -> None:
     """``get_counts/no_match`` (a count of 0, recorded for year=1800) answers every year, so
-    the range runs to the current year without a fetch."""
+    the range runs to the current year without a fetch, and
+    ``get_counts/corn_county_2020_2021`` stands in for the first count: recorded counts
+    served at other years of their operation (conventions §10, kind 3)."""
     start = datetime.now(UTC).year - 1
     first = replay_fixture(
         "get_counts",
@@ -1119,6 +1282,8 @@ def test_split_bounds_year_ge_alone_at_the_current_utc_year(
 
 
 def ceiling_message(first: int, last: int) -> str:
+    """The refusal of ``year__GE`` alone over the ceiling, which the package words after
+    its count, so without core's ``Nothing was sent.``."""
     return (
         f"split_by_year covers at most 20 years per call; the years run from {first} to "
         f"{last}, {last - first + 1} years. Give a shorter range, e.g. year__GE={last - 19} "
@@ -1130,12 +1295,16 @@ def test_split_refuses_a_two_sided_range_of_more_than_twenty_years_before_any_ca
     respx_mock: respx.MockRouter,
 ) -> None:
     """The ceiling of conventions §4, the most years one call splits into: a two-sided
-    range always splits, so 21 years, one too many, are refused before any call."""
+    range always splits, so 21 years, one too many, are refused before any call, in the
+    words of core's ``Ceiling`` (https://github.com/xippios/sdk-core/issues/315)."""
     filters: dict[str, str | int] = {"commodity_desc": "CORN", "year__GE": 2000, "year__LE": 2020}
     with pytest.raises(InvalidRequestError) as info:
         tasks.get_data(filters, split_by_year=True)
     assert not isinstance(info.value, QueryTooLarge | UnknownCode)
-    assert str(info.value) == ceiling_message(2000, 2020)
+    assert str(info.value) == (
+        "split_by_year from 2000 to 2020 is 21 years; one call fetches at most 20 years. "
+        "Nothing was sent. Give a shorter range, e.g. year__GE=2001 with year__LE=2020."
+    )
     assert status_for(info.value) == 422
     assert not respx_mock.calls
 
@@ -1145,7 +1314,8 @@ def test_split_fetches_a_fitting_year_ge_range_whole_however_far_back(
 ) -> None:
     """The ceiling binds a split, not the filters: ``year__GE`` 25 years back with a count
     within the limit is fetched whole. ``get_counts/corn_va_since_2012`` (22,345) stands
-    in for the count, and ``api_get/corn_va_2012_area_planted`` replays a slice."""
+    in for the count, and ``api_get/corn_va_2012_area_planted`` replays a slice: recorded
+    answers served at another year of their operation (conventions §10, kind 3)."""
     start = datetime.now(UTC).year - 25
     counted = replay_fixture(
         "get_counts",
@@ -1182,7 +1352,8 @@ def test_split_of_year_ge_alone_refuses_more_than_twenty_years_after_the_first_c
 ) -> None:
     """Over the limit, ``year__GE`` alone 21 or 26 years back would split into more years
     than the ceiling: refused after the first count, before any yearly count or fetch.
-    ``get_counts/corn_county_2020_2021`` (85,535) stands in for the count."""
+    ``get_counts/corn_county_2020_2021`` (85,535) stands in for the count, a recorded
+    count served at another year (conventions §10, kind 3)."""
     now = datetime.now(UTC).year
     start = now - back
     counted = replay_fixture(
@@ -1205,6 +1376,8 @@ def test_split_accepts_twenty_years_of_a_two_sided_range(
     replay_fixture: ReplayFixture,
 ) -> None:
     """``get_counts/no_match`` (a count of 0) answers every year: twenty counts, no fetch."""
+    # get_counts/no_match, a count of 0 recorded for year=1800, answers every year, as
+    # upstream answers a year without records (conventions §10, kind 3).
     yearly = replay_fixture("get_counts", "no_match")
     fetched = replay_fixture("api_get", "no_match")
     filters: dict[str, str | int] = {"commodity_desc": "CORN", "year__GE": 2001, "year__LE": 2020}
@@ -1220,7 +1393,8 @@ def test_split_accepts_twenty_years_from_year_ge_on(
 ) -> None:
     """Over the limit, ``year__GE`` alone 19 years back splits into 20 years: the first
     count, ``get_counts/corn_county_2020_2021`` moved, then ``get_counts/no_match`` (a
-    count of 0) for every year, and nothing fetched."""
+    count of 0) for every year, and nothing fetched: recorded counts served at other
+    years (conventions §10, kind 3)."""
     now = datetime.now(UTC).year
     start = now - 19
     first = replay_fixture(
@@ -1257,6 +1431,8 @@ def test_split_by_year_fetches_once_when_the_count_fits(
     """``year__GE`` alone and ``year``: a count within the limit is fetched in one call
     with the filters as given; the fetch replays a slice of the answer (``mount_ia_split``
     says why)."""
+    # Each count, and each slice it fetches, is served for the filters given, a count
+    # within the limit that upstream gives alike for them (conventions §10, kind 3).
     counted = replay_fixture("get_counts", count_case)
     fetched = replay_fixture("api_get", fetch_case)
     result = tasks.get_data(filters, split_by_year=True)
@@ -1281,10 +1457,11 @@ async def test_upstream_counts_year_ge_with_year_le_as_year_ge_alone(
     replay_fixture("get_counts", "ia_since_2023", match_params=["year__GE"])
     for year in IA_COUNTS:
         replay_fixture("get_counts", f"ia_2023_2024_{year}", match_params=["year"])
-    counted = (await api.get_counts(IA_FILTERS)).count
-    since = (await api.get_counts({"state_alpha": "IA", "year__GE": 2023})).count
+    counted = (await api.get_counts(IA_FILTERS)).payload.count
+    since = (await api.get_counts({"state_alpha": "IA", "year__GE": 2023})).payload.count
     yearly = [
-        (await api.get_counts({"state_alpha": "IA", "year": year})).count for year in IA_COUNTS
+        (await api.get_counts({"state_alpha": "IA", "year": year})).payload.count
+        for year in IA_COUNTS
     ]
     assert sent_urls(ranged) == [
         f"{BASE_URL}/get_counts/?state_alpha=IA&year__GE=2023&year__LE=2024&key={REDACTED}"
@@ -1304,8 +1481,8 @@ async def test_upstream_counts_year_le_sent_before_year_ge_as_year_ge_alone(
     ranged = replay_fixture("get_counts", "ia_2023_2024_le_first", match_params=["year__LE"])
     replay_fixture("get_counts", "ia_since_2023", match_params=["year__GE"])
     filters: dict[str, str | int] = {"state_alpha": "IA", "year__LE": 2024, "year__GE": 2023}
-    counted = (await api.get_counts(filters)).count
-    since = (await api.get_counts({"state_alpha": "IA", "year__GE": 2023})).count
+    counted = (await api.get_counts(filters)).payload.count
+    since = (await api.get_counts({"state_alpha": "IA", "year__GE": 2023})).payload.count
     assert sent_urls(ranged) == [
         f"{BASE_URL}/get_counts/?state_alpha=IA&year__LE=2024&year__GE=2023&key={REDACTED}"
     ]
@@ -1324,8 +1501,8 @@ async def test_upstream_counts_year_ge_with_year_lt_as_more_than_year_ge_alone(
     ranged = replay_fixture("get_counts", "ia_2023_lt_2025", match_params=["year__LT"])
     replay_fixture("get_counts", "ia_since_2023", match_params=["year__GE"])
     filters: dict[str, str | int] = {"state_alpha": "IA", "year__GE": 2023, "year__LT": 2025}
-    counted = (await api.get_counts(filters)).count
-    since = (await api.get_counts({"state_alpha": "IA", "year__GE": 2023})).count
+    counted = (await api.get_counts(filters)).payload.count
+    since = (await api.get_counts({"state_alpha": "IA", "year__GE": 2023})).payload.count
     assert sent_urls(ranged) == [
         f"{BASE_URL}/get_counts/?state_alpha=IA&year__GE=2023&year__LT=2025&key={REDACTED}"
     ]
@@ -1378,9 +1555,10 @@ def test_split_by_year_over_http(replay_fixture: ReplayFixture) -> None:
 # --- the MCP server's --split-years (https://github.com/xippios/sdk-usda-nass/pull/27) ---
 
 SPLIT_REFUSAL = (
-    "the split ceiling, --split-years on the MCP server, must be a whole number of years "
+    "the series ceiling, --split-years on the MCP server, must be a whole number of years "
     "from 1 to 20, got {!r}."
 )
+"""Core's ``Ceiling`` words the refusal of a ceiling outside 1 to 20 (sdk-core ADR-0054)."""
 
 
 @pytest.fixture
@@ -1388,77 +1566,96 @@ def restore_split_ceiling() -> Iterator[None]:
     """The split ceiling is process-wide: a test that sets it leaves the Python API's,
     ``SPLIT_CEILING``, for the tests after it."""
     yield
-    tasks.set_split_ceiling(SPLIT_CEILING)
+    tasks.SPLIT.set(SPLIT_CEILING)
 
 
 def test_the_split_ceilings_and_the_option(plain_terminal: None) -> None:
     """20 years for the Python API and the HTTP router, the ceiling in force while no MCP
-    server applied its options; ``--split-years`` on core's parser, 5 by default."""
-    assert (SPLIT_CEILING, MCP_SPLIT_YEARS) == (20, 5)
-    assert tasks.split_ceiling() == 20
+    server applied its options; ``--split-years`` on core's parser, 11 by default, the most
+    years whose split stays within the about two dozen requests that conventions §8 allow
+    one tool call, 22 for a two-sided range and 23 for ``year__GE`` alone. The ceiling is
+    core's ``Ceiling``, whose two hooks the module declares, where the package's own
+    ``split_ceiling`` and ``set_split_ceiling`` stood
+    (https://github.com/xippios/sdk-core/issues/315)."""
+    from xippios.core import Ceiling
+
+    assert (SPLIT_CEILING, MCP_SPLIT_YEARS) == (20, 11)
+    assert isinstance(tasks.SPLIT, Ceiling)
+    assert (tasks.SPLIT.most, tasks.SPLIT.mcp, tasks.SPLIT.option) == (20, 11, "--split-years")
+    assert tasks.mcp_add_options == tasks.SPLIT.add_options
+    assert tasks.mcp_apply_options == tasks.SPLIT.apply_options
+    assert not hasattr(tasks, "split_ceiling")
+    assert not hasattr(tasks, "set_split_ceiling")
+    assert tasks.SPLIT.value == 20
     parser = build_parser(server.name, add_options=tasks.mcp_add_options)
-    assert parser.parse_args([]).split_years == 5
+    assert parser.parse_args([]).split_years == 11
     assert parser.parse_args(["--split-years", "3"]).split_years == 3
     assert parser.parse_args(["--split-years", "25"]).split_years == 25, (
         "the range is checked when the option is applied, then exit status 2"
     )
     assert (
-        "--split-years YEARS most years one usda_nass_get_data call with split_by_year "
-        "splits into, 1 to 20 (default 5); up to two keyed calls a year, so 5 years take at "
-        "most 11 calls"
+        "--split-years YEARS most years one tool call fetches, 1 to 20 (default 11); "
+        "usda_nass_get_data with split_by_year, up to two keyed calls a year, so 11 years "
+        "take at most 23 calls"
     ) in " ".join(parser.format_help().split())
 
 
 @pytest.mark.usefixtures("restore_split_ceiling")
 @pytest.mark.parametrize("years", [1, 5, 20])
-def test_set_split_ceiling_takes_1_to_20(years: int) -> None:
-    tasks.set_split_ceiling(years)
-    assert tasks.split_ceiling() == years
+def test_the_split_ceiling_takes_1_to_20(years: int) -> None:
+    tasks.SPLIT.set(years)
+    assert tasks.SPLIT.value == years
 
 
 @pytest.mark.usefixtures("restore_split_ceiling")
 @pytest.mark.parametrize("years", [0, 21, -5, True, "5", 5.0, None])
-def test_set_split_ceiling_refuses_anything_else(years: object) -> None:
+def test_the_split_ceiling_refuses_anything_else(years: object) -> None:
     """Never above 20, never below 1, never a bool, a text or a float; the ceiling in
     force stays."""
-    tasks.set_split_ceiling(10)
+    tasks.SPLIT.set(10)
     with pytest.raises(InvalidRequestError) as info:
-        tasks.set_split_ceiling(years)  # type: ignore[arg-type]
+        tasks.SPLIT.set(years)  # type: ignore[arg-type]
     assert str(info.value) == SPLIT_REFUSAL.format(years)
-    assert tasks.split_ceiling() == 10
+    assert tasks.SPLIT.value == 10
 
 
 @pytest.mark.usefixtures("restore_split_ceiling")
 def test_the_hooks_apply_the_option_through_cores_parser() -> None:
-    """``--split-years 3`` applies 3, no option applies the default 5, and 25 is refused
-    with the ceiling unchanged; ``mcp_apply_options`` returns the server itself."""
+    """``--split-years 3`` applies 3, no option applies the default 11, and 25 is refused
+    with the ceiling unchanged; ``mcp_apply_options`` takes the parsed options alone and
+    returns nothing, core's signature (sdk-core ADR-0063, decision 7)."""
     parser = build_parser(server.name, add_options=tasks.mcp_add_options)
-    for argv, expected in ((["--split-years", "3"], 3), ([], 5)):
-        assert tasks.mcp_apply_options(parser.parse_args(argv), server) is server
-        assert tasks.split_ceiling() == expected
+    for argv, expected in ((["--split-years", "3"], 3), ([], 11)):
+        tasks.mcp_apply_options(parser.parse_args(argv))
+        assert tasks.SPLIT.value == expected
     with pytest.raises(InvalidRequestError) as info:
-        tasks.mcp_apply_options(parser.parse_args(["--split-years", "25"]), server)
+        tasks.mcp_apply_options(parser.parse_args(["--split-years", "25"]))
     assert str(info.value) == SPLIT_REFUSAL.format(25)
-    assert tasks.split_ceiling() == 5
+    assert tasks.SPLIT.value == 11
 
 
 @pytest.mark.usefixtures("restore_split_ceiling", "plain_terminal")
 def test_the_entry_point_applies_split_years_or_exits_with_status_2(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """``mcp.run`` hands the hooks to core's ``main``: without the option the MCP server
-    starts with 5, ``--split-years 3`` sets 3 before the server runs, on stdio; 25 or 0
-    ends the process with exit status 2 and the refusal on stderr, before anything is
-    served, the ceiling unchanged. The server's ``run`` is replaced, so nothing is served.
-    The direct call to ``main`` lets mypy check the hooks against its signature."""
+    """``mcp.run`` hands the tool set to core's ``main``, which builds the server it runs:
+    without the option the MCP server starts with 11, ``--split-years 3`` sets 3 before
+    the server runs, on stdio; 25 or 0 ends the process with exit status 2 and the refusal
+    on stderr, before anything is served, the ceiling unchanged. ``MCPServer.run`` is
+    replaced on the class, so nothing is served. The direct call to ``main`` lets mypy
+    check the entry against its signature."""
+    from mcp.server.mcpserver import MCPServer
+
+    from xippios.usda.nass.mcp import build
+
     served: list[dict[str, object]] = []
-    monkeypatch.setattr(server, "run", lambda **kwargs: served.append(kwargs))
+    monkeypatch.setattr(MCPServer, "run", lambda self, **kwargs: served.append(kwargs))
     monkeypatch.setattr(sys, "argv", ["xippios-usda-nass-mcp"])
     run()
-    assert tasks.split_ceiling() == 5
+    assert tasks.SPLIT.value == 11
     monkeypatch.setattr(sys, "argv", ["xippios-usda-nass-mcp", "--split-years", "3"])
     run()
-    assert tasks.split_ceiling() == 3
+    assert tasks.SPLIT.value == 3
     assert served == [{"transport": "stdio"}, {"transport": "stdio"}]
     for value in ("25", "0"):
         monkeypatch.setattr(sys, "argv", ["xippios-usda-nass-mcp", "--split-years", value])
@@ -1467,40 +1664,11 @@ def test_the_entry_point_applies_split_years_or_exits_with_status_2(
         assert exit_info.value.code == 2
         assert capsys.readouterr().err.endswith(f"error: {SPLIT_REFUSAL.format(int(value))}\n")
     with pytest.raises(SystemExit) as direct:
-        main(
-            server,
-            ["--split-years", "21"],
-            add_options=tasks.mcp_add_options,
-            apply_options=tasks.mcp_apply_options,
-        )
+        main(build, argv=["--split-years", "21"])
     assert direct.value.code == 2
     assert capsys.readouterr().err.endswith(f"error: {SPLIT_REFUSAL.format(21)}\n")
     assert len(served) == 2, "nothing served after a refusal"
-    assert tasks.split_ceiling() == 3
-
-
-@pytest.mark.usefixtures("restore_split_ceiling", "plain_terminal")
-def test_the_entry_point_names_itself_in_its_usage_and_errors(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """Core's ``main`` names the entry point that runs, where it named the server,
-    ``xippios-usda-nass``, and its help says that ``--allow-remote`` changes nothing on
-    this read server (https://github.com/xippios/sdk-core/issues/167)."""
-    monkeypatch.setattr(server, "run", lambda **kwargs: None)
-    monkeypatch.setattr(sys, "argv", ["/opt/venv/bin/xippios-usda-nass-mcp", "--split-years", "25"])
-    with pytest.raises(SystemExit) as exit_info:
-        run()
-    assert exit_info.value.code == 2
-    err = capsys.readouterr().err
-    assert err.startswith("usage: xippios-usda-nass-mcp ")
-    assert err.splitlines()[-1] == f"xippios-usda-nass-mcp: error: {SPLIT_REFUSAL.format(25)}"
-    monkeypatch.setattr(sys, "argv", ["/opt/venv/bin/xippios-usda-nass-mcp", "--help"])
-    with pytest.raises(SystemExit) as help_info:
-        run()
-    assert help_info.value.code == 0
-    usage = " ".join(capsys.readouterr().out.split())
-    assert usage.startswith("usage: xippios-usda-nass-mcp ")
-    assert "--allow-remote changes nothing: this read server is not held to loopback" in usage
+    assert tasks.SPLIT.value == 3
 
 
 @pytest.mark.anyio
@@ -1508,17 +1676,18 @@ def test_the_entry_point_names_itself_in_its_usage_and_errors(
 async def test_the_mcp_server_refuses_a_split_beyond_its_ceiling_before_any_call(
     replay_fixture: ReplayFixture, respx_mock: respx.MockRouter
 ) -> None:
-    """With the MCP server's default, 5, a two-sided range of six years is refused before
-    any call (respx is active with no route mounted), naming the ceiling set for this
-    process; the ceiling is process-wide, so a Python call meets it too. Five years pass:
-    ``get_counts/no_match`` (a count of 0) answers each year, nothing is fetched."""
-    assert tasks.mcp_apply_options(argparse.Namespace(split_years=5), server) is server
-    six: dict[str, str | int] = {"commodity_desc": "CORN", "year__GE": 2015, "year__LE": 2020}
+    """With the MCP server's default, 11, a two-sided range of twelve years is refused
+    before any call (respx is active with no route mounted), in core's words naming the
+    ceiling set for this process; the ceiling is process-wide, so a Python call meets it
+    too. Eleven years pass: ``get_counts/no_match`` (a count of 0) answers each year, a
+    recorded count served at other years (conventions §10, kind 3), and nothing is fetched."""
+    tasks.mcp_apply_options(argparse.Namespace(split_years=MCP_SPLIT_YEARS))
+    six: dict[str, str | int] = {"commodity_desc": "CORN", "year__GE": 2009, "year__LE": 2020}
     refusal = (
-        "split_by_year covers at most 5 years per call, the ceiling set for this process "
-        "(the MCP server starts with 5 by default; --split-years raises it, up to 20); the "
-        "years run from 2015 to 2020, 6 years. Give a shorter range, e.g. year__GE=2016 "
-        "with year__LE=2020."
+        "split_by_year from 2009 to 2020 is 12 years; one call fetches at most 11 years, the "
+        "ceiling set for this process (the MCP server starts with 11 by default; "
+        "--split-years raises it, up to 20). Nothing was sent. Give a shorter range, e.g. "
+        "year__GE=2010 with year__LE=2020."
     )
     text = await mcp_call_text(
         server, "usda_nass_get_data", {"filters": six, "split_by_year": True}
@@ -1533,11 +1702,11 @@ async def test_the_mcp_server_refuses_a_split_beyond_its_ceiling_before_any_call
     payload = await mcp_call(
         server,
         "usda_nass_get_data",
-        {"filters": {**six, "year__GE": 2016}, "split_by_year": True},
+        {"filters": {**six, "year__GE": 2010}, "split_by_year": True},
     )
     assert (payload["data"], payload["meta"]["total"]) == ([], 0)
     sent = [httpx.URL(url).params.get("year") for url in sent_urls(yearly)]
-    assert sent == [str(year) for year in range(2016, 2021)]
+    assert sent == [str(year) for year in range(2010, 2021)]
     assert not fetched.called
 
 

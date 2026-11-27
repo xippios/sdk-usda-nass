@@ -3,8 +3,8 @@
 Typed Python client, MCP server and FastAPI routes for
 [USDA NASS Quick Stats](https://quickstats.nass.usda.gov), part of the
 [xippios SDK family](https://github.com/xippios). Names and semantics follow the
-upstream documentation; every response carries release metadata (source, endpoint,
-retrieved_at, published_at, vintage).
+upstream documentation; every response carries its metadata (source, endpoint,
+retrieved_at, request).
 
 ## Install
 
@@ -48,7 +48,7 @@ cannot serve them, when its filters bound the years as `year`, `year__GE` with
 drops `year__GE` beside `year__LT`), so a two-sided year range is served only by this
 split. That form is always split, every year counted before anything is fetched; `year`
 is counted and fetched once, and `year__GE` alone is counted first and split only over
-the limit. One call splits into at most 20 years in Python and over HTTP, and 5 by
+the limit. One call splits into at most 20 years in Python and over HTTP, and 11 by
 default on the MCP server, whose `--split-years` sets 1 to 20: a longer split raises
 `InvalidRequestError` naming the ceiling, for a two-sided range before any call, for
 `year__GE` alone after its count, while an open range within the limit is fetched whole
@@ -89,10 +89,12 @@ counts no records for it.
 Tools are read-only and named `usda_nass_<verb>_<noun>`. Results are capped, at
 200 rows or 64 KB unless a tool has a cap of its own, with a note on how to see the rest:
 `usda_nass_list_param_values` returns up to 1,000 values, since its lists run longer than
-200 (`domain_desc`, packaged, has 616; `commodity_desc`, fetched live, 467). `--http`
-serves streamable HTTP instead of stdio. `--split-years YEARS`, 1 to 20 and 5 by default,
+200 (`domain_desc`, packaged, has 616; `commodity_desc`, fetched live, 467), and takes
+`offset`, the values already shown, which continues a cut list from the package or the
+client's cache without a request. `--http`
+serves streamable HTTP instead of stdio. `--split-years YEARS`, 1 to 20 and 11 by default,
 is the most years one `usda_nass_get_data` call with `split_by_year` splits into, at most
-11 keyed calls at 5; the setting holds for the whole process.
+23 keyed calls at 11; the setting holds for the whole process.
 
 ## Status
 
@@ -122,6 +124,54 @@ this package adds no rights to it. Documentation snapshot: `docs/upstream/`.
 The NASS API Terms of Service ask every service that uses the API to display this notice:
 
 > This product uses the NASS API but is not endorsed or certified by NASS.
+
+## Workflows
+
+`ci.yml` runs ruff, its format check, mypy, pytest and pre-commit on Python 3.12, 3.13 and
+3.14, requires a changelog entry of every pull request but Dependabot's and refuses a
+fixture file over 256 KiB that a pull request adds or changes. It runs on every pull request and,
+called by `publish.yml`, once for a release, and its job `ci` is the check the
+organization's ruleset requires. It is handed no secret, and no variable switches it off.
+
+`publish.yml` is the release train (conventions §12): on a push to `main` whose
+`pyproject.toml` names a version that has no tag yet and has its section in `CHANGELOG.md`,
+it runs `ci.yml`, refuses a core pinned to git, tags the merge commit, builds the package
+and, once a reviewer of the environment `pypi` approves the run, publishes it to PyPI by
+trusted publishing. Every push to `main` and a dispatch start it, and a push that brings no
+release ends quietly. It is handed no secret: the step that tells a release is handed the
+job's token as `GH_TOKEN`, the tag goes with the job's token and PyPI trusts the workflow
+itself. Its job `tag` holds the one checkout of the repository that keeps its credentials,
+since it pushes the tag with the job's token; every other checkout sets
+`persist-credentials: false` (conventions §13). No variable switches it off.
+
+`live.yml` runs every `live` test against the upstream with `--tb=short --assert=plain`, so
+its public log holds neither a failing test's arguments nor the values an assertion compared.
+It runs every night at 01:51 UTC and on demand, never on a pull request.
+Its pytest step alone is handed `XIPPIOS_LIVE_TESTS` and, each from the secret of the same
+name, `NASS_API_KEY`, so the checkout, setup-uv and `uv sync` see none.
+A variable `WORKFLOW_LIVE` of `off`, the repository's over the organization's, switches it off.
+
+`conventions.yml` calls the organization's review of a pull request against the documents
+listed under Documents below, the check `conventions / conventions`, when a pull request
+opens, is pushed to, reopens or is edited, and on a push to `main` or a dispatch the review
+of the range of commits, `range / range`. It hands the review the organization's
+secret of the model's key, by name. A variable `WORKFLOW_CONVENTIONS` of `off`, the
+repository's over the organization's, switches both off.
+
+`adr-index.yml` calls the organization's check of the ADR index, `adr-index / adr-index`,
+which runs `scripts/adr_index.py --check`, when a pull request opens, is pushed to or
+reopens. It hands over nothing, and the called workflow reads its switch itself: a variable
+`WORKFLOW_ADR_INDEX` of `off`, the repository's over the organization's, skips the check.
+
+`siblings.yml` runs `.github/scripts/check-siblings.sh`, which installs the wheel beside
+every sibling on PyPI under the same provider namespace that shares its core minor and
+beside the source packages it depends on, and proves that the namespace levels stay portions
+(sdk-core ADR-0006, sdk-core ADR-0021). It runs on every pull request and push to `main`, a
+check the ruleset does not require, in a workflow of its own, since `ci.yml` is core's file,
+which `publish.yml` calls for a release. It hands the script the job's read-only token as
+`GITHUB_TOKEN`, for the listing of the organization's repositories, since GitHub limits the
+calls of a runner without one. A variable `WORKFLOW_SIBLINGS` of `off`, the repository's
+over the organization's, switches it off.
 
 ## Documents
 

@@ -1,30 +1,31 @@
-"""Live smoke tests, one per task, skipped unless XIPPIOS_LIVE_TESTS=1 (conventions §10).
+"""Live smoke tests, one per task, and the nightly comparison of the packaged lists.
 
-``/add-endpoint`` adds them.
+Skipped unless XIPPIOS_LIVE_TESTS=1 (conventions §10); ``/add-endpoint`` adds the smoke
+tests. Core's ``test_packaged_list_is_current`` runs once for each entry of ``LIVE_LISTS``,
+the nine packaged parameter lists, by the star import below (sdk-core ADR-0055). The run's
+requests stand in the line that core's plugin prints at its end, ``requests sent by the
+live run``, with each host and its count.
 """
 
-import httpx
-import pytest
+from functools import partial
 
-from xippios.usda.nass import tasks
-from xippios.usda.nass._client import BASE_URL, config
+import pytest
+from xippios.core.testing.live import *  # noqa: F403
+
+from xippios.usda.nass import api, params, tasks
+from xippios.usda.nass.params import PACKAGED_PARAMS
 
 pytestmark = [pytest.mark.live, pytest.mark.anyio]
 
+LIVE_LISTS = {
+    param: (params.codes(param), partial(api.get_param_values, param)) for param in PACKAGED_PARAMS
+}
+"""The nine packaged parameter lists, each compared with the list upstream serves now by one
+keyed ``get_param_values`` call through the wrapper the refresh script fetches it with
+(https://github.com/xippios/sdk-usda-nass/issues/58)."""
 
-async def test_upstream_answers() -> None:
-    """The base URL answers without a server error.
-
-    A plain request, not the package's client, so no key goes out and it spends no keyed
-    call; a keyed gateway's answer to it (a 403 or a 404, say) still shows the host is up.
-    """
-    async with httpx.AsyncClient(
-        headers={"User-Agent": config.user_agent},
-        timeout=config.timeouts.to_httpx(),
-        follow_redirects=True,
-    ) as http:
-        response = await http.get(BASE_URL)
-    assert response.status_code < 500
+NO_LIVE_LIST: dict[str, str] = {}
+"""No packaged list goes uncompared: the package ships the nine parameter lists alone."""
 
 
 async def test_get_counts_live() -> None:
@@ -54,8 +55,6 @@ async def test_get_data_live() -> None:
 
 async def test_list_param_values_live() -> None:
     """A parameter the package does not ship, so the call reaches upstream."""
-    from xippios.usda.nass.params import PACKAGED_PARAMS
-
     assert "commodity_desc" not in PACKAGED_PARAMS
     result = await tasks.list_param_values_async("commodity_desc")
     assert result.meta.endpoint == "get_param_values"
