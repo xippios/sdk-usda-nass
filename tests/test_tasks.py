@@ -849,29 +849,55 @@ def test_list_param_values_of_a_name_the_column_table_lacks_is_refused(
     replay_fixture("get_param_values", "unknown_param")
     with pytest.raises(InvalidRequestError) as info:
         tasks.list_param_values("not_a_column")
-    # The request by core's request_description (https://github.com/xippios/sdk-usda-nass/issues/83).
+    # The request by core's request_description (https://github.com/xippios/sdk-usda-nass/issues/83);
+    # no column is close to the name, so the refusal points to the column definitions.
     assert str(info.value) == (
-        "'not_a_column' is not a Quick Stats column: GET /api/get_param_values/ answered "
-        'HTTP 400 with "no value"'
+        "'not_a_column' is not a Quick Stats column. GET /api/get_param_values/ answered "
+        'HTTP 400 with "no value". Columns are defined in docs/upstream/param_define.md.'
     )
+
+
+def serve_no_value(respx_mock: respx.MockRouter, fixtures_dir: Path, name: str) -> respx.Route:
+    """NOT RECORDED: the recorded ``unknown_param`` answer, its key changed in memory from
+    ``not_a_column`` to ``name``, a form upstream was not seen to send for that name
+    (conventions §10, kind 4)."""
+    recorded = load_fixture(fixtures_dir / "get_param_values" / "unknown_param.json")
+    body = json.loads(recorded.response.body)
+    body = {name: body.pop("not_a_column")}
+    return respx_mock.get(f"{BASE_URL}/get_param_values/").mock(
+        return_value=httpx.Response(recorded.response.status, json=body)
+    )
+
+
+def test_the_refusal_of_a_name_near_a_column_names_the_closest_columns(
+    respx_mock: respx.MockRouter, fixtures_dir: Path
+) -> None:
+    """``comodity_desc``, a name that the packaged table lacks, answered with ``no value`` by
+    ``serve_no_value``: the refusal names the closest columns that the caller can send in
+    its place, as ``validate_filters`` names them for the same name as a filter key
+    (conventions §5; https://github.com/xippios/sdk-usda-nass/pull/101)."""
+    serve_no_value(respx_mock, fixtures_dir, "comodity_desc")
+    with pytest.raises(InvalidRequestError) as info:
+        tasks.list_param_values("comodity_desc")
+    assert str(info.value) == (
+        "'comodity_desc' is not a Quick Stats column; did you mean commodity_desc, "
+        'domaincat_desc, domain_desc? GET /api/get_param_values/ answered HTTP 400 with "no '
+        'value". Columns are defined in docs/upstream/param_define.md.'
+    )
+    with pytest.raises(InvalidRequestError) as before:
+        tasks.count_data({"comodity_desc": "CORN"})
+    assert "did you mean commodity_desc, domaincat_desc, domain_desc?" in str(before.value)
 
 
 def test_list_param_values_of_a_column_answered_with_no_value_is_not_found(
     respx_mock: respx.MockRouter, fixtures_dir: Path
 ) -> None:
-    """NOT RECORDED: the recorded ``unknown_param`` answer, its key changed in memory from
-    ``not_a_column`` to ``class_desc``, a column of the packaged table, a form upstream was
-    not seen to send (conventions §10, kind 4). Such an answer would be a code that the
-    packaged table holds and upstream's live answer lacks, a ``NotFoundError`` naming the
-    column and the operation (conventions §5;
-    https://github.com/xippios/sdk-usda-nass/issues/99)."""
+    """``class_desc``, a column of the packaged table, answered with ``no value`` by
+    ``serve_no_value``. Such an answer would be a code that the packaged table holds and
+    upstream's live answer lacks, a ``NotFoundError`` naming the column and the operation
+    (conventions §5; https://github.com/xippios/sdk-usda-nass/issues/99)."""
     assert "class_desc" in {column.column for column in columns()}
-    recorded = load_fixture(fixtures_dir / "get_param_values" / "unknown_param.json")
-    body = json.loads(recorded.response.body)
-    body = {"class_desc": body.pop("not_a_column")}
-    route = respx_mock.get(f"{BASE_URL}/get_param_values/").mock(
-        return_value=httpx.Response(recorded.response.status, json=body)
-    )
+    route = serve_no_value(respx_mock, fixtures_dir, "class_desc")
     with pytest.raises(NotFoundError) as info:
         tasks.list_param_values("class_desc")
     assert str(info.value) == (
