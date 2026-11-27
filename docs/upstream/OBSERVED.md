@@ -3,9 +3,9 @@
 Notes, written by hand, on what USDA NASS Quick Stats' API does that neither page of this
 snapshot states (sdk-core's conventions §3, sdk-core ADR-0028). `api.md` documents the three
 resources, `api_GET`, `get_param_values` and `get_counts`, their parameters, the operators
-and four error messages, and `param_define.md` the columns. The status of each refusal, the
-shapes of the answers, what a filter that Quick Stats does not know does and the sizes below
-come from the wire, and `models.py`, `_client.classify`, `params.validate_filters` and
+and four error messages, and `param_define.md` the columns. The status of each error answer,
+the shapes of the answers, what a filter that Quick Stats does not know does and the sizes
+below come from the wire, and `models.py`, `_client.classify`, `params.validate_filters` and
 `tests/fixtures/` follow it. `scripts/refresh_upstream.py` neither writes nor checks this
 file, and `FETCHED.md` lists it in a row of its own.
 
@@ -16,7 +16,7 @@ sample. A sample recorded as a fixture is named by its path under `tests/fixture
 notes moved here on 2026-11-26 from the README, `CLAUDE.md`, `_client.py`, `params.py`,
 `tasks.py` and the reference script; no request was sent to write this file.
 
-## Refusals
+## Error answers
 
 ### A query over the limit: HTTP 413
 
@@ -148,7 +148,7 @@ answer.
 
 No answer carries a header of a quota or of the requests left: each recording holds `date`,
 `server` (`Kestrel`), `strict-transport-security`, `x-content-type-options`, `content-type`
-on all but the two refusals of `api_GET`, and four headers of the proxy in front,
+on all but the two error answers of `api_GET`, and four headers of the proxy in front,
 `x-author`, `x-proxyversion`, `x-cache` and `x-handler-apgw-05-12`. The documentation
 states no rate limit.
 

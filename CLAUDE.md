@@ -83,9 +83,12 @@ does with it and cites a note by its heading.
   not know and counts no record for a value it does not know ("An unknown column is
   ignored", "An unknown value counts 0"). It compares a value without regard to case, as
   Quick Stats does ("A value's case is ignored"), and sends it as given.
-- `classify` maps the three refusals once ("Refusals"): HTTP 413 to `QueryTooLarge`, HTTP
-  400 `bad request - invalid query` to `NotFoundError`, and HTTP 400 `no value` of
-  `get_param_values` to `NotFoundError` naming the parameter.
+- `classify` maps the three error answers once ("Error answers"): HTTP 413 to
+  `QueryTooLarge`, HTTP 400 `bad request - invalid query` to `NotFoundError`, since
+  `get_counts` counts 0 for its filters ("Filters that match no record"), and HTTP 400
+  `no value` of `get_param_values` by the name it answers: a name that `columns.csv` lacks
+  to `InvalidRequestError`, upstream's refusal of the call as given, and a column of the
+  table to `NotFoundError`.
 - `get_data(split_by_year=True)` splits a two-sided year range by year and never counts it
   whole, since Quick Stats counts `year__GE` with `year__LE` as `year__GE` alone ("One bound
   on year a query"); the docstrings of `count_data` and `get_data` say so to a caller.
